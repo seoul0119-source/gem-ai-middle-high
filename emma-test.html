@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Emma 5-Minute Experience</title>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+
+<body>
+  <iframe
+    src="https://ai.deepbrain.io/new-pc/6a55e5fdf7370fbe73ccdeac?streaming=1"
+    allow="camera; microphone; autoplay"
+    title="Emma AI 체험"
+  ></iframe>
+
+  <script>
+    const GEM_HOME_PAGE =
+      "https://sites.google.com/view/gem-ai-school/home";
+
+    const EXPERIENCE_TIME =
+      5 * 60 * 1000;
+
+    window.setTimeout(
+      function () {
+        window.location.replace(
+          GEM_HOME_PAGE
+        );
+      },
+      EXPERIENCE_TIME
+    );
+  </script>
+</body>
+</html>
