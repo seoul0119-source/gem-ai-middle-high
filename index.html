@@ -1,168 +1,197 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GEM AI 중·고등학교</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GEM AI CLASS 학생 입장</title>
 
-<style>
-*{
-    box-sizing:border-box;
-}
-
-body{
-    margin:0;
-    font-family:Arial,"Noto Sans KR",sans-serif;
-    background:#f3f6fb;
-    color:#172033;
-    text-align:center;
-}
-
-header{
-    background:linear-gradient(135deg,#07162d,#173d70);
-    color:white;
-    padding:42px 20px;
-}
-
-.logo{
-    font-size:18px;
-    letter-spacing:3px;
-    color:#e7c46a;
-    margin-bottom:12px;
-}
-
-h1{
-    margin:0;
-    font-size:34px;
-}
-
-header p{
-    margin:14px 0 0;
-    font-size:18px;
-    line-height:1.6;
-}
-
-.container{
-    width:92%;
-    max-width:820px;
-    margin:35px auto;
-}
-
-.intro{
-    background:white;
-    padding:24px;
-    border-radius:16px;
-    box-shadow:0 5px 18px rgba(0,0,0,.10);
-    line-height:1.8;
-    margin-bottom:25px;
-}
-
-.intro h2{
-    margin-top:0;
-    color:#173d70;
-}
-
-.subjects{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:14px;
-}
-
-.subject{
-    border:none;
-    border-radius:12px;
-    padding:18px 10px;
-    background:#1e67c6;
-    color:white;
-    font-size:18px;
-    font-weight:bold;
-    cursor:pointer;
-    box-shadow:0 4px 10px rgba(0,0,0,.12);
-}
-
-.subject:hover{
-    background:#144f9d;
-    transform:translateY(-2px);
-}
-
-.notice{
-    margin-top:28px;
-    padding:20px;
-    background:#fff8e5;
-    border:1px solid #ecd38c;
-    border-radius:14px;
-    line-height:1.7;
-}
-
-footer{
-    margin-top:40px;
-    padding:24px 15px;
-    background:#07162d;
-    color:#dce6f5;
-    font-size:14px;
-}
-
-@media(max-width:600px){
-    h1{
-        font-size:27px;
+  <style>
+    * {
+      box-sizing: border-box;
     }
 
-    header p{
-        font-size:16px;
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      background: #f3f6fb;
+      color: #172033;
+      text-align: center;
     }
 
-    .subjects{
-        grid-template-columns:1fr;
+    header {
+      padding: 48px 20px;
+      color: white;
+      background: linear-gradient(135deg, #07162d, #173d70);
     }
-}
-</style>
+
+    .brand {
+      margin-bottom: 15px;
+      color: #f1cf7a;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 3px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 36px;
+    }
+
+    header p {
+      margin: 18px 0 0;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    main {
+      width: 92%;
+      max-width: 520px;
+      margin: 45px auto;
+    }
+
+    .login-box {
+      padding: 40px 30px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, .12);
+    }
+
+    .login-box h2 {
+      margin: 0 0 12px;
+      color: #173d70;
+      font-size: 28px;
+    }
+
+    .login-box p {
+      margin: 0 0 28px;
+      color: #596579;
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 9px;
+      color: #173d70;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    input {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid #cad5e5;
+      border-radius: 12px;
+      font-size: 18px;
+      text-transform: uppercase;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #1e67c6;
+      box-shadow: 0 0 0 3px rgba(30, 103, 198, .12);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 17px;
+      border: 0;
+      border-radius: 12px;
+      background: #1e67c6;
+      color: white;
+      font-size: 19px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #144f9d;
+    }
+
+    .notice {
+      margin-top: 24px;
+      padding: 17px;
+      border-radius: 12px;
+      background: #fff8df;
+      color: #594a22;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    footer {
+      padding: 25px 15px 40px;
+      color: #6c7685;
+      font-size: 14px;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        padding: 38px 18px;
+      }
+
+      header h1 {
+        font-size: 29px;
+      }
+
+      .login-box {
+        padding: 32px 22px;
+      }
+    }
+  </style>
 </head>
 
 <body>
+  <header>
+    <div class="brand">GEM AI LEARNING MISSION CLASS</div>
+    <h1>초·중·고 개인 맞춤형 AI 학습</h1>
+    <p>
+      학생의 현재 수준에 맞는 과목과 레벨을 선택하여<br>
+      AI 학습을 시작합니다.
+    </p>
+  </header>
 
-<header>
-    <div class="logo">GEM AI LEARNING MISSION SCHOOL</div>
-    <h1>중·고등학생 개인 맞춤형 AI 학습</h1>
-    <p>AI가 가르치고, 사람 담임 선생님이 책임집니다.</p>
-</header>
+  <main>
+    <section class="login-box">
+      <h2>학생 ID 입력</h2>
+      <p>
+        등록된 학생 ID를 입력하면<br>
+        학습 페이지로 이동합니다.
+      </p>
 
-<main class="container">
+      <form
+        action="https://script.google.com/macros/s/AKfycbz6LIvJEhy9KXQbpTghGRaAXtjL03HltJF7Lb4leU6v_q0bkoBsjMkhN-Q8laeT27zDdQ/exec"
+        method="get"
+      >
+        <input type="hidden" name="action" value="login">
 
-    <section class="intro">
-        <h2>나만의 학습 홈페이지</h2>
-        <p>
-            학생의 학년, 현재 수준, 학습 목표에 따라 필요한 과목을 구성합니다.<br>
-            AI 선생님과 사람 담임 선생님이 학습 과정과 수업 기록을 함께 관리합니다.
-        </p>
+        <label for="studentId">학생 ID</label>
+
+        <input
+          id="studentId"
+          name="id"
+          type="text"
+          placeholder="예: R260001"
+          autocomplete="off"
+          required
+        >
+
+        <button type="submit">
+          💎 GEM AI CLASS 입장
+        </button>
+      </form>
+
+      <div class="notice">
+        학생 ID는 담당 선생님에게 확인해 주세요.<br>
+        입장 시간은 수업 관리표에 자동으로 기록됩니다.
+      </div>
     </section>
+  </main>
 
-    <section class="subjects">
-        <button class="subject" onclick="ready('국어')">📘 국어</button>
-        <button class="subject" onclick="ready('영어')">🔤 영어</button>
-        <button class="subject" onclick="window.open('https://chatgpt.com/g/g-6a70f0d09f9881918136946f95b3c8bf-suhag-lv-6','_blank')">📐 수학</button>
-        <button class="subject" onclick="ready('한국사')">🏛️ 한국사</button>
-        <button class="subject" onclick="ready('사회')">🌏 사회</button>
-        <button class="subject" onclick="ready('과학')">🔬 과학</button>
-    </section>
-
-    <section class="notice">
-        <strong>💎 GEM 수업 안내</strong><br>
-        각 과목은 학생별 개인 수업 링크로 연결됩니다.<br>
-        등록 학생은 담임 선생님의 안내에 따라 수업을 시작해 주세요.
-    </section>
-
-</main>
-
-<footer>
-    © GEM AI Learning Mission School<br>
-    Personalized AI Learning with Human Teacher Support
-</footer>
-
-<script>
-function ready(subject){
-    alert(subject + " 개인 수업은 담임 선생님이 연결해 드립니다.");
-}
-</script>
-
+  <footer>
+    © GEM AI Learning Mission Class<br>
+    AI가 가르치고, 사람 담임 선생님이 책임집니다.
+  </footer>
 </body>
 </html>
