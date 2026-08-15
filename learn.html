@@ -114,6 +114,13 @@
     button:hover { background: var(--blue-dark); }
     button:disabled { cursor: wait; opacity: .65; }
     .send { min-width: 88px; padding: 0 18px; }
+    .mic {
+      min-width: 104px;
+      padding: 0 15px;
+      background: #16805d;
+    }
+    .mic:hover { background: #106649; }
+    .mic.listening { background: #c43d4d; }
     .actions {
       display: flex;
       gap: 9px;
@@ -143,6 +150,9 @@
       .message { max-width: 94%; }
       .status { flex-direction: column; gap: 4px; }
       .send { min-width: 72px; padding: 0 12px; }
+      form { flex-wrap: wrap; }
+      input { flex-basis: calc(100% - 84px); }
+      .mic { order: 3; width: 100%; min-height: 48px; }
     }
   </style>
 </head>
@@ -166,6 +176,7 @@
 
     <form id="chat-form">
       <input id="message" type="text" placeholder="시작 또는 답을 입력하세요" autocomplete="off" maxlength="3000" required>
+      <button id="mic" class="mic" type="button">🎤 말하기</button>
       <button id="send" class="send" type="submit">보내기</button>
     </form>
 
@@ -186,8 +197,46 @@
     const form = document.getElementById("chat-form");
     const input = document.getElementById("message");
     const sendButton = document.getElementById("send");
+    const micButton = document.getElementById("mic");
     const connection = document.getElementById("connection");
     let lastAssistantText = "안녕하세요! 시작이라고 입력하면 중1 영어 단어 수업을 바로 시작합니다.";
+    let recognition = null;
+
+    function cleanForDisplay(text) {
+      return String(text || "")
+        .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
+        .replace(/\*\*|__|`|#+\s?/g, "")
+        .replace(/^\s*[-*]\s+/gm, "• ")
+        .trim();
+    }
+
+    function getVoice(language) {
+      const voices = window.speechSynthesis.getVoices();
+      const prefix = language.toLowerCase().split("-")[0];
+      return voices.find((voice) => voice.lang.toLowerCase() === language.toLowerCase())
+        || voices.find((voice) => voice.lang.toLowerCase().startsWith(prefix))
+        || null;
+    }
+
+    function speakText(text) {
+      if (!("speechSynthesis" in window)) return;
+      const clean = cleanForDisplay(text);
+      if (!clean) return;
+      window.speechSynthesis.cancel();
+
+      const parts = clean.split(/\n+/).map((part) => part.trim()).filter(Boolean);
+      parts.forEach((part) => {
+        const latinCount = (part.match(/[A-Za-z]/g) || []).length;
+        const koreanCount = (part.match(/[가-힣]/g) || []).length;
+        const language = latinCount > koreanCount ? "en-US" : "ko-KR";
+        const utterance = new SpeechSynthesisUtterance(part);
+        utterance.lang = language;
+        utterance.voice = getVoice(language);
+        utterance.rate = language === "en-US" ? 0.78 : 0.9;
+        utterance.pitch = 1;
+        window.speechSynthesis.speak(utterance);
+      });
+    }
 
     function addMessage(role, text, extraClass = "") {
       const element = document.createElement("div");
@@ -222,9 +271,10 @@
         if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
 
         typing.remove();
-        lastAssistantText = data.text;
-        addMessage("assistant", data.text);
+        lastAssistantText = cleanForDisplay(data.text);
+        addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: data.text });
+        speakText(lastAssistantText);
       } catch (error) {
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
@@ -256,12 +306,48 @@
         addMessage("assistant", "이 브라우저에서는 음성 읽기를 지원하지 않습니다.");
         return;
       }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(lastAssistantText);
-      utterance.lang = "ko-KR";
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
+      speakText(lastAssistantText);
     });
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = "ko-KR";
+      recognition.interimResults = false;
+      recognition.continuous = false;
+
+      recognition.addEventListener("start", () => {
+        window.speechSynthesis?.cancel();
+        micButton.classList.add("listening");
+        micButton.textContent = "듣는 중…";
+        connection.innerHTML = "<strong>상태</strong> 학생 음성 듣는 중";
+      });
+
+      recognition.addEventListener("result", (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        if (transcript) sendMessage(transcript);
+      });
+
+      recognition.addEventListener("end", () => {
+        micButton.classList.remove("listening");
+        micButton.textContent = "🎤 말하기";
+        if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+      });
+
+      recognition.addEventListener("error", (event) => {
+        if (event.error !== "no-speech") {
+          addMessage("assistant", "목소리를 인식하지 못했습니다. 천천히 다시 말해 주세요.");
+        }
+      });
+
+      micButton.addEventListener("click", () => {
+        try { recognition.start(); } catch (_) { recognition.stop(); }
+      });
+    } else {
+      micButton.addEventListener("click", () => {
+        addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. Chrome 또는 Edge에서 이용해 주세요.");
+      });
+    }
   </script>
 </body>
 </html>
