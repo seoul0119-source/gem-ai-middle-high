@@ -57,7 +57,7 @@ export default async function handler(request, response) {
         model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
         instructions: course.prompt,
         input: messages,
-        max_output_tokens: 700
+        max_output_tokens: 400
       })
     });
 
