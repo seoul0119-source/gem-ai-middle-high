@@ -285,7 +285,12 @@
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       setLoading(true);
-      const typing = addMessage("assistant", "AI 선생님이 생각하고 있습니다…", "typing");
+      const isStarting = /^(시작|시작하기|start)$/i.test(text.trim());
+      const typing = addMessage(
+        "assistant",
+        isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…",
+        "typing"
+      );
 
       try {
         const response = await fetch("/api/chat", {
