@@ -200,7 +200,11 @@
     const micButton = document.getElementById("mic");
     const connection = document.getElementById("connection");
     let lastAssistantText = "안녕하세요! 시작이라고 입력하면 중1 영어 단어 수업을 바로 시작합니다.";
-    let recognition = null;
+    let recorder = null;
+    let recordingStream = null;
+    let recordingChunks = [];
+    let recordingTimer = null;
+    let currentAudio = null;
 
     function cleanForDisplay(text) {
       return String(text || "")
@@ -218,7 +222,7 @@
         || null;
     }
 
-    function speakText(text) {
+    function browserSpeak(text) {
       if (!("speechSynthesis" in window)) return;
       const clean = cleanForDisplay(text);
       if (!clean) return;
@@ -236,6 +240,28 @@
         utterance.pitch = 1;
         window.speechSynthesis.speak(utterance);
       });
+    }
+
+    async function speakText(text) {
+      const clean = cleanForDisplay(text);
+      if (!clean) return;
+      if (currentAudio) currentAudio.pause();
+      window.speechSynthesis?.cancel();
+
+      try {
+        const response = await fetch("/api/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: clean })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.audio) throw new Error(data.error || "음성 생성 실패");
+        currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
+        await currentAudio.play();
+      } catch (error) {
+        console.warn("Natural voice fallback", error);
+        browserSpeak(clean);
+      }
     }
 
     function addMessage(role, text, extraClass = "") {
@@ -302,52 +328,81 @@
     });
 
     document.getElementById("speak").addEventListener("click", () => {
-      if (!("speechSynthesis" in window)) {
-        addMessage("assistant", "이 브라우저에서는 음성 읽기를 지원하지 않습니다.");
-        return;
-      }
       speakText(lastAssistantText);
     });
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.lang = "ko-KR";
-      recognition.interimResults = false;
-      recognition.continuous = false;
-
-      recognition.addEventListener("start", () => {
-        window.speechSynthesis?.cancel();
-        micButton.classList.add("listening");
-        micButton.textContent = "듣는 중…";
-        connection.innerHTML = "<strong>상태</strong> 학생 음성 듣는 중";
-      });
-
-      recognition.addEventListener("result", (event) => {
-        const transcript = event.results[0][0].transcript.trim();
-        if (transcript) sendMessage(transcript);
-      });
-
-      recognition.addEventListener("end", () => {
-        micButton.classList.remove("listening");
-        micButton.textContent = "🎤 말하기";
-        if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
-      });
-
-      recognition.addEventListener("error", (event) => {
-        if (event.error !== "no-speech") {
-          addMessage("assistant", "목소리를 인식하지 못했습니다. 천천히 다시 말해 주세요.");
-        }
-      });
-
-      micButton.addEventListener("click", () => {
-        try { recognition.start(); } catch (_) { recognition.stop(); }
-      });
-    } else {
-      micButton.addEventListener("click", () => {
-        addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. Chrome 또는 Edge에서 이용해 주세요.");
-      });
+    function resetMic() {
+      clearTimeout(recordingTimer);
+      recordingStream?.getTracks().forEach((track) => track.stop());
+      recordingStream = null;
+      recorder = null;
+      micButton.classList.remove("listening");
+      micButton.textContent = "🎤 말하기";
     }
+
+    async function transcribeRecording(blob) {
+      connection.innerHTML = "<strong>상태</strong> 학생 발음 확인 중";
+      micButton.disabled = true;
+      try {
+        const audio = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const response = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audio, mimeType: blob.type })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "음성 인식 실패");
+        await sendMessage(data.text);
+      } catch (error) {
+        addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
+      } finally {
+        micButton.disabled = false;
+        if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+      }
+    }
+
+    async function startRecording() {
+      if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
+        addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
+        return;
+      }
+      if (recorder?.state === "recording") {
+        recorder.stop();
+        return;
+      }
+      try {
+        currentAudio?.pause();
+        window.speechSynthesis?.cancel();
+        recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordingChunks = [];
+        recorder = new MediaRecorder(recordingStream);
+        recorder.addEventListener("dataavailable", (event) => {
+          if (event.data.size) recordingChunks.push(event.data);
+        });
+        recorder.addEventListener("stop", () => {
+          const blob = new Blob(recordingChunks, { type: recorder.mimeType || "audio/webm" });
+          resetMic();
+          if (blob.size > 500) transcribeRecording(blob);
+        });
+        recorder.start();
+        micButton.classList.add("listening");
+        micButton.textContent = "■ 말 끝내기";
+        connection.innerHTML = "<strong>상태</strong> 학생 음성 듣는 중";
+        recordingTimer = setTimeout(() => {
+          if (recorder?.state === "recording") recorder.stop();
+        }, 6000);
+      } catch (error) {
+        resetMic();
+        addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
+      }
+    }
+
+    micButton.addEventListener("click", startRecording);
   </script>
 </body>
 </html>
