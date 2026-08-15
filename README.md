@@ -17,3 +17,5 @@ GEM AI CLASS 중·고등 공통 학습관입니다.
 - `OPENAI_MODEL`: 선택, 기본값 `gpt-5.6-luna`
 
 비밀 키는 코드나 브라우저에 넣지 않고 Vercel 환경변수로만 관리합니다.
+
+Preview deployments use Vercel environment variables and do not change production until reviewed.
