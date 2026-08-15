@@ -10,6 +10,8 @@ function cleanText(value) {
   return String(value || "")
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
     .replace(/\*\*|__|`|#+\s?/g, "")
+    .replace(/^\s*(?:한글\s*)?발음(?:은)?\s*[:：].*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, MAX_TEXT_LENGTH);
 }
@@ -32,7 +34,7 @@ export default async function handler(request, response) {
         model: "gpt-4o-mini-tts",
         voice: "marin",
         input,
-        instructions: "Speak like a warm, calm and encouraging Korean English teacher. Speak Korean naturally. Pronounce English words and example sentences clearly and slightly slowly. Never read markdown symbols.",
+        instructions: "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols.",
         response_format: "mp3"
       })
     });
