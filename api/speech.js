@@ -1,3 +1,5 @@
+import { requireStudentSession } from "../lib/student-session.js";
+
 const MAX_TEXT_LENGTH = 1800;
 
 function sendJson(response, status, payload) {
@@ -21,6 +23,8 @@ export default async function handler(request, response) {
     response.setHeader("Allow", "POST");
     return sendJson(response, 405, { error: "POST 요청만 사용할 수 있습니다." });
   }
+
+  if (!requireStudentSession(request, response)) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   const input = cleanText(request.body?.text);

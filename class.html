@@ -18,6 +18,12 @@ body{
     text-align:center;
 }
 
+body.auth-pending header,
+body.auth-pending main,
+body.auth-pending footer{
+    visibility:hidden;
+}
+
 header{
     background:linear-gradient(135deg,#07162d,#173d70);
     color:white;
@@ -60,6 +66,31 @@ header p{
 .intro h2{
     margin-top:0;
     color:#173d70;
+}
+
+.student-session{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:16px;
+    padding-top:16px;
+    border-top:1px solid #dce4ef;
+    color:#52657e;
+}
+
+.student-session strong{ color:#173d70; }
+
+.logout{
+    border:1px solid #b8c8dc;
+    border-radius:10px;
+    padding:8px 12px;
+    background:#fff;
+    color:#173d70;
+    font:inherit;
+    font-weight:bold;
+    cursor:pointer;
 }
 
 .subjects{
@@ -118,7 +149,7 @@ footer{
 </style>
 </head>
 
-<body>
+<body class="auth-pending">
 
 <header>
     <div class="logo">GEM AI LEARNING MISSION SCHOOL</div>
@@ -134,40 +165,44 @@ footer{
             학생의 학년, 현재 수준, 학습 목표에 따라 필요한 과목을 구성합니다.<br>
             AI 선생님과 사람 담임 선생님이 학습 과정과 수업 기록을 함께 관리합니다.
         </p>
+        <div class="student-session">
+            <span><strong id="student-name">등록 학생</strong> · <span id="student-id"></span></span>
+            <button id="logout" class="logout" type="button">수업 종료·나가기</button>
+        </div>
     </section>
 
     <section class="subjects">
-        <button class="subject" onclick="window.open('/learn.html?course=m1-korean','_blank')">📘 중1 국어 Lv.7</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m2-korean','_blank')">📘 중2 국어 Lv.8</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m3-korean','_blank')">📘 중3 국어 Lv.9</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h1-korean','_blank')">📘 고1 국어 Lv.10</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h2-korean','_blank')">📘 고2 국어 Lv.11</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h3-korean','_blank')">📘 고3 국어 Lv.12</button>
-        <button class="subject" onclick="window.open('/english.html','_blank')">🔤 영어 통합 학습관</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m1-math','_blank')">📐 중1 수학 Lv.7</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m2-math','_blank')">📐 중2 수학 Lv.8</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m3-math','_blank')">📐 중3 수학 Lv.9</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h1-math','_blank')">📐 고1 수학 Lv.10</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h2-math','_blank')">📐 고2 수학 Lv.11</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h3-math','_blank')">📐 고3 수학 Lv.12</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m1-history','_blank')">🏛️ 중1 한국사 Lv.7</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m2-history','_blank')">🏛️ 중2 한국사 Lv.8</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m3-history','_blank')">🏛️ 중3 한국사 Lv.9</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h1-history','_blank')">🏛️ 고1 한국사 Lv.10</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h2-history','_blank')">🏛️ 고2 한국사 Lv.11</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h3-history','_blank')">🏛️ 고3 한국사 Lv.12</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m1-social','_blank')">🌏 중1 사회 Lv.7</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m2-social','_blank')">🌏 중2 사회 Lv.8</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m3-social','_blank')">🌏 중3 사회 Lv.9</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h1-social','_blank')">🌏 고1 사회 Lv.10</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h2-social','_blank')">🌏 고2 사회 Lv.11</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h3-social','_blank')">🌏 고3 사회 Lv.12</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m1-science','_blank')">🔬 중1 과학 Lv.7</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m2-science','_blank')">🔬 중2 과학 Lv.8</button>
-        <button class="subject" onclick="window.open('/learn.html?course=m3-science','_blank')">🔬 중3 과학 Lv.9</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h1-science','_blank')">🔬 고1 과학 Lv.10</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h2-science','_blank')">🔬 고2 과학 Lv.11</button>
-        <button class="subject" onclick="window.open('/learn.html?course=h3-science','_blank')">🔬 고3 과학 Lv.12</button>
+        <button class="subject" data-href="/learn.html?course=m1-korean">📘 중1 국어 Lv.7</button>
+        <button class="subject" data-href="/learn.html?course=m2-korean">📘 중2 국어 Lv.8</button>
+        <button class="subject" data-href="/learn.html?course=m3-korean">📘 중3 국어 Lv.9</button>
+        <button class="subject" data-href="/learn.html?course=h1-korean">📘 고1 국어 Lv.10</button>
+        <button class="subject" data-href="/learn.html?course=h2-korean">📘 고2 국어 Lv.11</button>
+        <button class="subject" data-href="/learn.html?course=h3-korean">📘 고3 국어 Lv.12</button>
+        <button class="subject" data-href="/english.html">🔤 영어 통합 학습관</button>
+        <button class="subject" data-href="/learn.html?course=m1-math">📐 중1 수학 Lv.7</button>
+        <button class="subject" data-href="/learn.html?course=m2-math">📐 중2 수학 Lv.8</button>
+        <button class="subject" data-href="/learn.html?course=m3-math">📐 중3 수학 Lv.9</button>
+        <button class="subject" data-href="/learn.html?course=h1-math">📐 고1 수학 Lv.10</button>
+        <button class="subject" data-href="/learn.html?course=h2-math">📐 고2 수학 Lv.11</button>
+        <button class="subject" data-href="/learn.html?course=h3-math">📐 고3 수학 Lv.12</button>
+        <button class="subject" data-href="/learn.html?course=m1-history">🏛️ 중1 한국사 Lv.7</button>
+        <button class="subject" data-href="/learn.html?course=m2-history">🏛️ 중2 한국사 Lv.8</button>
+        <button class="subject" data-href="/learn.html?course=m3-history">🏛️ 중3 한국사 Lv.9</button>
+        <button class="subject" data-href="/learn.html?course=h1-history">🏛️ 고1 한국사 Lv.10</button>
+        <button class="subject" data-href="/learn.html?course=h2-history">🏛️ 고2 한국사 Lv.11</button>
+        <button class="subject" data-href="/learn.html?course=h3-history">🏛️ 고3 한국사 Lv.12</button>
+        <button class="subject" data-href="/learn.html?course=m1-social">🌏 중1 사회 Lv.7</button>
+        <button class="subject" data-href="/learn.html?course=m2-social">🌏 중2 사회 Lv.8</button>
+        <button class="subject" data-href="/learn.html?course=m3-social">🌏 중3 사회 Lv.9</button>
+        <button class="subject" data-href="/learn.html?course=h1-social">🌏 고1 사회 Lv.10</button>
+        <button class="subject" data-href="/learn.html?course=h2-social">🌏 고2 사회 Lv.11</button>
+        <button class="subject" data-href="/learn.html?course=h3-social">🌏 고3 사회 Lv.12</button>
+        <button class="subject" data-href="/learn.html?course=m1-science">🔬 중1 과학 Lv.7</button>
+        <button class="subject" data-href="/learn.html?course=m2-science">🔬 중2 과학 Lv.8</button>
+        <button class="subject" data-href="/learn.html?course=m3-science">🔬 중3 과학 Lv.9</button>
+        <button class="subject" data-href="/learn.html?course=h1-science">🔬 고1 과학 Lv.10</button>
+        <button class="subject" data-href="/learn.html?course=h2-science">🔬 고2 과학 Lv.11</button>
+        <button class="subject" data-href="/learn.html?course=h3-science">🔬 고3 과학 Lv.12</button>
     </section>
 
     <section class="notice">
@@ -184,9 +219,33 @@ footer{
 </footer>
 
 <script>
-function ready(subject){
-    alert(subject + " 개인 수업은 담임 선생님이 연결해 드립니다.");
+async function loadStudentSession(){
+    try{
+        const response = await fetch("/api/session", { cache:"no-store" });
+        if(!response.ok) throw new Error("로그인 필요");
+        const data = await response.json();
+        document.getElementById("student-name").textContent = `${data.student.name} 학생`;
+        document.getElementById("student-id").textContent = data.student.id;
+        document.body.classList.remove("auth-pending");
+    }catch(_){
+        location.replace("/");
+    }
 }
+
+document.querySelectorAll(".subject[data-href]").forEach((button) => {
+    button.addEventListener("click", () => { location.href = button.dataset.href; });
+});
+
+document.getElementById("logout").addEventListener("click", async () => {
+    await fetch("/api/session", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ action:"logout" })
+    }).catch(() => null);
+    location.replace("/");
+});
+
+loadStudentSession();
 </script>
 
 </body>

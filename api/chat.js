@@ -1,4 +1,5 @@
 import { getCourse } from "./courses.js";
+import { requireStudentSession } from "../lib/student-session.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -202,6 +203,8 @@ export default async function handler(request, response) {
     response.setHeader("Allow", "POST");
     return sendJson(response, 405, { error: "POST 요청만 사용할 수 있습니다." });
   }
+
+  if (!requireStudentSession(request, response)) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

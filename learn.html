@@ -23,6 +23,7 @@
       color: var(--ink);
       background: var(--bg);
     }
+    body.auth-pending header, body.auth-pending main { visibility: hidden; }
     header {
       padding: 24px 18px;
       color: white;
@@ -268,7 +269,7 @@
     }
   </style>
 </head>
-<body>
+<body class="auth-pending">
   <header>
     <div class="brand">GEM AI LEARNING MISSION CLASS</div>
     <h1 id="course-title">GEM AI 수업</h1>
@@ -461,6 +462,8 @@
     const largeModal = document.getElementById("large-modal");
     const modalText = document.getElementById("modal-text");
     const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
+    let sessionEnded = false;
+    let sessionEnding = false;
 
     async function readJsonResponse(response, fallbackMessage) {
       const raw = await response.text();
@@ -508,6 +511,79 @@
       document.getElementById("speak").hidden = true;
       mathToolsToggle.hidden = !IS_MATH;
     }
+    input.disabled = true;
+    sendButton.disabled = true;
+    micButton.disabled = true;
+
+    async function sessionRequest(payload) {
+      const response = await fetch("/api/session", {
+        method: payload ? "POST" : "GET",
+        headers: payload ? { "Content-Type": "application/json" } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+        cache: "no-store"
+      });
+      const data = await readJsonResponse(response, "학생관리 서버가 잠시 응답하지 않습니다.");
+      if (!response.ok) {
+        const error = new Error(data.error || "등록된 학생 ID로 다시 입장해 주세요.");
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    async function initializeStudentSession() {
+      try {
+        const session = await sessionRequest();
+        await sessionRequest({ action: "start", courseId: COURSE_ID });
+        sessionEnded = false;
+        document.body.classList.remove("auth-pending");
+        input.disabled = false;
+        sendButton.disabled = false;
+        micButton.disabled = false;
+        connection.innerHTML = `<strong>학생</strong> ${session.student.name} · 수업 기록 중`;
+        input.focus();
+        return true;
+      } catch (error) {
+        if (error.status === 401) {
+          location.replace("/");
+          return false;
+        }
+        document.body.classList.remove("auth-pending");
+        connection.innerHTML = "<strong>상태</strong> 학생관리 연결 확인 필요";
+        addMessage("assistant", error.message || "수업 기록 연결 중 문제가 발생했습니다.");
+        return false;
+      }
+    }
+
+    async function endCourseTracking() {
+      if (sessionEnded || sessionEnding) return;
+      sessionEnding = true;
+      try {
+        await sessionRequest({ action: "end" });
+        sessionEnded = true;
+      } catch (error) {
+        console.error("Course tracking end failed", error);
+      } finally {
+        sessionEnding = false;
+      }
+    }
+
+    function finishTrackingOnExit() {
+      if (sessionEnded || sessionEnding) return;
+      sessionEnding = true;
+      const body = new Blob([JSON.stringify({ action: "end" })], { type: "application/json" });
+      if (!navigator.sendBeacon?.("/api/session", body)) {
+        fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "end" }),
+          keepalive: true
+        }).catch(() => null);
+      }
+    }
+
+    const sessionReady = initializeStudentSession();
+    window.addEventListener("pagehide", finishTrackingOnExit);
 
     function cleanForDisplay(text) {
       return String(text || "")
@@ -950,6 +1026,7 @@
     }
 
     async function sendMessage(text, inputMode = "text") {
+      if (!await sessionReady) return;
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       setLoading(true);
@@ -990,6 +1067,10 @@
         messages.push({ role: "assistant", content: answerReadyText });
         rememberGeneratedProblem(answerReadyText);
         if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
+        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(lastAssistantText)) {
+          await endCourseTracking();
+          connection.innerHTML = "<strong>상태</strong> 수업 완료·기록 저장";
+        }
       } catch (error) {
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
@@ -1009,13 +1090,26 @@
       sendMessage(text);
     });
 
-    document.getElementById("restart").addEventListener("click", () => {
-      messages.length = 0;
-      chat.replaceChildren();
-      lastAssistantText = COURSE.greeting;
-      addMessage("assistant", `새 수업을 준비했습니다. ${COURSE.greeting}`);
-      connection.innerHTML = "<strong>상태</strong> 수업 준비";
-      input.focus();
+    document.getElementById("restart").addEventListener("click", async () => {
+      const restartButton = document.getElementById("restart");
+      restartButton.disabled = true;
+      connection.innerHTML = "<strong>상태</strong> 새 수업 기록 준비 중";
+      try {
+        await sessionRequest({ action: "restart", courseId: COURSE_ID });
+        sessionEnded = false;
+        sessionEnding = false;
+        messages.length = 0;
+        chat.replaceChildren();
+        lastAssistantText = COURSE.greeting;
+        addMessage("assistant", `새 수업을 준비했습니다. ${COURSE.greeting}`);
+        connection.innerHTML = "<strong>상태</strong> 새 수업 기록 중";
+        input.focus();
+      } catch (error) {
+        addMessage("assistant", error.message || "새 수업 기록을 준비하지 못했습니다.");
+        connection.innerHTML = "<strong>상태</strong> 학생관리 연결 확인 필요";
+      } finally {
+        restartButton.disabled = false;
+      }
     });
 
     document.getElementById("speak").addEventListener("click", () => {
