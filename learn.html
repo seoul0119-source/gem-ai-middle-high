@@ -409,6 +409,7 @@
     let autoSpeak = false;
     let conversationMode = false;
     let discardRecording = false;
+    let voiceFailureNoticeShown = false;
 
     document.title = `GEM AI ${COURSE.title}`;
     document.getElementById("course-title").textContent = COURSE.title;
@@ -743,11 +744,15 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
+        voiceFailureNoticeShown = false;
         input.value = data.text;
         connection.innerHTML = `<strong>인식</strong> ${data.text}`;
         await sendMessage(data.text);
       } catch (error) {
-        addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
+        if (!voiceFailureNoticeShown) {
+          addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
+          voiceFailureNoticeShown = true;
+        }
       } finally {
         micButton.disabled = false;
         if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
@@ -786,9 +791,9 @@
               const sample = (level - 128) / 128;
               energy += sample * sample;
             }
-            if (Math.sqrt(energy / levels.length) > 0.024) {
+            if (Math.sqrt(energy / levels.length) > 0.012) {
               speechFrameCount += 1;
-              if (speechFrameCount >= 3) heardSpeech = true;
+              if (speechFrameCount >= 2) heardSpeech = true;
             }
           }, 100);
         } catch (error) {
@@ -813,12 +818,18 @@
             return;
           }
           if (!heardSpeech) {
-            addMessage("assistant", "답을 듣지 못했습니다. 준비되면 천천히 말해 주세요.");
+            if (!voiceFailureNoticeShown) {
+              addMessage("assistant", "답을 듣지 못했습니다. 준비되면 천천히 말해 주세요.");
+              voiceFailureNoticeShown = true;
+            }
             if (conversationMode) setTimeout(startRecording, 900);
           } else if (blob.size > 500) {
             transcribeRecording(blob);
           } else {
-            addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
+            if (!voiceFailureNoticeShown) {
+              addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
+              voiceFailureNoticeShown = true;
+            }
             if (conversationMode) setTimeout(startRecording, 700);
           }
         });
