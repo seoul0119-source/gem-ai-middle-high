@@ -475,6 +475,25 @@
         .trim();
     }
 
+    function ensureVisibleAnswerSlot(text) {
+      let output = String(text || "").trimEnd();
+      if (COURSE_ID !== "toefl") return output;
+      if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(output)) return output;
+
+      const awaitsAnswer = /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output)
+        || /Complete\s+the\s+Words/i.test(output)
+        || /(?:답|정답).{0,24}(?:입력|말해|적어|써|고르|골라|선택|대답)/s.test(output)
+        || /(?:다시|한\s*번\s*더).{0,20}(?:답해|말해|입력|적어|써)/s.test(output);
+      if (!awaitsAnswer) return output;
+
+      output = output.replace(
+        /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
+        "답: (          )"
+      );
+      if (/답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/.test(output)) return output;
+      return `${output}\n\n답: (          )`;
+    }
+
     function cleanMathForSpeech(text) {
       return cleanForDisplay(text)
         .replace(/\[도표 시작\]|\[도표 끝\]/g, "")
@@ -688,10 +707,11 @@
         if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
 
         typing.remove();
-        lastAssistantText = cleanForDisplay(data.text);
+        const answerReadyText = ensureVisibleAnswerSlot(data.text);
+        lastAssistantText = cleanForDisplay(answerReadyText);
         addMessage("assistant", lastAssistantText);
-        messages.push({ role: "assistant", content: data.text });
-        rememberGeneratedProblem(data.text);
+        messages.push({ role: "assistant", content: answerReadyText });
+        rememberGeneratedProblem(answerReadyText);
         if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
       } catch (error) {
         typing.remove();
