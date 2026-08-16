@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GEM 영어 통합 학습관</title>
+  <style>
+    :root { --navy:#0b2342; --blue:#1f5fae; --gold:#f3c75d; --ink:#14233a; --pale:#eef4fb; --line:#cbd9eb; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--pale); font-family:Arial,"Noto Sans KR",sans-serif; }
+    body.auth-pending header, body.auth-pending main { visibility:hidden; }
+    header { padding:42px 20px 38px; text-align:center; color:#fff; background:linear-gradient(120deg,var(--navy),#1c477d); }
+    header .brand { color:var(--gold); font-size:14px; font-weight:800; letter-spacing:3px; }
+    h1 { margin:14px 0 10px; font-size:clamp(30px,5vw,48px); }
+    header p { margin:0; color:#dbe7f7; font-size:clamp(16px,2.5vw,20px); }
+    main { width:min(1080px,calc(100% - 28px)); margin:28px auto 50px; }
+    .intro { margin-bottom:20px; text-align:center; }
+    .intro h2 { margin:0 0 8px; font-size:clamp(22px,3vw,30px); }
+    .intro p { margin:0; color:#52657e; line-height:1.65; }
+    .student { display:inline-block; margin-top:12px; padding:7px 12px; border:1px solid var(--line); border-radius:999px; background:#fff; color:#34516f; font-weight:700; }
+    .choices { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+    .card { min-height:260px; padding:24px; border:1px solid var(--line); border-radius:22px; background:#fff; box-shadow:0 12px 32px rgba(24,57,96,.09); display:flex; flex-direction:column; }
+    .icon { font-size:36px; }
+    .card h3 { margin:12px 0 8px; font-size:25px; }
+    .card p { margin:0 0 18px; color:#54677e; line-height:1.6; flex:1; }
+    button,.go { border:0; border-radius:13px; padding:14px 16px; color:#fff; background:var(--blue); font:inherit; font-weight:800; cursor:pointer; text-align:center; text-decoration:none; }
+    button:hover,.go:hover { filter:brightness(1.08); }
+    .school { margin-top:20px; padding:22px; border:1px solid var(--line); border-radius:22px; background:#fff; display:none; }
+    .school.open { display:block; }
+    .school h3 { margin:0 0 6px; }
+    .school p { margin:0 0 16px; color:#5d6f84; }
+    .grade-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .grade-grid .go { background:#174d8d; }
+    .notice { margin-top:22px; padding:16px 18px; border:1px solid #ecd183; border-radius:14px; background:#fff8df; color:#6d5721; line-height:1.55; }
+    .back { display:inline-block; margin-top:16px; color:#234f85; font-weight:700; text-decoration:none; }
+    @media (max-width:800px) { .choices { grid-template-columns:1fr; } .card { min-height:0; } .grade-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:430px) { header { padding:32px 16px; } main { width:min(100% - 20px,1080px); } .grade-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body class="auth-pending">
+  <header>
+    <div class="brand">GEM AI LEARNING MISSION CLASS</div>
+    <h1>영어 통합 학습관</h1>
+    <p>하나의 입구에서 원하는 영어 과정을 선택하세요.</p>
+  </header>
+  <main>
+    <section class="intro">
+      <h2>오늘 공부할 과정은 무엇인가요?</h2>
+      <p>모든 과정은 매 수업마다 새로운 문제와 활동을 자동으로 만들고, 한 문제씩 대화하며 진행합니다.</p>
+      <span id="student" class="student">등록 학생 확인 중</span>
+    </section>
+    <section class="choices" aria-label="영어 과정 선택">
+      <article class="card">
+        <div class="icon">🎓</div>
+        <h3>TOEFL</h3>
+        <p>2026년 형식의 Reading, Listening, Writing, Speaking을 골고루 연습합니다.</p>
+        <a class="go" href="/learn.html?course=toefl">TOEFL 시작</a>
+      </article>
+      <article class="card">
+        <div class="icon">💼</div>
+        <h3>TOEIC</h3>
+        <p>직장·일상 영어 상황으로 Listening Part 1–4와 Reading Part 5–7을 연습합니다.</p>
+        <a class="go" href="/learn.html?course=toeic">TOEIC 시작</a>
+      </article>
+      <article class="card">
+        <div class="icon">📚</div>
+        <h3>중1–고3 영어</h3>
+        <p>중학생은 단어·회화·이야기책·퀴즈, 고등학생은 문법·독해·수능·내신 중심으로 학습합니다.</p>
+        <button id="school-toggle" type="button" aria-expanded="false" aria-controls="school-courses">학년 선택</button>
+      </article>
+    </section>
+    <section id="school-courses" class="school" aria-label="중고등 영어 학년 선택">
+      <h3>학년을 선택하세요</h3>
+      <p>각 학년의 수준에 맞춰 난이도가 자동으로 조절됩니다.</p>
+      <div class="grade-grid">
+        <a class="go" href="/learn.html?course=m1-english">중1 영어 Lv.7</a>
+        <a class="go" href="/learn.html?course=m2-english">중2 영어 Lv.8</a>
+        <a class="go" href="/learn.html?course=m3-english">중3 영어 Lv.9</a>
+        <a class="go" href="/learn.html?course=h1-english">고1 영어 Lv.10</a>
+        <a class="go" href="/learn.html?course=h2-english">고2 영어 Lv.11</a>
+        <a class="go" href="/learn.html?course=h3-english">고3 영어 Lv.12</a>
+      </div>
+    </section>
+    <div class="notice">TOEFL·TOEIC 과정은 GEM의 비공식 자율 연습 과정입니다. 공식 ETS 문항을 복제하지 않으며 공식 성적을 산출하지 않습니다.</div>
+    <a class="back" href="/class.html">← 전체 과목으로 돌아가기</a>
+  </main>
+  <script>
+    async function loadStudentSession() {
+      try {
+        const response = await fetch("/api/session", { cache: "no-store" });
+        if (!response.ok) throw new Error("로그인 필요");
+        const data = await response.json();
+        document.getElementById("student").textContent = `${data.student.name} 학생 · ${data.student.id}`;
+        document.body.classList.remove("auth-pending");
+      } catch (_) {
+        location.replace("/");
+      }
+    }
+
+    const toggle = document.getElementById("school-toggle");
+    const school = document.getElementById("school-courses");
+    toggle.addEventListener("click", () => {
+      const open = school.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.textContent = open ? "학년 선택 닫기" : "학년 선택";
+      if (open) school.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    loadStudentSession();
+  </script>
+</body>
+</html>

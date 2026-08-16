@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GEM AI Learning Mission Class</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --navy: #07162d;
+      --blue: #1e67c6;
+      --blue-dark: #144f9d;
+      --gold: #e7c46a;
+      --ink: #172033;
+      --muted: #657186;
+      --paper: #ffffff;
+      --bg: #eef3fa;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    body.auth-pending header, body.auth-pending main { visibility: hidden; }
+    header {
+      padding: 24px 18px;
+      color: white;
+      text-align: center;
+      background: linear-gradient(135deg, var(--navy), #173d70);
+    }
+    .brand {
+      margin-bottom: 7px;
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    h1 { margin: 0; font-size: clamp(23px, 5vw, 32px); }
+    header p { margin: 9px 0 0; color: #dce6f5; }
+    main {
+      width: min(760px, 94%);
+      margin: 20px auto 36px;
+    }
+    .status {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 12px 16px;
+      border: 1px solid #d6dfeb;
+      border-radius: 14px;
+      background: var(--paper);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .status strong { color: #173d70; }
+    .chat {
+      min-height: 430px;
+      max-height: 62vh;
+      overflow-y: auto;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 8px 24px rgba(7, 22, 45, .10);
+    }
+    .message {
+      width: fit-content;
+      max-width: 88%;
+      margin: 0 0 14px;
+      padding: 13px 15px;
+      border-radius: 16px;
+      white-space: pre-wrap;
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+    }
+    .assistant {
+      margin-right: auto;
+      border: 1px solid #d8e3f2;
+      border-bottom-left-radius: 5px;
+      background: #f4f8fe;
+    }
+    .user {
+      margin-left: auto;
+      border-bottom-right-radius: 5px;
+      background: var(--blue);
+      color: white;
+    }
+    .typing { color: var(--muted); font-style: italic; }
+    form {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    input {
+      min-width: 0;
+      flex: 1;
+      padding: 15px 16px;
+      border: 2px solid #cbd7e7;
+      border-radius: 13px;
+      font-size: 17px;
+      outline: none;
+    }
+    input:focus { border-color: var(--blue); }
+    button {
+      border: 0;
+      border-radius: 13px;
+      background: var(--blue);
+      color: white;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: var(--blue-dark); }
+    button:disabled { cursor: wait; opacity: .65; }
+    .send { min-width: 88px; padding: 0 18px; }
+    .mic {
+      min-width: 104px;
+      padding: 0 15px;
+      background: #16805d;
+    }
+    .mic:hover { background: #106649; }
+    .mic.listening { background: #c43d4d; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 10px;
+    }
+    .secondary {
+      padding: 10px 13px;
+      border: 1px solid #cbd7e7;
+      background: white;
+      color: #173d70;
+      font-size: 14px;
+    }
+    .secondary:hover { background: #f4f8fe; }
+    .notice {
+      margin-top: 16px;
+      padding: 13px 15px;
+      border: 1px solid #ecd38c;
+      border-radius: 13px;
+      background: #fff8e5;
+      color: #594a22;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .math-tools {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid #cbd7e7;
+      border-radius: 14px;
+      background: white;
+    }
+    .math-tools.open { display: block; }
+    .tool-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .math-key {
+      min-width: 62px;
+      padding: 9px 11px;
+      border: 1px solid #b9c9de;
+      background: #f4f8fe;
+      color: #173d70;
+      font-size: 15px;
+    }
+    .math-help { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .large-view {
+      display: block;
+      margin-top: 9px;
+      padding: 7px 10px;
+      border: 1px solid #afc4df;
+      background: white;
+      color: #173d70;
+      font-size: 13px;
+    }
+    .visual-card {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #bfd0e5;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .visual-title { margin: 0 0 9px; color: #173d70; font-weight: 700; }
+    .visual-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .visual-table th, .visual-table td { padding: 8px; border: 1px solid #cbd7e7; text-align: center; }
+    .visual-table th { background: #eaf2fc; color: #173d70; }
+    .visual-plain { margin: 0; white-space: pre-wrap; font: inherit; line-height: 1.7; }
+    .visual-bars { display: grid; gap: 8px; }
+    .visual-bar-row { display: grid; grid-template-columns: minmax(62px, auto) 1fr auto; gap: 8px; align-items: center; }
+    .visual-bar-track { height: 18px; overflow: hidden; border-radius: 9px; background: #e6edf7; }
+    .visual-bar-fill { height: 100%; border-radius: 9px; background: linear-gradient(90deg, #1e67c6, #65a7ed); }
+    .toeic-scene-card {
+      width: 100%;
+      margin-top: 12px;
+      overflow: hidden;
+      border: 1px solid #b8cce5;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 5px 16px rgba(15, 52, 96, .09);
+    }
+    .toeic-scene-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0;
+      padding: 10px 13px;
+      color: #173d70;
+      background: #edf5ff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .toeic-scene-heading span {
+      color: #617189;
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .toeic-scene-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      background: #e9f3ff;
+    }
+    .toeic-scene-note {
+      margin: 0;
+      padding: 9px 13px 11px;
+      color: #59677c;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(7, 22, 45, .68);
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: min(900px, 98vw);
+      max-height: 88vh;
+      overflow: auto;
+      padding: 22px;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 14px 45px rgba(0, 0, 0, .3);
+    }
+    .modal-text { white-space: pre-wrap; font-size: clamp(17px, 2.5vw, 24px); line-height: 1.8; }
+    .modal-text .visual-table { font-size: inherit; }
+    .modal-text .toeic-scene-card { margin-top: 46px; }
+    .modal-close { float: right; padding: 9px 13px; }
+    @media (max-width: 520px) {
+      main { width: 96%; margin-top: 10px; }
+      .chat { min-height: 390px; padding: 13px; }
+      .message { max-width: 94%; }
+      .status { flex-direction: column; gap: 4px; }
+      .send { min-width: 72px; padding: 0 12px; }
+      form { flex-wrap: wrap; }
+      input { flex-basis: calc(100% - 84px); }
+      .mic { order: 3; width: 100%; min-height: 48px; }
+      .toeic-scene-heading { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body class="auth-pending">
+  <header>
+    <div class="brand">GEM AI LEARNING MISSION CLASS</div>
+    <h1 id="course-title">GEM AI 수업</h1>
+    <p>AI가 가르치고, 사람 교사가 책임집니다.</p>
+  </header>
+
+  <main>
+    <section class="status" aria-label="수업 상태">
+      <span><strong>과목</strong> <span id="course-subject">수업</span></span>
+      <span><strong>학년</strong> <span id="course-grade">중학교 1학년</span></span>
+      <span id="connection"><strong>상태</strong> 수업 준비</span>
+    </section>
+
+    <section id="chat" class="chat" aria-live="polite" aria-label="수업 대화">
+      <div id="initial-message" class="message assistant">수업을 준비하고 있습니다.</div>
+    </section>
+
+    <form id="chat-form">
+      <input id="message" type="text" placeholder="시작 또는 답을 입력하세요" autocomplete="off" maxlength="3000" required>
+      <button id="mic" class="mic" type="button">🎤 말하기</button>
+      <button id="send" class="send" type="submit">보내기</button>
+    </form>
+
+    <div class="actions">
+      <button id="speak" class="secondary" type="button">🔊 다시 듣기</button>
+      <button id="auto-speak" class="secondary" type="button" hidden>🔊 음성 계속</button>
+      <button id="math-tools-toggle" class="secondary" type="button" hidden>⌨ 수학 입력 도구</button>
+      <button id="restart" class="secondary" type="button">↻ 새 수업</button>
+    </div>
+
+    <section id="math-tools" class="math-tools" aria-label="수학 입력 도구">
+      <div class="tool-grid">
+        <button class="math-key" type="button" data-insert="^2">x²</button>
+        <button class="math-key" type="button" data-insert="^3">x³</button>
+        <button class="math-key" type="button" data-insert="sqrt()">√</button>
+        <button class="math-key" type="button" data-insert="/">분수 /</button>
+        <button class="math-key" type="button" data-insert="<=">≤</button>
+        <button class="math-key" type="button" data-insert=">=">≥</button>
+        <button class="math-key" type="button" data-insert="!=">≠</button>
+        <button class="math-key" type="button" data-insert="pi">π</button>
+        <button class="math-key" type="button" data-insert="()">( )</button>
+        <button class="math-key" type="button" data-insert="|x|">|x|</button>
+        <button class="math-key" type="button" data-insert=" 합집합 ">∪</button>
+        <button class="math-key" type="button" data-insert=" 교집합 ">∩</button>
+      </div>
+      <p class="math-help">예: x²는 x^2 · √2는 sqrt(2) · 2/3 · x≤3은 x&lt;=3 · 집합은 {1,2,3}처럼 입력합니다.</p>
+    </section>
+
+    <div class="notice">
+      이 수업은 보호자 또는 교사의 지도 아래 이용합니다. 이름·학교·주소·전화번호 등 개인정보를 입력하지 마세요.
+    </div>
+  </main>
+
+  <div id="large-modal" class="modal" role="dialog" aria-modal="true" aria-label="도표 크게 보기">
+    <div class="modal-card">
+      <button id="modal-close" class="modal-close" type="button">닫기</button>
+      <div id="modal-text" class="modal-text"></div>
+    </div>
+  </div>
+
+  <script>
+    const COURSE_CONFIGS = {
+      "m1-english-word": {
+        title: "중1 영어 단어 Lv.7",
+        subject: "영어 단어",
+        grade: "중학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 중1 영어 단어 수업을 바로 시작합니다.",
+        placeholder: "시작 또는 답을 입력하세요",
+        voice: true
+      },
+      "toefl": {
+        title: "TOEFL 2026 4영역 자동 학습", subject: "TOEFL", grade: "TOEFL 대비",
+        greeting: "안녕하세요! “시작”이라고 입력하면 최신 TOEFL 4영역을 반영한 새 연습 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "toeic": {
+        title: "TOEIC 7파트 자동 학습", subject: "TOEIC", grade: "TOEIC 대비",
+        greeting: "안녕하세요! “시작”이라고 입력하면 TOEIC Part 1–7의 새 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m1-english": { title: "중1 영어 Lv.7", subject: "영어", grade: "중학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 단어·회화·이야기·퀴즈 새 활동 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m2-english": { title: "중2 영어 Lv.8", subject: "영어", grade: "중학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 단어·회화·이야기·퀴즈 새 활동 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m3-english": { title: "중3 영어 Lv.9", subject: "영어", grade: "중학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 단어·회화·이야기·퀴즈 새 활동 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h1-english": { title: "고1 영어 Lv.10", subject: "영어", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h2-english": { title: "고2 영어 Lv.11", subject: "영어", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h3-english": { title: "고3 영어 Lv.12", subject: "영어", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m1-math": {
+        title: "중1 수학 Lv.7 시험판",
+        subject: "수학",
+        grade: "중학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요",
+        voice: false
+      },
+      "m2-math": {
+        title: "중2 수학 Lv.8 시험판", subject: "수학", grade: "중학교 2학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중2 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m3-math": {
+        title: "중3 수학 Lv.9 시험판", subject: "수학", grade: "중학교 3학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중3 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h1-math": {
+        title: "고1 수학 Lv.10 시험판", subject: "수학", grade: "고등학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고1 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h2-math": {
+        title: "고2 수학 Lv.11 시험판", subject: "수학", grade: "고등학교 2학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h3-math": {
+        title: "고3 수학 Lv.12 시험판", subject: "수학", grade: "고등학교 3학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m1-korean": {
+        title: "중1 국어 Lv.7 시험판", subject: "국어", grade: "중학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m2-korean": {
+        title: "중2 국어 Lv.8 시험판", subject: "국어", grade: "중학교 2학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중2 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m3-korean": {
+        title: "중3 국어 Lv.9 시험판", subject: "국어", grade: "중학교 3학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중3 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h1-korean": {
+        title: "고1 국어 Lv.10 시험판", subject: "국어", grade: "고등학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고1 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h2-korean": {
+        title: "고2 국어 Lv.11 시험판", subject: "국어", grade: "고등학교 2학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h3-korean": {
+        title: "고3 국어 Lv.12 시험판", subject: "국어", grade: "고등학교 3학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m1-social": { title: "중1 사회 Lv.7 시험판", subject: "사회", grade: "중학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 사회 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m2-social": { title: "중2 사회 Lv.8 시험판", subject: "사회", grade: "중학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중2 사회 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m3-social": { title: "중3 사회 Lv.9 시험판", subject: "사회", grade: "중학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중3 사회 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h1-social": { title: "고1 사회 Lv.10 시험판", subject: "사회", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고1 사회 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h2-social": { title: "고2 사회 Lv.11 시험판", subject: "사회", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 사회 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h3-social": { title: "고3 사회 Lv.12 시험판", subject: "사회", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 사회 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m1-history": { title: "중1 한국사 Lv.7 시험판", subject: "한국사", grade: "중학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 한국사 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m2-history": { title: "중2 한국사 Lv.8 시험판", subject: "한국사", grade: "중학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중2 한국사 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m3-history": { title: "중3 한국사 Lv.9 시험판", subject: "한국사", grade: "중학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중3 한국사 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h1-history": { title: "고1 한국사 Lv.10 시험판", subject: "한국사", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고1 한국사 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h2-history": { title: "고2 한국사 Lv.11 시험판", subject: "한국사", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 한국사 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h3-history": { title: "고3 한국사 Lv.12 시험판", subject: "한국사", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 한국사 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m1-science": { title: "중1 과학 Lv.7 시험판", subject: "과학", grade: "중학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m2-science": { title: "중2 과학 Lv.8 시험판", subject: "과학", grade: "중학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중2 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m3-science": { title: "중3 과학 Lv.9 시험판", subject: "과학", grade: "중학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중3 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h1-science": { title: "고1 과학 Lv.10 시험판", subject: "과학", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고1 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h2-science": { title: "고2 과학 Lv.11 시험판", subject: "과학", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h3-science": { title: "고3 과학 Lv.12 시험판", subject: "과학", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false }
+    };
+    const requestedCourse = new URLSearchParams(location.search).get("course");
+    const COURSE_ID = COURSE_CONFIGS[requestedCourse] ? requestedCourse : "m1-english-word";
+    const COURSE = COURSE_CONFIGS[COURSE_ID];
+    const IS_MATH = COURSE_ID.endsWith("-math");
+    const IS_KOREAN = COURSE_ID.endsWith("-korean");
+    const IS_SOCIAL = COURSE_ID.endsWith("-social");
+    const IS_HISTORY = COURSE_ID.endsWith("-history");
+    const IS_SCIENCE = COURSE_ID.endsWith("-science");
+    const IS_ENGLISH = COURSE_ID.endsWith("-english") || COURSE_ID === "toefl" || COURSE_ID === "toeic";
+    const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
+    const IS_VISUAL_LESSON = IS_GENERATIVE_LESSON;
+    const messages = [];
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("message");
+    const sendButton = document.getElementById("send");
+    const micButton = document.getElementById("mic");
+    const connection = document.getElementById("connection");
+    const autoSpeakButton = document.getElementById("auto-speak");
+    const mathToolsToggle = document.getElementById("math-tools-toggle");
+    const mathTools = document.getElementById("math-tools");
+    const largeModal = document.getElementById("large-modal");
+    const modalText = document.getElementById("modal-text");
+    const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
+    let sessionEnded = false;
+    let sessionEnding = false;
+
+    async function readJsonResponse(response, fallbackMessage) {
+      const raw = await response.text();
+      try {
+        return raw ? JSON.parse(raw) : {};
+      } catch (error) {
+        console.error("Non-JSON server response", response.status, raw.slice(0, 160));
+        throw new Error(fallbackMessage);
+      }
+    }
+    let courseHistory = [];
+    try {
+      const savedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      courseHistory = Array.isArray(savedHistory) ? savedHistory.slice(-60) : [];
+    } catch (_) {
+      courseHistory = [];
+    }
+    let lastAssistantText = COURSE.greeting;
+    let recorder = null;
+    let recordingStream = null;
+    let recordingTimer = null;
+    let recordingCountdownTimer = null;
+    let nextRecordingTimer = null;
+    let recordingStarting = false;
+    let audioContext = null;
+    let audioLevelTimer = null;
+    let heardSpeech = false;
+    let speechFrameCount = 0;
+    let currentAudio = null;
+    let autoSpeak = false;
+    let conversationMode = false;
+    let discardRecording = false;
+    let voiceFailureNoticeShown = false;
+
+    document.title = `GEM AI ${COURSE.title}`;
+    document.getElementById("course-title").textContent = COURSE.title;
+    document.getElementById("course-subject").textContent = COURSE.subject;
+    document.getElementById("course-grade").textContent = COURSE.grade;
+    document.getElementById("initial-message").textContent = COURSE.greeting;
+    input.placeholder = COURSE.placeholder;
+    autoSpeakButton.hidden = true;
+    micButton.textContent = "🎙 음성 대화 시작";
+    if (!COURSE.voice) {
+      micButton.hidden = false;
+      document.getElementById("speak").hidden = true;
+      mathToolsToggle.hidden = !IS_MATH;
+    }
+    input.disabled = true;
+    sendButton.disabled = true;
+    micButton.disabled = true;
+
+    async function sessionRequest(payload) {
+      const response = await fetch("/api/session", {
+        method: payload ? "POST" : "GET",
+        headers: payload ? { "Content-Type": "application/json" } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+        cache: "no-store"
+      });
+      const data = await readJsonResponse(response, "학생관리 서버가 잠시 응답하지 않습니다.");
+      if (!response.ok) {
+        const error = new Error(data.error || "등록된 학생 ID로 다시 입장해 주세요.");
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    async function initializeStudentSession() {
+      try {
+        const session = await sessionRequest();
+        await sessionRequest({ action: "start", courseId: COURSE_ID });
+        sessionEnded = false;
+        document.body.classList.remove("auth-pending");
+        input.disabled = false;
+        sendButton.disabled = false;
+        micButton.disabled = false;
+        connection.innerHTML = `<strong>학생</strong> ${session.student.name} · 수업 기록 중`;
+        input.focus();
+        return true;
+      } catch (error) {
+        if (error.status === 401) {
+          location.replace("/");
+          return false;
+        }
+        document.body.classList.remove("auth-pending");
+        connection.innerHTML = "<strong>상태</strong> 학생관리 연결 확인 필요";
+        addMessage("assistant", error.message || "수업 기록 연결 중 문제가 발생했습니다.");
+        return false;
+      }
+    }
+
+    async function endCourseTracking() {
+      if (sessionEnded || sessionEnding) return;
+      sessionEnding = true;
+      try {
+        await sessionRequest({ action: "end" });
+        sessionEnded = true;
+      } catch (error) {
+        console.error("Course tracking end failed", error);
+      } finally {
+        sessionEnding = false;
+      }
+    }
+
+    function finishTrackingOnExit() {
+      if (sessionEnded || sessionEnding) return;
+      sessionEnding = true;
+      const body = new Blob([JSON.stringify({ action: "end" })], { type: "application/json" });
+      if (!navigator.sendBeacon?.("/api/session", body)) {
+        fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "end" }),
+          keepalive: true
+        }).catch(() => null);
+      }
+    }
+
+    const sessionReady = initializeStudentSession();
+    window.addEventListener("pagehide", finishTrackingOnExit);
+
+    function cleanForDisplay(text) {
+      return String(text || "")
+        .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
+        // Remove Markdown emphasis without deleting TOEFL word blanks such as
+        // recycl____. The old generic `__` removal erased every visible blank.
+        .replace(/__([^_\n]+)__/g, "$1")
+        .replace(/\*\*|`|#+\s?/g, "")
+        // Four underscores are enough for validation, but eight are easier to
+        // see on classroom TVs and small phone screens.
+        .replace(/_{4,}/g, "________")
+        .replace(/^\s*[-*]\s+/gm, "• ")
+        .trim();
+    }
+
+    function ensureVisibleAnswerSlot(text) {
+      let output = String(text || "").trimEnd();
+      const needsEnglishAnswerSlot = COURSE_ID === "toefl"
+        || COURSE_ID === "toeic"
+        || COURSE_ID.endsWith("-english");
+      if (!needsEnglishAnswerSlot) return output;
+      if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(output)) return output;
+
+      const awaitsAnswer = /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output)
+        || /Complete\s+the\s+Words/i.test(output)
+        || /(?:다시|한\s*번\s*더).{0,20}(?:답해|말해|입력|적어|써)/s.test(output);
+      if (!awaitsAnswer) return output;
+
+      output = output.replace(
+        /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
+        "답: (________)"
+      );
+      if (/답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/.test(output)) return output;
+      return `${output}\n\n답: (________)`;
+    }
+
+    function cleanMathForSpeech(text) {
+      return cleanForDisplay(text)
+        .replace(/\[도표 시작\]|\[도표 끝\]/g, "")
+        .replace(/sqrt\(([^)]+)\)/gi, "$1의 제곱근")
+        .replace(/([A-Za-z0-9가-힣)])\^2/g, "$1의 제곱")
+        .replace(/([A-Za-z0-9가-힣)])\^3/g, "$1의 세제곱")
+        .replace(/≤|<=/g, " 이하 ")
+        .replace(/≥|>=/g, " 이상 ")
+        .replace(/≠|!=/g, " 같지 않음 ")
+        .replace(/×|\*/g, " 곱하기 ")
+        .replace(/÷/g, " 나누기 ")
+        .replace(/π/g, " 파이 ")
+        .replace(/∪/g, " 합집합 ")
+        .replace(/∩/g, " 교집합 ");
+    }
+
+    function getVoice(language) {
+      const voices = window.speechSynthesis.getVoices();
+      const prefix = language.toLowerCase().split("-")[0];
+      return voices.find((voice) => voice.lang.toLowerCase() === language.toLowerCase())
+        || voices.find((voice) => voice.lang.toLowerCase().startsWith(prefix))
+        || null;
+    }
+
+    function browserSpeak(text) {
+      if (!("speechSynthesis" in window)) return;
+      const clean = cleanForDisplay(text);
+      if (!clean) return;
+      window.speechSynthesis.cancel();
+
+      const parts = clean.split(/\n+/).map((part) => part.trim()).filter(Boolean);
+      parts.forEach((part) => {
+        const latinCount = (part.match(/[A-Za-z]/g) || []).length;
+        const koreanCount = (part.match(/[가-힣]/g) || []).length;
+        const language = latinCount > koreanCount ? "en-US" : "ko-KR";
+        const utterance = new SpeechSynthesisUtterance(part);
+        utterance.lang = language;
+        utterance.voice = getVoice(language);
+        utterance.rate = language === "en-US" ? 0.78 : 0.9;
+        utterance.pitch = 1;
+        window.speechSynthesis.speak(utterance);
+      });
+    }
+
+    async function speakText(text) {
+      const withoutRawVisual = String(text || "")
+        .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
+        .replace(/\[TOEIC 그림 시작\][\s\S]*?\[TOEIC 그림 끝\]/g, "");
+      const clean = IS_MATH ? cleanMathForSpeech(withoutRawVisual) : cleanForDisplay(withoutRawVisual);
+      if (!clean) return;
+      if (currentAudio) currentAudio.pause();
+      window.speechSynthesis?.cancel();
+
+      try {
+        const response = await fetch("/api/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: clean })
+        });
+        const data = await readJsonResponse(response, "AI 음성 서버가 잠시 응답하지 않습니다.");
+        if (!response.ok || !data.audio) throw new Error(data.error || "음성 생성 실패");
+        currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
+        await currentAudio.play();
+        await new Promise((resolve) => {
+          currentAudio.addEventListener("ended", resolve, { once: true });
+          currentAudio.addEventListener("error", resolve, { once: true });
+        });
+      } catch (error) {
+        console.warn("Natural voice fallback", error);
+        browserSpeak(clean);
+      }
+    }
+
+    function extractVisual(text) {
+      const output = String(text || "");
+      const visualMatch = output.match(/\[도표 시작\]([\s\S]*?)\[도표 끝\]/);
+      const sceneMatch = output.match(/\[TOEIC 그림 시작\]([\s\S]*?)\[TOEIC 그림 끝\]/);
+      const withoutVisualBlock = (value) => String(value || "")
+        .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
+        .trim();
+      const sceneBefore = sceneMatch ? withoutVisualBlock(output.slice(0, sceneMatch.index)) : "";
+      const sceneAfter = sceneMatch
+        ? withoutVisualBlock(output.slice((sceneMatch.index || 0) + sceneMatch[0].length))
+        : "";
+      return {
+        body: output
+          .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
+          .replace(/\[TOEIC 그림 시작\][\s\S]*?\[TOEIC 그림 끝\]/g, "")
+          .trim(),
+        visual: visualMatch ? visualMatch[1].trim() : "",
+        toeicScene: sceneMatch ? sceneMatch[1].trim() : "",
+        sceneBefore,
+        sceneAfter
+      };
+    }
+
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
+    function addSvg(parent, name, attributes = {}, textContent = "") {
+      const node = document.createElementNS(SVG_NS, name);
+      Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (textContent) node.textContent = textContent;
+      parent.appendChild(node);
+      return node;
+    }
+
+    function drawBox(svg, x, y, width = 78, height = 58, label = false) {
+      addSvg(svg, "rect", { x, y, width, height, rx: 3, fill: "#c88a47", stroke: "#84552b", "stroke-width": 3 });
+      addSvg(svg, "path", { d: `M ${x + width / 2} ${y} V ${y + height} M ${x} ${y + 15} H ${x + width}`, stroke: "#9b6534", "stroke-width": 2, fill: "none" });
+      if (label) addSvg(svg, "rect", { x: x + width * .58, y: y + 22, width: width * .3, height: 18, rx: 2, fill: "#fff", stroke: "#b8c4d4" });
+    }
+
+    function drawShelf(svg, x, y, width = 145, height = 190) {
+      addSvg(svg, "rect", { x, y, width, height, rx: 4, fill: "#dce6ef", stroke: "#61738b", "stroke-width": 5 });
+      [52, 104, 156].forEach((offset) => addSvg(svg, "line", { x1: x, y1: y + offset, x2: x + width, y2: y + offset, stroke: "#61738b", "stroke-width": 5 }));
+      [[12, 16, 46, 31], [72, 18, 55, 29], [18, 70, 55, 29], [87, 68, 40, 31], [12, 122, 43, 29], [69, 119, 58, 32]].forEach(([dx, dy, w, h]) => {
+        addSvg(svg, "rect", { x: x + dx, y: y + dy, width: w, height: h, rx: 2, fill: "#c88a47", stroke: "#8b5e31", "stroke-width": 2 });
+      });
+    }
+
+    function drawTree(svg, x, ground, scale = 1) {
+      addSvg(svg, "rect", { x: x - 9 * scale, y: ground - 92 * scale, width: 18 * scale, height: 92 * scale, rx: 6, fill: "#82552f" });
+      addSvg(svg, "circle", { cx: x, cy: ground - 120 * scale, r: 45 * scale, fill: "#4b9a5a" });
+      addSvg(svg, "circle", { cx: x - 30 * scale, cy: ground - 105 * scale, r: 29 * scale, fill: "#63ad66" });
+      addSvg(svg, "circle", { cx: x + 30 * scale, cy: ground - 104 * scale, r: 31 * scale, fill: "#63ad66" });
+    }
+
+    function drawPerson(svg, x, ground, pose = "standing", color = "#2d6fbb") {
+      const skin = "#d9a06f";
+      addSvg(svg, "circle", { cx: x, cy: ground - 127, r: 23, fill: skin, stroke: "#704b35", "stroke-width": 2 });
+      addSvg(svg, "path", { d: `M ${x - 22} ${ground - 137} Q ${x} ${ground - 164} ${x + 22} ${ground - 137}`, fill: "#26384e" });
+      addSvg(svg, "rect", { x: x - 26, y: ground - 102, width: 52, height: 70, rx: 16, fill: color, stroke: "#163a64", "stroke-width": 2 });
+      const legY = ground - 33;
+      addSvg(svg, "line", { x1: x - 13, y1: legY, x2: x - 18, y2: ground, stroke: "#28384f", "stroke-width": 12, "stroke-linecap": "round" });
+      addSvg(svg, "line", { x1: x + 13, y1: legY, x2: x + 18, y2: ground, stroke: "#28384f", "stroke-width": 12, "stroke-linecap": "round" });
+      if (pose === "reaching") {
+        addSvg(svg, "line", { x1: x + 20, y1: ground - 88, x2: x + 82, y2: ground - 70, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+        addSvg(svg, "line", { x1: x - 20, y1: ground - 88, x2: x - 38, y2: ground - 42, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+      } else if (pose === "carrying") {
+        addSvg(svg, "line", { x1: x - 20, y1: ground - 86, x2: x - 43, y2: ground - 55, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+        addSvg(svg, "line", { x1: x + 20, y1: ground - 86, x2: x + 43, y2: ground - 55, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+      } else {
+        addSvg(svg, "line", { x1: x - 21, y1: ground - 88, x2: x - 34, y2: ground - 37, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+        addSvg(svg, "line", { x1: x + 21, y1: ground - 88, x2: x + 34, y2: ground - 37, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+      }
+    }
+
+    function drawSceneBackground(svg, place) {
+      const outdoor = ["street", "park", "garden"].includes(place);
+      addSvg(svg, "rect", { x: 0, y: 0, width: 720, height: 405, fill: outdoor ? "#d9efff" : "#edf3f8" });
+      addSvg(svg, "rect", { x: 0, y: outdoor ? 280 : 300, width: 720, height: outdoor ? 125 : 105, fill: outdoor ? (place === "street" ? "#606a76" : "#88bf70") : "#c6d1dc" });
+
+      if (place === "warehouse") {
+        drawShelf(svg, 28, 92);
+        drawShelf(svg, 548, 92);
+        addSvg(svg, "rect", { x: 276, y: 28, width: 168, height: 45, rx: 7, fill: "#173d70" });
+        addSvg(svg, "text", { x: 360, y: 57, fill: "#fff", "text-anchor": "middle", "font-size": 19, "font-family": "Arial", "font-weight": 700 }, "WAREHOUSE");
+      } else if (["office", "meeting-room"].includes(place)) {
+        addSvg(svg, "rect", { x: 35, y: 48, width: 190, height: 128, rx: 5, fill: "#bfe3ff", stroke: "#6c8eaa", "stroke-width": 5 });
+        addSvg(svg, "line", { x1: 130, y1: 48, x2: 130, y2: 176, stroke: "#6c8eaa", "stroke-width": 4 });
+        addSvg(svg, "line", { x1: 35, y1: 112, x2: 225, y2: 112, stroke: "#6c8eaa", "stroke-width": 4 });
+        addSvg(svg, "rect", { x: place === "meeting-room" ? 180 : 410, y: 255, width: place === "meeting-room" ? 390 : 230, height: 28, rx: 6, fill: "#98623b" });
+        addSvg(svg, "rect", { x: place === "meeting-room" ? 205 : 432, y: 283, width: 18, height: 52, fill: "#6b4931" });
+        addSvg(svg, "rect", { x: place === "meeting-room" ? 528 : 606, y: 283, width: 18, height: 52, fill: "#6b4931" });
+      } else if (["cafe", "restaurant"].includes(place)) {
+        addSvg(svg, "rect", { x: 45, y: 38, width: 230, height: 112, rx: 8, fill: "#24445f" });
+        addSvg(svg, "text", { x: 160, y: 96, fill: "#fff1cc", "text-anchor": "middle", "font-size": 27, "font-family": "Arial", "font-weight": 700 }, place === "cafe" ? "CAFÉ" : "RESTAURANT");
+        addSvg(svg, "rect", { x: 55, y: 250, width: 610, height: 55, rx: 7, fill: "#b37643" });
+      } else if (["store", "library", "classroom"].includes(place)) {
+        if (place !== "classroom") {
+          drawShelf(svg, 35, 90, 170, 195);
+          drawShelf(svg, 515, 90, 170, 195);
+        } else {
+          addSvg(svg, "rect", { x: 70, y: 45, width: 580, height: 160, rx: 5, fill: "#3d715b", stroke: "#5b4935", "stroke-width": 8 });
+          addSvg(svg, "path", { d: "M 160 255 H 320 M 400 255 H 560", stroke: "#9b693e", "stroke-width": 24, "stroke-linecap": "round" });
+        }
+      } else if (["station", "airport", "hotel"].includes(place)) {
+        const sign = place === "airport" ? "DEPARTURES" : place === "station" ? "PLATFORM" : "RECEPTION";
+        addSvg(svg, "rect", { x: 230, y: 35, width: 260, height: 56, rx: 8, fill: "#173d70" });
+        addSvg(svg, "text", { x: 360, y: 70, fill: "#fff", "text-anchor": "middle", "font-size": 20, "font-family": "Arial", "font-weight": 700 }, sign);
+        addSvg(svg, "rect", { x: 400, y: 247, width: 250, height: 58, rx: 7, fill: "#a9774e" });
+        addSvg(svg, "rect", { x: 75, y: 255, width: 190, height: 22, rx: 8, fill: "#51677e" });
+      } else if (place === "street") {
+        [45, 225, 520].forEach((x, index) => {
+          addSvg(svg, "rect", { x, y: 90 - index * 12, width: 145, height: 190 + index * 12, fill: ["#d79175", "#e0b66d", "#8db0cb"][index] });
+          [0, 1, 2].forEach((row) => [0, 1].forEach((column) => addSvg(svg, "rect", { x: x + 22 + column * 68, y: 120 + row * 45, width: 32, height: 27, fill: "#d9f0ff" })));
+        });
+        addSvg(svg, "line", { x1: 0, y1: 345, x2: 720, y2: 345, stroke: "#f6e39b", "stroke-width": 7, "stroke-dasharray": "32 25" });
+      } else {
+        drawTree(svg, 110, 300, 1);
+        drawTree(svg, 610, 300, .85);
+        addSvg(svg, "rect", { x: 250, y: 265, width: 220, height: 20, rx: 7, fill: "#7b5134" });
+        addSvg(svg, "rect", { x: 275, y: 285, width: 14, height: 45, fill: "#5e422e" });
+        addSvg(svg, "rect", { x: 430, y: 285, width: 14, height: 45, fill: "#5e422e" });
+      }
+    }
+
+    function drawToeicAction(svg, action, people) {
+      let drawn = 0;
+      if (action === "labeling-box") {
+        addSvg(svg, "rect", { x: 365, y: 268, width: 245, height: 18, rx: 5, fill: "#815532" });
+        drawBox(svg, 430, 205, 105, 63, true);
+        drawPerson(svg, 310, 334, "reaching", "#2b76b9"); drawn = 1;
+      } else if (action === "carrying-box") {
+        drawPerson(svg, 360, 334, "carrying", "#3d805b");
+        drawBox(svg, 315, 238, 90, 62, false); drawn = 1;
+      } else if (action === "typing-computer") {
+        addSvg(svg, "rect", { x: 315, y: 257, width: 280, height: 22, rx: 5, fill: "#8b5b39" });
+        addSvg(svg, "rect", { x: 430, y: 181, width: 115, height: 75, rx: 5, fill: "#24364a", stroke: "#64778e", "stroke-width": 5 });
+        addSvg(svg, "rect", { x: 475, y: 256, width: 24, height: 24, fill: "#64778e" });
+        drawPerson(svg, 330, 334, "reaching", "#7653a4"); drawn = 1;
+      } else if (["reading-document", "writing-document"].includes(action)) {
+        addSvg(svg, "rect", { x: 300, y: 265, width: 300, height: 20, rx: 5, fill: "#8b5b39" });
+        addSvg(svg, "rect", { x: 435, y: 237, width: 88, height: 55, rx: 2, fill: "#fff", stroke: "#8798ac", "stroke-width": 3, transform: "rotate(-5 479 264)" });
+        drawPerson(svg, 320, 334, "reaching", "#2b76b9"); drawn = 1;
+        if (action === "writing-document") addSvg(svg, "line", { x1: 380, y1: 265, x2: 465, y2: 253, stroke: "#24364a", "stroke-width": 5, "stroke-linecap": "round" });
+      } else if (["talking", "meeting"].includes(action)) {
+        drawPerson(svg, 275, 334, "standing", "#2b76b9");
+        drawPerson(svg, 455, 334, "standing", "#b75d55"); drawn = 2;
+        if (action === "meeting") {
+          addSvg(svg, "ellipse", { cx: 365, cy: 288, rx: 140, ry: 24, fill: "#8b5b39" });
+          addSvg(svg, "rect", { x: 355, y: 289, width: 20, height: 50, fill: "#6a472f" });
+        }
+      } else if (action === "serving-drink") {
+        drawPerson(svg, 290, 334, "reaching", "#7d4f9e");
+        addSvg(svg, "rect", { x: 400, y: 242, width: 220, height: 65, rx: 8, fill: "#a96f40" });
+        addSvg(svg, "rect", { x: 445, y: 216, width: 34, height: 28, rx: 5, fill: "#fff", stroke: "#597189", "stroke-width": 3 });
+        addSvg(svg, "path", { d: "M 479 222 Q 500 222 495 238 Q 490 248 479 240", fill: "none", stroke: "#597189", "stroke-width": 3 }); drawn = 1;
+      } else if (action === "loading-boxes") {
+        addSvg(svg, "rect", { x: 420, y: 178, width: 235, height: 120, rx: 12, fill: "#e7edf4", stroke: "#52677e", "stroke-width": 5 });
+        addSvg(svg, "circle", { cx: 468, cy: 305, r: 25, fill: "#28394d" });
+        addSvg(svg, "circle", { cx: 608, cy: 305, r: 25, fill: "#28394d" });
+        drawPerson(svg, 300, 334, "carrying", "#3d805b"); drawBox(svg, 258, 238, 84, 58); drawn = 1;
+      } else if (action === "cleaning") {
+        drawPerson(svg, 360, 334, "reaching", "#2b76b9");
+        addSvg(svg, "line", { x1: 415, y1: 250, x2: 455, y2: 340, stroke: "#70482b", "stroke-width": 7 });
+        addSvg(svg, "path", { d: "M 428 345 Q 462 326 495 350", fill: "#d7a439", stroke: "#916718", "stroke-width": 3 }); drawn = 1;
+      } else if (action === "sitting") {
+        addSvg(svg, "rect", { x: 312, y: 277, width: 105, height: 18, rx: 5, fill: "#52677e" });
+        drawPerson(svg, 360, 326, "standing", "#7653a4"); drawn = 1;
+      } else {
+        drawPerson(svg, 360, 334, "standing", action === "walking" ? "#3d805b" : "#2b76b9"); drawn = 1;
+      }
+
+      const target = Math.max(drawn, Math.min(3, Number(people) || 0));
+      const extraPositions = [150, 565, 85];
+      for (let index = drawn; index < target; index += 1) {
+        drawPerson(svg, extraPositions[index - drawn] || 120 + index * 180, 334, "standing", ["#b75d55", "#d08a36", "#496f99"][index % 3]);
+      }
+    }
+
+    function parseToeicScene(content) {
+      const values = {};
+      String(content || "").split("\n").forEach((line) => {
+        const match = line.match(/^([^:]+):\s*(.+)$/);
+        if (match) values[match[1].trim()] = match[2].trim();
+      });
+      return {
+        place: (values["장소"] || "office").toLowerCase(),
+        people: Number(values["인물"] || 1),
+        action: (values["행동"] || "standing").toLowerCase(),
+        background: values["배경"] || ""
+      };
+    }
+
+    function buildToeicSceneCard(content) {
+      const scene = parseToeicScene(content);
+      const placeLabels = { warehouse: "창고", office: "사무실", "meeting-room": "회의실", cafe: "카페", restaurant: "식당", store: "상점", station: "기차역", airport: "공항", street: "거리", park: "공원", garden: "정원", library: "도서관", classroom: "교실", hotel: "호텔" };
+      const actionLabels = { "labeling-box": "상자에 라벨을 붙이는", "carrying-box": "상자를 나르는", "typing-computer": "컴퓨터로 작업하는", "reading-document": "문서를 읽는", "writing-document": "문서를 작성하는", talking: "대화하는", meeting: "회의하는", "serving-drink": "음료를 건네는", "loading-boxes": "상자를 싣는", cleaning: "청소하는", walking: "걷는", sitting: "앉아 있는", standing: "서 있는" };
+      const placeLabel = placeLabels[scene.place] || "실내";
+      const actionLabel = actionLabels[scene.action] || "활동하는";
+      const card = document.createElement("section");
+      card.className = "toeic-scene-card";
+      const heading = document.createElement("p");
+      heading.className = "toeic-scene-heading";
+      heading.append("TOEIC Part 1 사진");
+      const instruction = document.createElement("span");
+      instruction.textContent = "그림과 가장 잘 맞는 문장을 고르세요.";
+      heading.appendChild(instruction);
+      card.appendChild(heading);
+      const svg = addSvg(card, "svg", { viewBox: "0 0 720 405", class: "toeic-scene-svg", role: "img", "aria-label": `${placeLabel}에서 ${actionLabel} 사람을 나타낸 그림`, preserveAspectRatio: "xMidYMid meet" });
+      drawSceneBackground(svg, scene.place);
+      drawToeicAction(svg, scene.action, scene.people);
+      const note = document.createElement("p");
+      note.className = "toeic-scene-note";
+      note.textContent = "장면의 사람, 행동, 물건과 위치를 차례로 살펴보세요.";
+      card.appendChild(note);
+      return card;
+    }
+
+    function buildVisualCard(content) {
+      const card = document.createElement("section");
+      card.className = "visual-card";
+      const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
+      const kind = (lines.find((line) => line.startsWith("종류:")) || "").slice(3).trim();
+      const titleText = (lines.find((line) => line.startsWith("제목:")) || "").slice(3).trim() || "학습 시각 자료";
+      const title = document.createElement("p");
+      title.className = "visual-title";
+      title.textContent = titleText;
+      card.appendChild(title);
+
+      const headerLine = lines.find((line) => line.startsWith("열:"));
+      const rowLines = lines.filter((line) => line.startsWith("행:"));
+      if (headerLine && rowLines.length) {
+        const headers = headerLine.slice(2).split("|").map((cell) => cell.trim());
+        const rows = rowLines.map((line) => line.slice(2).split("|").map((cell) => cell.trim()));
+        const table = document.createElement("table");
+        table.className = "visual-table";
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        headers.forEach((header) => { const th = document.createElement("th"); th.textContent = header; headRow.appendChild(th); });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        const tbody = document.createElement("tbody");
+        rows.forEach((row) => { const tr = document.createElement("tr"); row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); }); tbody.appendChild(tr); });
+        table.appendChild(tbody);
+        card.appendChild(table);
+
+        if (/그래프/.test(kind)) {
+          const numericRows = rows.map((row) => ({ label: row[0], value: Number(String(row[1] || "").replace(/[^0-9.-]/g, "")) })).filter((row) => Number.isFinite(row.value));
+          const max = Math.max(1, ...numericRows.map((row) => Math.abs(row.value)));
+          const bars = document.createElement("div");
+          bars.className = "visual-bars";
+          numericRows.forEach((row) => {
+            const line = document.createElement("div"); line.className = "visual-bar-row";
+            const label = document.createElement("span"); label.textContent = row.label;
+            const track = document.createElement("div"); track.className = "visual-bar-track";
+            const fill = document.createElement("div"); fill.className = "visual-bar-fill"; fill.style.width = `${Math.max(2, Math.abs(row.value) / max * 100)}%`;
+            const value = document.createElement("span"); value.textContent = String(row.value);
+            track.appendChild(fill); line.append(label, track, value); bars.appendChild(line);
+          });
+          card.appendChild(bars);
+        }
+      } else {
+        const plain = document.createElement("pre");
+        plain.className = "visual-plain";
+        plain.textContent = lines.filter((line) => !line.startsWith("종류:") && !line.startsWith("제목:")).join("\n");
+        card.appendChild(plain);
+      }
+      return card;
+    }
+
+    function addMessage(role, text, extraClass = "") {
+      const element = document.createElement("div");
+      element.className = `message ${role} ${extraClass}`.trim();
+      const parts = extractVisual(text);
+      const hasToeicScene = Boolean(parts.toeicScene);
+      if (role === "assistant" && hasToeicScene) {
+        if (parts.sceneBefore) element.appendChild(document.createTextNode(`${parts.sceneBefore}\n`));
+        element.appendChild(buildToeicSceneCard(parts.toeicScene));
+        const sceneExpand = document.createElement("button");
+        sceneExpand.type = "button";
+        sceneExpand.className = "large-view";
+        sceneExpand.textContent = "🖼 그림 크게 보기";
+        sceneExpand.addEventListener("click", () => {
+          modalText.replaceChildren(buildToeicSceneCard(parts.toeicScene));
+          largeModal.classList.add("open");
+        });
+        element.appendChild(sceneExpand);
+        if (parts.sceneAfter) element.appendChild(document.createTextNode(`\n${parts.sceneAfter}`));
+      } else {
+        element.textContent = parts.body;
+      }
+      const hasVisual = Boolean(parts.visual);
+      if (role === "assistant" && IS_VISUAL_LESSON && hasVisual) {
+        element.appendChild(buildVisualCard(parts.visual));
+        const expand = document.createElement("button");
+        expand.type = "button";
+        expand.className = "large-view";
+        expand.textContent = IS_SCIENCE
+          ? "🔍 실험·자료 크게 보기"
+          : (IS_SOCIAL || IS_HISTORY)
+            ? "🔍 자료·문제 크게 보기"
+            : "🔍 도표·문제 크게 보기";
+        expand.addEventListener("click", () => {
+          modalText.replaceChildren(buildVisualCard(parts.visual));
+          largeModal.classList.add("open");
+        });
+        element.appendChild(expand);
+      }
+      chat.appendChild(element);
+      chat.scrollTop = chat.scrollHeight;
+      return element;
+    }
+
+    function setLoading(loading) {
+      input.disabled = loading;
+      sendButton.disabled = loading;
+      connection.innerHTML = loading
+        ? "<strong>상태</strong> AI 선생님 응답 중"
+        : "<strong>상태</strong> 수업 진행 중";
+    }
+
+    function rememberGeneratedProblem(text) {
+      if (!IS_GENERATIVE_LESSON) return;
+      const clean = cleanForDisplay(text);
+      const match = clean.match(/문제\s*\d+\s*\/\s*10[\s\S]*/i);
+      if (!match) return;
+      const problem = match[0].slice(0, 700).trim();
+      if (!problem || courseHistory.includes(problem)) return;
+      courseHistory.push(problem);
+      courseHistory = courseHistory.slice(-60);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(courseHistory));
+    }
+
+    async function sendMessage(text, inputMode = "text") {
+      if (!await sessionReady) return;
+      addMessage("user", text);
+      messages.push({ role: "user", content: text });
+      setLoading(true);
+      const isStarting = /^(시작|시작하기|start)$/i.test(text.trim());
+      const loadingText = IS_MATH
+        ? (isStarting ? "새 수학 문제를 만들고 검산하고 있습니다…" : "답을 확인하고 다음 단계를 준비하고 있습니다…")
+        : IS_KOREAN
+          ? (isStarting ? "새 국어 지문과 문제를 만들고 검토하고 있습니다…" : "답의 근거를 확인하고 다음 문제를 준비하고 있습니다…")
+          : IS_SOCIAL
+            ? (isStarting ? "새 사회 자료와 문제를 만들고 검토하고 있습니다…" : "답과 자료의 근거를 확인하고 다음 문제를 준비하고 있습니다…")
+            : IS_HISTORY
+              ? (isStarting ? "새 한국사 자료와 문제를 만들고 사실을 검토하고 있습니다…" : "답의 역사적 근거를 확인하고 다음 문제를 준비하고 있습니다…")
+              : IS_SCIENCE
+                ? (isStarting ? "새 과학 자료와 문제를 만들고 검산하고 있습니다…" : "답의 과학적 근거를 확인하고 다음 문제를 준비하고 있습니다…")
+                : IS_ENGLISH
+                  ? (isStarting ? "새 영어 활동과 문제를 만들고 검토하고 있습니다…" : "영어 답을 확인하고 다음 활동을 준비하고 있습니다…")
+                  : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
+      const typing = addMessage("assistant", loadingText, "typing");
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: COURSE_ID,
+            messages,
+            history: IS_GENERATIVE_LESSON ? courseHistory : [],
+            inputMode
+          })
+        });
+        const data = await readJsonResponse(response, "AI 선생님 서버가 잠시 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
+        if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
+
+        typing.remove();
+        const answerReadyText = ensureVisibleAnswerSlot(data.text);
+        lastAssistantText = cleanForDisplay(answerReadyText);
+        addMessage("assistant", lastAssistantText);
+        messages.push({ role: "assistant", content: answerReadyText });
+        rememberGeneratedProblem(answerReadyText);
+        if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
+        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(lastAssistantText)) {
+          await endCourseTracking();
+          connection.innerHTML = "<strong>상태</strong> 수업 완료·기록 저장";
+        }
+      } catch (error) {
+        typing.remove();
+        addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
+        connection.innerHTML = "<strong>상태</strong> 연결 확인 필요";
+      } finally {
+        setLoading(false);
+        input.focus();
+        scheduleRecording(450);
+      }
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      sendMessage(text);
+    });
+
+    document.getElementById("restart").addEventListener("click", async () => {
+      const restartButton = document.getElementById("restart");
+      restartButton.disabled = true;
+      connection.innerHTML = "<strong>상태</strong> 새 수업 기록 준비 중";
+      try {
+        await sessionRequest({ action: "restart", courseId: COURSE_ID });
+        sessionEnded = false;
+        sessionEnding = false;
+        messages.length = 0;
+        chat.replaceChildren();
+        lastAssistantText = COURSE.greeting;
+        addMessage("assistant", `새 수업을 준비했습니다. ${COURSE.greeting}`);
+        connection.innerHTML = "<strong>상태</strong> 새 수업 기록 중";
+        input.focus();
+      } catch (error) {
+        addMessage("assistant", error.message || "새 수업 기록을 준비하지 못했습니다.");
+        connection.innerHTML = "<strong>상태</strong> 학생관리 연결 확인 필요";
+      } finally {
+        restartButton.disabled = false;
+      }
+    });
+
+    document.getElementById("speak").addEventListener("click", () => {
+      if (COURSE.voice) speakText(lastAssistantText);
+    });
+
+    async function toggleConversation() {
+      conversationMode = !conversationMode;
+      autoSpeak = conversationMode;
+      micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+      if (conversationMode) {
+        discardRecording = false;
+        connection.innerHTML = "<strong>상태</strong> 학생 음성 준비 중";
+        // The question has already been spoken. Start listening immediately so
+        // an answer given right after the button click is never missed.
+        startRecording();
+      } else {
+        clearTimeout(nextRecordingTimer);
+        nextRecordingTimer = null;
+        discardRecording = true;
+        if (recorder?.state === "recording") {
+          recorder.stop();
+        } else {
+          resetMic(true);
+          discardRecording = false;
+        }
+        currentAudio?.pause();
+        window.speechSynthesis?.cancel();
+        connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+      }
+    }
+
+    mathToolsToggle.addEventListener("click", () => {
+      const open = mathTools.classList.toggle("open");
+      mathToolsToggle.textContent = open ? "⌨ 입력 도구 닫기" : "⌨ 수학 입력 도구";
+    });
+
+    document.querySelectorAll(".math-key").forEach((button) => {
+      button.addEventListener("click", () => {
+        const value = button.dataset.insert || "";
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        input.value = input.value.slice(0, start) + value + input.value.slice(end);
+        const cursor = value === "()" || value === "sqrt()" ? start + value.length - 1 : start + value.length;
+        input.focus();
+        input.setSelectionRange(cursor, cursor);
+      });
+    });
+
+    function closeLargeModal() {
+      largeModal.classList.remove("open");
+    }
+    document.getElementById("modal-close").addEventListener("click", closeLargeModal);
+    largeModal.addEventListener("click", (event) => {
+      if (event.target === largeModal) closeLargeModal();
+    });
+
+    function resetMic(releaseStream = false) {
+      clearTimeout(recordingTimer);
+      clearInterval(recordingCountdownTimer);
+      clearInterval(audioLevelTimer);
+      audioContext?.close().catch(() => {});
+      audioContext = null;
+      if (releaseStream) {
+        recordingStream?.getTracks().forEach((track) => track.stop());
+        recordingStream = null;
+      }
+      recorder = null;
+      recordingStarting = false;
+      micButton.classList.remove("listening");
+      micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+    }
+
+    function scheduleRecording(delay = 500) {
+      clearTimeout(nextRecordingTimer);
+      nextRecordingTimer = null;
+      if (!conversationMode || input.disabled) return;
+      nextRecordingTimer = setTimeout(() => {
+        nextRecordingTimer = null;
+        startRecording();
+      }, delay);
+    }
+
+    async function transcribeRecording(blob) {
+      connection.innerHTML = "<strong>상태</strong> 학생 음성 인식 중";
+      micButton.disabled = true;
+      let sentToTeacher = false;
+      try {
+        const audio = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const response = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            audio,
+            mimeType: blob.type,
+            courseId: COURSE_ID,
+            context: lastAssistantText
+          })
+        });
+        const data = await readJsonResponse(response, "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
+        if (!response.ok) throw new Error(data.error || "음성 인식 실패");
+        voiceFailureNoticeShown = false;
+        input.value = data.text;
+        connection.innerHTML = `<strong>인식</strong> ${data.text}`;
+        // The recognized answer is already rendered as a user message. Clear
+        // the input so the previous answer never remains under the next problem.
+        input.value = "";
+        sentToTeacher = true;
+        await sendMessage(data.text, "voice");
+      } catch (error) {
+        if (!voiceFailureNoticeShown) {
+          addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
+          voiceFailureNoticeShown = true;
+        }
+      } finally {
+        micButton.disabled = false;
+        if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+        // A successful answer is restarted by sendMessage after the teacher has
+        // finished speaking. Only transcription failures restart from here.
+        if (!sentToTeacher) scheduleRecording(700);
+      }
+    }
+
+    async function startRecording() {
+      if (!COURSE.voice && !conversationMode && !IS_MATH) return;
+      if (input.disabled || recordingStarting || recorder?.state === "recording") return;
+      if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
+        addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
+        return;
+      }
+      recordingStarting = true;
+      try {
+        currentAudio?.pause();
+        window.speechSynthesis?.cancel();
+        let stream = recordingStream;
+        const hasLiveTrack = stream?.active
+          && stream.getAudioTracks().some((track) => track.readyState === "live");
+        if (!hasLiveTrack) {
+          recordingStream?.getTracks().forEach((track) => track.stop());
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1
+            }
+          });
+          recordingStream = stream;
+        }
+        if (!conversationMode) {
+          stream.getTracks().forEach((track) => track.stop());
+          recordingStream = null;
+          recordingStarting = false;
+          discardRecording = false;
+          return;
+        }
+        heardSpeech = false;
+        speechFrameCount = 0;
+        try {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioContext.createMediaStreamSource(recordingStream);
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 1024;
+          source.connect(analyser);
+          const levels = new Uint8Array(analyser.fftSize);
+          audioLevelTimer = setInterval(() => {
+            analyser.getByteTimeDomainData(levels);
+            let energy = 0;
+            for (const level of levels) {
+              const sample = (level - 128) / 128;
+              energy += sample * sample;
+            }
+            if (Math.sqrt(energy / levels.length) > 0.012) {
+              speechFrameCount += 1;
+              if (speechFrameCount >= 2) heardSpeech = true;
+            }
+          }, 100);
+        } catch (error) {
+          console.warn("Voice level detection unavailable", error);
+          heardSpeech = true;
+        }
+        const chunks = [];
+        const preferredType = MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "";
+        const activeRecorder = preferredType
+          ? new MediaRecorder(recordingStream, { mimeType: preferredType })
+          : new MediaRecorder(recordingStream);
+        recorder = activeRecorder;
+        activeRecorder.addEventListener("dataavailable", (event) => {
+          if (event.data.size) chunks.push(event.data);
+        });
+        activeRecorder.addEventListener("stop", () => {
+          const blob = new Blob(chunks, { type: activeRecorder.mimeType || "audio/webm" });
+          const shouldDiscard = discardRecording || !conversationMode;
+          resetMic(shouldDiscard);
+          if (shouldDiscard) {
+            discardRecording = false;
+            return;
+          }
+          // MediaRecorder is the source of truth. Some browsers suspend the
+          // AudioContext level meter even while the microphone records normally.
+          if (blob.size > 500) {
+            transcribeRecording(blob);
+          } else {
+            if (!voiceFailureNoticeShown) {
+              addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
+              voiceFailureNoticeShown = true;
+            }
+            scheduleRecording(700);
+          }
+        });
+        activeRecorder.addEventListener("error", (event) => {
+          console.error("MediaRecorder error", event.error || event);
+          resetMic(true);
+          addMessage("assistant", "음성 녹음 연결을 다시 시작해 주세요.");
+          scheduleRecording(1200);
+        });
+        // One complete container per answer is more reliable than concatenating
+        // time-sliced WebM fragments across repeated recording sessions.
+        activeRecorder.start();
+        recordingStarting = false;
+        micButton.classList.add("listening");
+        micButton.textContent = "■ 음성 대화 멈춤";
+        let remaining = conversationMode ? 10 : 8;
+        connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+        recordingCountdownTimer = setInterval(() => {
+          remaining -= 1;
+          if (remaining > 0 && recorder?.state === "recording") {
+            connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+          }
+        }, 1000);
+        recordingTimer = setTimeout(() => {
+          if (recorder?.state === "recording") recorder.stop();
+        }, conversationMode ? 10000 : 8000);
+      } catch (error) {
+        recordingStarting = false;
+        resetMic(true);
+        addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
+      }
+    }
+
+    micButton.addEventListener("click", toggleConversation);
+  </script>
+</body>
+</html>
