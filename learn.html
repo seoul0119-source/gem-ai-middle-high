@@ -315,6 +315,7 @@
     let recordingStream = null;
     let recordingChunks = [];
     let recordingTimer = null;
+    let recordingCountdownTimer = null;
     let currentAudio = null;
     let autoSpeak = false;
     let conversationMode = false;
@@ -329,7 +330,8 @@
     autoSpeakButton.hidden = false;
     autoSpeakButton.textContent = "🎙 음성 대화 시작";
     if (!COURSE.voice) {
-      micButton.hidden = true;
+      micButton.hidden = false;
+      micButton.textContent = "🎤 직접 말하기";
       document.getElementById("speak").hidden = true;
       mathToolsToggle.hidden = false;
     }
@@ -557,15 +559,16 @@
 
     function resetMic() {
       clearTimeout(recordingTimer);
+      clearInterval(recordingCountdownTimer);
       recordingStream?.getTracks().forEach((track) => track.stop());
       recordingStream = null;
       recorder = null;
       micButton.classList.remove("listening");
-      micButton.textContent = "🎤 말하기";
+      micButton.textContent = COURSE_ID === "m1-math" ? "🎤 직접 말하기" : "🎤 말하기";
     }
 
     async function transcribeRecording(blob) {
-      connection.innerHTML = "<strong>상태</strong> 학생 발음 확인 중";
+      connection.innerHTML = "<strong>상태</strong> 학생 음성 인식 중";
       micButton.disabled = true;
       try {
         const audio = await new Promise((resolve, reject) => {
@@ -581,6 +584,8 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
+        input.value = data.text;
+        connection.innerHTML = `<strong>인식</strong> ${data.text}`;
         await sendMessage(data.text);
       } catch (error) {
         addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
@@ -592,7 +597,7 @@
     }
 
     async function startRecording() {
-      if (!COURSE.voice && !conversationMode) return;
+      if (!COURSE.voice && !conversationMode && COURSE_ID !== "m1-math") return;
       if (input.disabled || recorder?.state === "recording") return;
       if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
         addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
@@ -607,7 +612,12 @@
         window.speechSynthesis?.cancel();
         recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         recordingChunks = [];
-        recorder = new MediaRecorder(recordingStream);
+        const preferredType = MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "";
+        recorder = preferredType
+          ? new MediaRecorder(recordingStream, { mimeType: preferredType })
+          : new MediaRecorder(recordingStream);
         recorder.addEventListener("dataavailable", (event) => {
           if (event.data.size) recordingChunks.push(event.data);
         });
@@ -618,15 +628,32 @@
             discardRecording = false;
             return;
           }
-          if (blob.size > 500) transcribeRecording(blob);
+          if (blob.size > 500) {
+            transcribeRecording(blob);
+          } else {
+            addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
+            if (conversationMode) setTimeout(startRecording, 700);
+          }
         });
-        recorder.start();
+        recorder.addEventListener("error", (event) => {
+          console.error("MediaRecorder error", event.error || event);
+          resetMic();
+          addMessage("assistant", "음성 녹음 연결을 다시 시작해 주세요.");
+        });
+        recorder.start(250);
         micButton.classList.add("listening");
         micButton.textContent = "■ 말 끝내기";
-        connection.innerHTML = "<strong>상태</strong> 학생 음성 듣는 중";
+        let remaining = conversationMode ? 10 : 8;
+        connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+        recordingCountdownTimer = setInterval(() => {
+          remaining -= 1;
+          if (remaining > 0 && recorder?.state === "recording") {
+            connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+          }
+        }, 1000);
         recordingTimer = setTimeout(() => {
           if (recorder?.state === "recording") recorder.stop();
-        }, conversationMode ? 8000 : 6000);
+        }, conversationMode ? 10000 : 8000);
       } catch (error) {
         resetMic();
         addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
