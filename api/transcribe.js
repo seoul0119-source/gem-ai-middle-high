@@ -22,11 +22,15 @@ export default async function handler(request, response) {
     const mimeType = String(request.body?.mimeType || "audio/webm").split(";")[0];
     const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
     const form = new FormData();
+    const courseId = String(request.body?.courseId || "");
+    const isMath = courseId.includes("math");
     form.append("file", new Blob([Buffer.from(base64, "base64")], { type: mimeType }), `student.${extension}`);
     form.append("model", "gpt-4o-mini-transcribe");
-    form.append("language", "en");
+    form.append("language", isMath ? "ko" : "en");
     form.append("response_format", "json");
-    form.append("prompt", "A Korean middle school student is repeating one English vocabulary word or a short English example sentence. Preserve the intended English spelling.");
+    form.append("prompt", isMath
+      ? "한국 중학교 1학년 학생이 수학 답을 말합니다. 숫자, 음수, 분수, 제곱, 루트, 좌표, 사분면, 이상, 이하, 합집합, 교집합 표현을 정확한 한국어와 일반 키보드 수식으로 보존하세요."
+      : "A Korean middle school student is repeating one English vocabulary word or a short English example sentence. Preserve the intended English spelling.");
 
     const result = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
