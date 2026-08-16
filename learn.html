@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GEM AI 중1 영어 단어 Lv.7</title>
+  <title>GEM AI Learning Mission Class</title>
   <style>
     * { box-sizing: border-box; }
     :root {
@@ -159,19 +159,19 @@
 <body>
   <header>
     <div class="brand">GEM AI LEARNING MISSION CLASS</div>
-    <h1>중1 영어 단어 Lv.7</h1>
+    <h1 id="course-title">GEM AI 수업</h1>
     <p>AI가 가르치고, 사람 교사가 책임집니다.</p>
   </header>
 
   <main>
     <section class="status" aria-label="수업 상태">
-      <span><strong>과목</strong> 영어 단어</span>
-      <span><strong>학년</strong> 중학교 1학년</span>
+      <span><strong>과목</strong> <span id="course-subject">수업</span></span>
+      <span><strong>학년</strong> <span id="course-grade">중학교 1학년</span></span>
       <span id="connection"><strong>상태</strong> 수업 준비</span>
     </section>
 
     <section id="chat" class="chat" aria-live="polite" aria-label="수업 대화">
-      <div class="message assistant">안녕하세요! “시작”이라고 입력하면 중1 영어 단어 수업을 바로 시작합니다.</div>
+      <div id="initial-message" class="message assistant">수업을 준비하고 있습니다.</div>
     </section>
 
     <form id="chat-form">
@@ -191,7 +191,27 @@
   </main>
 
   <script>
-    const COURSE_ID = "m1-english-word";
+    const COURSE_CONFIGS = {
+      "m1-english-word": {
+        title: "중1 영어 단어 Lv.7",
+        subject: "영어 단어",
+        grade: "중학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 중1 영어 단어 수업을 바로 시작합니다.",
+        placeholder: "시작 또는 답을 입력하세요",
+        voice: true
+      },
+      "m1-math": {
+        title: "중1 수학 Lv.7 시험판",
+        subject: "수학",
+        grade: "중학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 수학 문제 10개를 한 문제씩 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요",
+        voice: false
+      }
+    };
+    const requestedCourse = new URLSearchParams(location.search).get("course");
+    const COURSE_ID = COURSE_CONFIGS[requestedCourse] ? requestedCourse : "m1-english-word";
+    const COURSE = COURSE_CONFIGS[COURSE_ID];
     const messages = [];
     const chat = document.getElementById("chat");
     const form = document.getElementById("chat-form");
@@ -199,12 +219,31 @@
     const sendButton = document.getElementById("send");
     const micButton = document.getElementById("mic");
     const connection = document.getElementById("connection");
-    let lastAssistantText = "안녕하세요! 시작이라고 입력하면 중1 영어 단어 수업을 바로 시작합니다.";
+    const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
+    let courseHistory = [];
+    try {
+      const savedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      courseHistory = Array.isArray(savedHistory) ? savedHistory.slice(-60) : [];
+    } catch (_) {
+      courseHistory = [];
+    }
+    let lastAssistantText = COURSE.greeting;
     let recorder = null;
     let recordingStream = null;
     let recordingChunks = [];
     let recordingTimer = null;
     let currentAudio = null;
+
+    document.title = `GEM AI ${COURSE.title}`;
+    document.getElementById("course-title").textContent = COURSE.title;
+    document.getElementById("course-subject").textContent = COURSE.subject;
+    document.getElementById("course-grade").textContent = COURSE.grade;
+    document.getElementById("initial-message").textContent = COURSE.greeting;
+    input.placeholder = COURSE.placeholder;
+    if (!COURSE.voice) {
+      micButton.hidden = true;
+      document.getElementById("speak").hidden = true;
+    }
 
     function cleanForDisplay(text) {
       return String(text || "")
@@ -281,22 +320,37 @@
         : "<strong>상태</strong> 수업 진행 중";
     }
 
+    function rememberMathProblem(text) {
+      if (COURSE_ID !== "m1-math") return;
+      const clean = cleanForDisplay(text);
+      const match = clean.match(/문제\s*\d+\s*\/\s*10[\s\S]*/i);
+      if (!match) return;
+      const problem = match[0].slice(0, 700).trim();
+      if (!problem || courseHistory.includes(problem)) return;
+      courseHistory.push(problem);
+      courseHistory = courseHistory.slice(-60);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(courseHistory));
+    }
+
     async function sendMessage(text) {
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       setLoading(true);
       const isStarting = /^(시작|시작하기|start)$/i.test(text.trim());
-      const typing = addMessage(
-        "assistant",
-        isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…",
-        "typing"
-      );
+      const loadingText = COURSE_ID === "m1-math"
+        ? (isStarting ? "새 수학 문제를 만들고 검산하고 있습니다…" : "답을 확인하고 다음 단계를 준비하고 있습니다…")
+        : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
+      const typing = addMessage("assistant", loadingText, "typing");
 
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ courseId: COURSE_ID, messages })
+          body: JSON.stringify({
+            courseId: COURSE_ID,
+            messages,
+            history: COURSE_ID === "m1-math" ? courseHistory : []
+          })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
@@ -305,7 +359,8 @@
         lastAssistantText = cleanForDisplay(data.text);
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: data.text });
-        speakText(lastAssistantText);
+        rememberMathProblem(data.text);
+        if (COURSE.voice) speakText(lastAssistantText);
       } catch (error) {
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
@@ -327,13 +382,14 @@
     document.getElementById("restart").addEventListener("click", () => {
       messages.length = 0;
       chat.replaceChildren();
-      addMessage("assistant", "새 수업을 준비했습니다. “시작”이라고 입력해 주세요.");
+      lastAssistantText = COURSE.greeting;
+      addMessage("assistant", `새 수업을 준비했습니다. ${COURSE.greeting}`);
       connection.innerHTML = "<strong>상태</strong> 수업 준비";
       input.focus();
     });
 
     document.getElementById("speak").addEventListener("click", () => {
-      speakText(lastAssistantText);
+      if (COURSE.voice) speakText(lastAssistantText);
     });
 
     function resetMic() {
@@ -372,6 +428,7 @@
     }
 
     async function startRecording() {
+      if (!COURSE.voice) return;
       if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
         addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
         return;
