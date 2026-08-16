@@ -123,6 +123,7 @@
     .mic.listening { background: #c43d4d; }
     .actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 9px;
       margin-top: 10px;
     }
@@ -144,6 +145,56 @@
       font-size: 13px;
       line-height: 1.6;
     }
+    .math-tools {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid #cbd7e7;
+      border-radius: 14px;
+      background: white;
+    }
+    .math-tools.open { display: block; }
+    .tool-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .math-key {
+      min-width: 62px;
+      padding: 9px 11px;
+      border: 1px solid #b9c9de;
+      background: #f4f8fe;
+      color: #173d70;
+      font-size: 15px;
+    }
+    .math-help { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .large-view {
+      display: block;
+      margin-top: 9px;
+      padding: 7px 10px;
+      border: 1px solid #afc4df;
+      background: white;
+      color: #173d70;
+      font-size: 13px;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(7, 22, 45, .68);
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: min(900px, 98vw);
+      max-height: 88vh;
+      overflow: auto;
+      padding: 22px;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 14px 45px rgba(0, 0, 0, .3);
+    }
+    .modal-text { white-space: pre-wrap; font-size: clamp(19px, 3vw, 28px); line-height: 1.8; }
+    .modal-close { float: right; padding: 9px 13px; }
     @media (max-width: 520px) {
       main { width: 96%; margin-top: 10px; }
       .chat { min-height: 390px; padding: 13px; }
@@ -182,13 +233,40 @@
 
     <div class="actions">
       <button id="speak" class="secondary" type="button">🔊 다시 듣기</button>
+      <button id="auto-speak" class="secondary" type="button" hidden>🔊 음성 계속</button>
+      <button id="math-tools-toggle" class="secondary" type="button" hidden>⌨ 수학 입력 도구</button>
       <button id="restart" class="secondary" type="button">↻ 새 수업</button>
     </div>
+
+    <section id="math-tools" class="math-tools" aria-label="수학 입력 도구">
+      <div class="tool-grid">
+        <button class="math-key" type="button" data-insert="^2">x²</button>
+        <button class="math-key" type="button" data-insert="^3">x³</button>
+        <button class="math-key" type="button" data-insert="sqrt()">√</button>
+        <button class="math-key" type="button" data-insert="/">분수 /</button>
+        <button class="math-key" type="button" data-insert="<=">≤</button>
+        <button class="math-key" type="button" data-insert=">=">≥</button>
+        <button class="math-key" type="button" data-insert="!=">≠</button>
+        <button class="math-key" type="button" data-insert="pi">π</button>
+        <button class="math-key" type="button" data-insert="()">( )</button>
+        <button class="math-key" type="button" data-insert="|x|">|x|</button>
+        <button class="math-key" type="button" data-insert=" 합집합 ">∪</button>
+        <button class="math-key" type="button" data-insert=" 교집합 ">∩</button>
+      </div>
+      <p class="math-help">예: x²는 x^2 · √2는 sqrt(2) · 2/3 · x≤3은 x&lt;=3 · 집합은 {1,2,3}처럼 입력합니다.</p>
+    </section>
 
     <div class="notice">
       이 수업은 보호자 또는 교사의 지도 아래 이용합니다. 이름·학교·주소·전화번호 등 개인정보를 입력하지 마세요.
     </div>
   </main>
+
+  <div id="large-modal" class="modal" role="dialog" aria-modal="true" aria-label="도표 크게 보기">
+    <div class="modal-card">
+      <button id="modal-close" class="modal-close" type="button">닫기</button>
+      <div id="modal-text" class="modal-text"></div>
+    </div>
+  </div>
 
   <script>
     const COURSE_CONFIGS = {
@@ -219,6 +297,11 @@
     const sendButton = document.getElementById("send");
     const micButton = document.getElementById("mic");
     const connection = document.getElementById("connection");
+    const autoSpeakButton = document.getElementById("auto-speak");
+    const mathToolsToggle = document.getElementById("math-tools-toggle");
+    const mathTools = document.getElementById("math-tools");
+    const largeModal = document.getElementById("large-modal");
+    const modalText = document.getElementById("modal-text");
     const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
     let courseHistory = [];
     try {
@@ -233,6 +316,7 @@
     let recordingChunks = [];
     let recordingTimer = null;
     let currentAudio = null;
+    let autoSpeak = false;
 
     document.title = `GEM AI ${COURSE.title}`;
     document.getElementById("course-title").textContent = COURSE.title;
@@ -243,6 +327,8 @@
     if (!COURSE.voice) {
       micButton.hidden = true;
       document.getElementById("speak").hidden = true;
+      autoSpeakButton.hidden = false;
+      mathToolsToggle.hidden = false;
     }
 
     function cleanForDisplay(text) {
@@ -251,6 +337,22 @@
         .replace(/\*\*|__|`|#+\s?/g, "")
         .replace(/^\s*[-*]\s+/gm, "• ")
         .trim();
+    }
+
+    function cleanMathForSpeech(text) {
+      return cleanForDisplay(text)
+        .replace(/\[도표 시작\]|\[도표 끝\]/g, "")
+        .replace(/sqrt\(([^)]+)\)/gi, "$1의 제곱근")
+        .replace(/([A-Za-z0-9가-힣)])\^2/g, "$1의 제곱")
+        .replace(/([A-Za-z0-9가-힣)])\^3/g, "$1의 세제곱")
+        .replace(/≤|<=/g, " 이하 ")
+        .replace(/≥|>=/g, " 이상 ")
+        .replace(/≠|!=/g, " 같지 않음 ")
+        .replace(/×|\*/g, " 곱하기 ")
+        .replace(/÷/g, " 나누기 ")
+        .replace(/π/g, " 파이 ")
+        .replace(/∪/g, " 합집합 ")
+        .replace(/∩/g, " 교집합 ");
     }
 
     function getVoice(language) {
@@ -282,7 +384,7 @@
     }
 
     async function speakText(text) {
-      const clean = cleanForDisplay(text);
+      const clean = COURSE_ID === "m1-math" ? cleanMathForSpeech(text) : cleanForDisplay(text);
       if (!clean) return;
       if (currentAudio) currentAudio.pause();
       window.speechSynthesis?.cancel();
@@ -307,6 +409,17 @@
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
       element.textContent = text;
+      if (role === "assistant" && COURSE_ID === "m1-math" && /(좌표|그래프|도표|표\s|도형|히스토그램|수직선|사분면)/.test(text)) {
+        const expand = document.createElement("button");
+        expand.type = "button";
+        expand.className = "large-view";
+        expand.textContent = "🔍 도표·문제 크게 보기";
+        expand.addEventListener("click", () => {
+          modalText.textContent = text;
+          largeModal.classList.add("open");
+        });
+        element.appendChild(expand);
+      }
       chat.appendChild(element);
       chat.scrollTop = chat.scrollHeight;
       return element;
@@ -360,7 +473,7 @@
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: data.text });
         rememberMathProblem(data.text);
-        if (COURSE.voice) speakText(lastAssistantText);
+        if (COURSE.voice || autoSpeak) speakText(lastAssistantText);
       } catch (error) {
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
@@ -390,6 +503,42 @@
 
     document.getElementById("speak").addEventListener("click", () => {
       if (COURSE.voice) speakText(lastAssistantText);
+    });
+
+    autoSpeakButton.addEventListener("click", () => {
+      autoSpeak = !autoSpeak;
+      autoSpeakButton.textContent = autoSpeak ? "■ 음성 멈춤" : "🔊 음성 계속";
+      if (autoSpeak) {
+        speakText(lastAssistantText);
+      } else {
+        currentAudio?.pause();
+        window.speechSynthesis?.cancel();
+      }
+    });
+
+    mathToolsToggle.addEventListener("click", () => {
+      const open = mathTools.classList.toggle("open");
+      mathToolsToggle.textContent = open ? "⌨ 입력 도구 닫기" : "⌨ 수학 입력 도구";
+    });
+
+    document.querySelectorAll(".math-key").forEach((button) => {
+      button.addEventListener("click", () => {
+        const value = button.dataset.insert || "";
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        input.value = input.value.slice(0, start) + value + input.value.slice(end);
+        const cursor = value === "()" || value === "sqrt()" ? start + value.length - 1 : start + value.length;
+        input.focus();
+        input.setSelectionRange(cursor, cursor);
+      });
+    });
+
+    function closeLargeModal() {
+      largeModal.classList.remove("open");
+    }
+    document.getElementById("modal-close").addEventListener("click", closeLargeModal);
+    largeModal.addEventListener("click", (event) => {
+      if (event.target === largeModal) closeLargeModal();
     });
 
     function resetMic() {
