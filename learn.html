@@ -408,9 +408,10 @@
     let lastAssistantText = COURSE.greeting;
     let recorder = null;
     let recordingStream = null;
-    let recordingChunks = [];
     let recordingTimer = null;
     let recordingCountdownTimer = null;
+    let nextRecordingTimer = null;
+    let recordingStarting = false;
     let audioContext = null;
     let audioLevelTimer = null;
     let heardSpeech = false;
@@ -658,7 +659,7 @@
       } finally {
         setLoading(false);
         input.focus();
-        if (conversationMode) setTimeout(startRecording, 250);
+        scheduleRecording(450);
       }
     }
 
@@ -688,13 +689,21 @@
       autoSpeak = conversationMode;
       micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
       if (conversationMode) {
+        discardRecording = false;
         connection.innerHTML = "<strong>상태</strong> 학생 음성 준비 중";
         // The question has already been spoken. Start listening immediately so
         // an answer given right after the button click is never missed.
         startRecording();
       } else {
+        clearTimeout(nextRecordingTimer);
+        nextRecordingTimer = null;
         discardRecording = true;
-        if (recorder?.state === "recording") recorder.stop();
+        if (recorder?.state === "recording") {
+          recorder.stop();
+        } else {
+          resetMic(true);
+          discardRecording = false;
+        }
         currentAudio?.pause();
         window.speechSynthesis?.cancel();
         connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
@@ -726,22 +735,36 @@
       if (event.target === largeModal) closeLargeModal();
     });
 
-    function resetMic() {
+    function resetMic(releaseStream = false) {
       clearTimeout(recordingTimer);
       clearInterval(recordingCountdownTimer);
       clearInterval(audioLevelTimer);
       audioContext?.close().catch(() => {});
       audioContext = null;
-      recordingStream?.getTracks().forEach((track) => track.stop());
-      recordingStream = null;
+      if (releaseStream) {
+        recordingStream?.getTracks().forEach((track) => track.stop());
+        recordingStream = null;
+      }
       recorder = null;
+      recordingStarting = false;
       micButton.classList.remove("listening");
       micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+    }
+
+    function scheduleRecording(delay = 500) {
+      clearTimeout(nextRecordingTimer);
+      nextRecordingTimer = null;
+      if (!conversationMode || input.disabled) return;
+      nextRecordingTimer = setTimeout(() => {
+        nextRecordingTimer = null;
+        startRecording();
+      }, delay);
     }
 
     async function transcribeRecording(blob) {
       connection.innerHTML = "<strong>상태</strong> 학생 음성 인식 중";
       micButton.disabled = true;
+      let sentToTeacher = false;
       try {
         const audio = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -767,6 +790,7 @@
         // The recognized answer is already rendered as a user message. Clear
         // the input so the previous answer never remains under the next problem.
         input.value = "";
+        sentToTeacher = true;
         await sendMessage(data.text, "voice");
       } catch (error) {
         if (!voiceFailureNoticeShown) {
@@ -776,25 +800,45 @@
       } finally {
         micButton.disabled = false;
         if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
-        if (conversationMode && !input.disabled) setTimeout(startRecording, 400);
+        // A successful answer is restarted by sendMessage after the teacher has
+        // finished speaking. Only transcription failures restart from here.
+        if (!sentToTeacher) scheduleRecording(700);
       }
     }
 
     async function startRecording() {
       if (!COURSE.voice && !conversationMode && !IS_MATH) return;
-      if (input.disabled || recorder?.state === "recording") return;
+      if (input.disabled || recordingStarting || recorder?.state === "recording") return;
       if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
         addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
         return;
       }
-      if (recorder?.state === "recording") {
-        recorder.stop();
-        return;
-      }
+      recordingStarting = true;
       try {
         currentAudio?.pause();
         window.speechSynthesis?.cancel();
-        recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        let stream = recordingStream;
+        const hasLiveTrack = stream?.active
+          && stream.getAudioTracks().some((track) => track.readyState === "live");
+        if (!hasLiveTrack) {
+          recordingStream?.getTracks().forEach((track) => track.stop());
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1
+            }
+          });
+          recordingStream = stream;
+        }
+        if (!conversationMode) {
+          stream.getTracks().forEach((track) => track.stop());
+          recordingStream = null;
+          recordingStarting = false;
+          discardRecording = false;
+          return;
+        }
         heardSpeech = false;
         speechFrameCount = 0;
         try {
@@ -820,20 +864,22 @@
           console.warn("Voice level detection unavailable", error);
           heardSpeech = true;
         }
-        recordingChunks = [];
+        const chunks = [];
         const preferredType = MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
           ? "audio/webm;codecs=opus"
           : "";
-        recorder = preferredType
+        const activeRecorder = preferredType
           ? new MediaRecorder(recordingStream, { mimeType: preferredType })
           : new MediaRecorder(recordingStream);
-        recorder.addEventListener("dataavailable", (event) => {
-          if (event.data.size) recordingChunks.push(event.data);
+        recorder = activeRecorder;
+        activeRecorder.addEventListener("dataavailable", (event) => {
+          if (event.data.size) chunks.push(event.data);
         });
-        recorder.addEventListener("stop", () => {
-          const blob = new Blob(recordingChunks, { type: recorder.mimeType || "audio/webm" });
-          resetMic();
-          if (discardRecording) {
+        activeRecorder.addEventListener("stop", () => {
+          const blob = new Blob(chunks, { type: activeRecorder.mimeType || "audio/webm" });
+          const shouldDiscard = discardRecording || !conversationMode;
+          resetMic(shouldDiscard);
+          if (shouldDiscard) {
             discardRecording = false;
             return;
           }
@@ -846,15 +892,19 @@
               addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
               voiceFailureNoticeShown = true;
             }
-            if (conversationMode) setTimeout(startRecording, 700);
+            scheduleRecording(700);
           }
         });
-        recorder.addEventListener("error", (event) => {
+        activeRecorder.addEventListener("error", (event) => {
           console.error("MediaRecorder error", event.error || event);
-          resetMic();
+          resetMic(true);
           addMessage("assistant", "음성 녹음 연결을 다시 시작해 주세요.");
+          scheduleRecording(1200);
         });
-        recorder.start(250);
+        // One complete container per answer is more reliable than concatenating
+        // time-sliced WebM fragments across repeated recording sessions.
+        activeRecorder.start();
+        recordingStarting = false;
         micButton.classList.add("listening");
         micButton.textContent = "■ 음성 대화 멈춤";
         let remaining = conversationMode ? 10 : 8;
@@ -869,7 +919,8 @@
           if (recorder?.state === "recording") recorder.stop();
         }, conversationMode ? 10000 : 8000);
       } catch (error) {
-        resetMic();
+        recordingStarting = false;
+        resetMic(true);
         addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
       }
     }
