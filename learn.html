@@ -191,6 +191,46 @@
     .visual-bar-row { display: grid; grid-template-columns: minmax(62px, auto) 1fr auto; gap: 8px; align-items: center; }
     .visual-bar-track { height: 18px; overflow: hidden; border-radius: 9px; background: #e6edf7; }
     .visual-bar-fill { height: 100%; border-radius: 9px; background: linear-gradient(90deg, #1e67c6, #65a7ed); }
+    .toeic-scene-card {
+      width: 100%;
+      margin-top: 12px;
+      overflow: hidden;
+      border: 1px solid #b8cce5;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 5px 16px rgba(15, 52, 96, .09);
+    }
+    .toeic-scene-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0;
+      padding: 10px 13px;
+      color: #173d70;
+      background: #edf5ff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .toeic-scene-heading span {
+      color: #617189;
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .toeic-scene-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      background: #e9f3ff;
+    }
+    .toeic-scene-note {
+      margin: 0;
+      padding: 9px 13px 11px;
+      color: #59677c;
+      font-size: 12px;
+      line-height: 1.5;
+    }
     .modal {
       position: fixed;
       inset: 0;
@@ -213,6 +253,7 @@
     }
     .modal-text { white-space: pre-wrap; font-size: clamp(17px, 2.5vw, 24px); line-height: 1.8; }
     .modal-text .visual-table { font-size: inherit; }
+    .modal-text .toeic-scene-card { margin-top: 46px; }
     .modal-close { float: right; padding: 9px 13px; }
     @media (max-width: 520px) {
       main { width: 96%; margin-top: 10px; }
@@ -223,6 +264,7 @@
       form { flex-wrap: wrap; }
       input { flex-basis: calc(100% - 84px); }
       .mic { order: 3; width: 100%; min-height: 48px; }
+      .toeic-scene-heading { align-items: flex-start; flex-direction: column; }
     }
   </style>
 </head>
@@ -547,7 +589,9 @@
     }
 
     async function speakText(text) {
-      const withoutRawVisual = String(text || "").replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "");
+      const withoutRawVisual = String(text || "")
+        .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
+        .replace(/\[TOEIC 그림 시작\][\s\S]*?\[TOEIC 그림 끝\]/g, "");
       const clean = IS_MATH ? cleanMathForSpeech(withoutRawVisual) : cleanForDisplay(withoutRawVisual);
       if (!clean) return;
       if (currentAudio) currentAudio.pause();
@@ -574,11 +618,220 @@
     }
 
     function extractVisual(text) {
-      const match = String(text || "").match(/\[도표 시작\]([\s\S]*?)\[도표 끝\]/);
+      const output = String(text || "");
+      const visualMatch = output.match(/\[도표 시작\]([\s\S]*?)\[도표 끝\]/);
+      const sceneMatch = output.match(/\[TOEIC 그림 시작\]([\s\S]*?)\[TOEIC 그림 끝\]/);
+      const withoutVisualBlock = (value) => String(value || "")
+        .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
+        .trim();
+      const sceneBefore = sceneMatch ? withoutVisualBlock(output.slice(0, sceneMatch.index)) : "";
+      const sceneAfter = sceneMatch
+        ? withoutVisualBlock(output.slice((sceneMatch.index || 0) + sceneMatch[0].length))
+        : "";
       return {
-        body: String(text || "").replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "").trim(),
-        visual: match ? match[1].trim() : ""
+        body: output
+          .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
+          .replace(/\[TOEIC 그림 시작\][\s\S]*?\[TOEIC 그림 끝\]/g, "")
+          .trim(),
+        visual: visualMatch ? visualMatch[1].trim() : "",
+        toeicScene: sceneMatch ? sceneMatch[1].trim() : "",
+        sceneBefore,
+        sceneAfter
       };
+    }
+
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
+    function addSvg(parent, name, attributes = {}, textContent = "") {
+      const node = document.createElementNS(SVG_NS, name);
+      Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (textContent) node.textContent = textContent;
+      parent.appendChild(node);
+      return node;
+    }
+
+    function drawBox(svg, x, y, width = 78, height = 58, label = false) {
+      addSvg(svg, "rect", { x, y, width, height, rx: 3, fill: "#c88a47", stroke: "#84552b", "stroke-width": 3 });
+      addSvg(svg, "path", { d: `M ${x + width / 2} ${y} V ${y + height} M ${x} ${y + 15} H ${x + width}`, stroke: "#9b6534", "stroke-width": 2, fill: "none" });
+      if (label) addSvg(svg, "rect", { x: x + width * .58, y: y + 22, width: width * .3, height: 18, rx: 2, fill: "#fff", stroke: "#b8c4d4" });
+    }
+
+    function drawShelf(svg, x, y, width = 145, height = 190) {
+      addSvg(svg, "rect", { x, y, width, height, rx: 4, fill: "#dce6ef", stroke: "#61738b", "stroke-width": 5 });
+      [52, 104, 156].forEach((offset) => addSvg(svg, "line", { x1: x, y1: y + offset, x2: x + width, y2: y + offset, stroke: "#61738b", "stroke-width": 5 }));
+      [[12, 16, 46, 31], [72, 18, 55, 29], [18, 70, 55, 29], [87, 68, 40, 31], [12, 122, 43, 29], [69, 119, 58, 32]].forEach(([dx, dy, w, h]) => {
+        addSvg(svg, "rect", { x: x + dx, y: y + dy, width: w, height: h, rx: 2, fill: "#c88a47", stroke: "#8b5e31", "stroke-width": 2 });
+      });
+    }
+
+    function drawTree(svg, x, ground, scale = 1) {
+      addSvg(svg, "rect", { x: x - 9 * scale, y: ground - 92 * scale, width: 18 * scale, height: 92 * scale, rx: 6, fill: "#82552f" });
+      addSvg(svg, "circle", { cx: x, cy: ground - 120 * scale, r: 45 * scale, fill: "#4b9a5a" });
+      addSvg(svg, "circle", { cx: x - 30 * scale, cy: ground - 105 * scale, r: 29 * scale, fill: "#63ad66" });
+      addSvg(svg, "circle", { cx: x + 30 * scale, cy: ground - 104 * scale, r: 31 * scale, fill: "#63ad66" });
+    }
+
+    function drawPerson(svg, x, ground, pose = "standing", color = "#2d6fbb") {
+      const skin = "#d9a06f";
+      addSvg(svg, "circle", { cx: x, cy: ground - 127, r: 23, fill: skin, stroke: "#704b35", "stroke-width": 2 });
+      addSvg(svg, "path", { d: `M ${x - 22} ${ground - 137} Q ${x} ${ground - 164} ${x + 22} ${ground - 137}`, fill: "#26384e" });
+      addSvg(svg, "rect", { x: x - 26, y: ground - 102, width: 52, height: 70, rx: 16, fill: color, stroke: "#163a64", "stroke-width": 2 });
+      const legY = ground - 33;
+      addSvg(svg, "line", { x1: x - 13, y1: legY, x2: x - 18, y2: ground, stroke: "#28384f", "stroke-width": 12, "stroke-linecap": "round" });
+      addSvg(svg, "line", { x1: x + 13, y1: legY, x2: x + 18, y2: ground, stroke: "#28384f", "stroke-width": 12, "stroke-linecap": "round" });
+      if (pose === "reaching") {
+        addSvg(svg, "line", { x1: x + 20, y1: ground - 88, x2: x + 82, y2: ground - 70, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+        addSvg(svg, "line", { x1: x - 20, y1: ground - 88, x2: x - 38, y2: ground - 42, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+      } else if (pose === "carrying") {
+        addSvg(svg, "line", { x1: x - 20, y1: ground - 86, x2: x - 43, y2: ground - 55, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+        addSvg(svg, "line", { x1: x + 20, y1: ground - 86, x2: x + 43, y2: ground - 55, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+      } else {
+        addSvg(svg, "line", { x1: x - 21, y1: ground - 88, x2: x - 34, y2: ground - 37, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+        addSvg(svg, "line", { x1: x + 21, y1: ground - 88, x2: x + 34, y2: ground - 37, stroke: skin, "stroke-width": 12, "stroke-linecap": "round" });
+      }
+    }
+
+    function drawSceneBackground(svg, place) {
+      const outdoor = ["street", "park", "garden"].includes(place);
+      addSvg(svg, "rect", { x: 0, y: 0, width: 720, height: 405, fill: outdoor ? "#d9efff" : "#edf3f8" });
+      addSvg(svg, "rect", { x: 0, y: outdoor ? 280 : 300, width: 720, height: outdoor ? 125 : 105, fill: outdoor ? (place === "street" ? "#606a76" : "#88bf70") : "#c6d1dc" });
+
+      if (place === "warehouse") {
+        drawShelf(svg, 28, 92);
+        drawShelf(svg, 548, 92);
+        addSvg(svg, "rect", { x: 276, y: 28, width: 168, height: 45, rx: 7, fill: "#173d70" });
+        addSvg(svg, "text", { x: 360, y: 57, fill: "#fff", "text-anchor": "middle", "font-size": 19, "font-family": "Arial", "font-weight": 700 }, "WAREHOUSE");
+      } else if (["office", "meeting-room"].includes(place)) {
+        addSvg(svg, "rect", { x: 35, y: 48, width: 190, height: 128, rx: 5, fill: "#bfe3ff", stroke: "#6c8eaa", "stroke-width": 5 });
+        addSvg(svg, "line", { x1: 130, y1: 48, x2: 130, y2: 176, stroke: "#6c8eaa", "stroke-width": 4 });
+        addSvg(svg, "line", { x1: 35, y1: 112, x2: 225, y2: 112, stroke: "#6c8eaa", "stroke-width": 4 });
+        addSvg(svg, "rect", { x: place === "meeting-room" ? 180 : 410, y: 255, width: place === "meeting-room" ? 390 : 230, height: 28, rx: 6, fill: "#98623b" });
+        addSvg(svg, "rect", { x: place === "meeting-room" ? 205 : 432, y: 283, width: 18, height: 52, fill: "#6b4931" });
+        addSvg(svg, "rect", { x: place === "meeting-room" ? 528 : 606, y: 283, width: 18, height: 52, fill: "#6b4931" });
+      } else if (["cafe", "restaurant"].includes(place)) {
+        addSvg(svg, "rect", { x: 45, y: 38, width: 230, height: 112, rx: 8, fill: "#24445f" });
+        addSvg(svg, "text", { x: 160, y: 96, fill: "#fff1cc", "text-anchor": "middle", "font-size": 27, "font-family": "Arial", "font-weight": 700 }, place === "cafe" ? "CAFÉ" : "RESTAURANT");
+        addSvg(svg, "rect", { x: 55, y: 250, width: 610, height: 55, rx: 7, fill: "#b37643" });
+      } else if (["store", "library", "classroom"].includes(place)) {
+        if (place !== "classroom") {
+          drawShelf(svg, 35, 90, 170, 195);
+          drawShelf(svg, 515, 90, 170, 195);
+        } else {
+          addSvg(svg, "rect", { x: 70, y: 45, width: 580, height: 160, rx: 5, fill: "#3d715b", stroke: "#5b4935", "stroke-width": 8 });
+          addSvg(svg, "path", { d: "M 160 255 H 320 M 400 255 H 560", stroke: "#9b693e", "stroke-width": 24, "stroke-linecap": "round" });
+        }
+      } else if (["station", "airport", "hotel"].includes(place)) {
+        const sign = place === "airport" ? "DEPARTURES" : place === "station" ? "PLATFORM" : "RECEPTION";
+        addSvg(svg, "rect", { x: 230, y: 35, width: 260, height: 56, rx: 8, fill: "#173d70" });
+        addSvg(svg, "text", { x: 360, y: 70, fill: "#fff", "text-anchor": "middle", "font-size": 20, "font-family": "Arial", "font-weight": 700 }, sign);
+        addSvg(svg, "rect", { x: 400, y: 247, width: 250, height: 58, rx: 7, fill: "#a9774e" });
+        addSvg(svg, "rect", { x: 75, y: 255, width: 190, height: 22, rx: 8, fill: "#51677e" });
+      } else if (place === "street") {
+        [45, 225, 520].forEach((x, index) => {
+          addSvg(svg, "rect", { x, y: 90 - index * 12, width: 145, height: 190 + index * 12, fill: ["#d79175", "#e0b66d", "#8db0cb"][index] });
+          [0, 1, 2].forEach((row) => [0, 1].forEach((column) => addSvg(svg, "rect", { x: x + 22 + column * 68, y: 120 + row * 45, width: 32, height: 27, fill: "#d9f0ff" })));
+        });
+        addSvg(svg, "line", { x1: 0, y1: 345, x2: 720, y2: 345, stroke: "#f6e39b", "stroke-width": 7, "stroke-dasharray": "32 25" });
+      } else {
+        drawTree(svg, 110, 300, 1);
+        drawTree(svg, 610, 300, .85);
+        addSvg(svg, "rect", { x: 250, y: 265, width: 220, height: 20, rx: 7, fill: "#7b5134" });
+        addSvg(svg, "rect", { x: 275, y: 285, width: 14, height: 45, fill: "#5e422e" });
+        addSvg(svg, "rect", { x: 430, y: 285, width: 14, height: 45, fill: "#5e422e" });
+      }
+    }
+
+    function drawToeicAction(svg, action, people) {
+      let drawn = 0;
+      if (action === "labeling-box") {
+        addSvg(svg, "rect", { x: 365, y: 268, width: 245, height: 18, rx: 5, fill: "#815532" });
+        drawBox(svg, 430, 205, 105, 63, true);
+        drawPerson(svg, 310, 334, "reaching", "#2b76b9"); drawn = 1;
+      } else if (action === "carrying-box") {
+        drawPerson(svg, 360, 334, "carrying", "#3d805b");
+        drawBox(svg, 315, 238, 90, 62, false); drawn = 1;
+      } else if (action === "typing-computer") {
+        addSvg(svg, "rect", { x: 315, y: 257, width: 280, height: 22, rx: 5, fill: "#8b5b39" });
+        addSvg(svg, "rect", { x: 430, y: 181, width: 115, height: 75, rx: 5, fill: "#24364a", stroke: "#64778e", "stroke-width": 5 });
+        addSvg(svg, "rect", { x: 475, y: 256, width: 24, height: 24, fill: "#64778e" });
+        drawPerson(svg, 330, 334, "reaching", "#7653a4"); drawn = 1;
+      } else if (["reading-document", "writing-document"].includes(action)) {
+        addSvg(svg, "rect", { x: 300, y: 265, width: 300, height: 20, rx: 5, fill: "#8b5b39" });
+        addSvg(svg, "rect", { x: 435, y: 237, width: 88, height: 55, rx: 2, fill: "#fff", stroke: "#8798ac", "stroke-width": 3, transform: "rotate(-5 479 264)" });
+        drawPerson(svg, 320, 334, "reaching", "#2b76b9"); drawn = 1;
+        if (action === "writing-document") addSvg(svg, "line", { x1: 380, y1: 265, x2: 465, y2: 253, stroke: "#24364a", "stroke-width": 5, "stroke-linecap": "round" });
+      } else if (["talking", "meeting"].includes(action)) {
+        drawPerson(svg, 275, 334, "standing", "#2b76b9");
+        drawPerson(svg, 455, 334, "standing", "#b75d55"); drawn = 2;
+        if (action === "meeting") {
+          addSvg(svg, "ellipse", { cx: 365, cy: 288, rx: 140, ry: 24, fill: "#8b5b39" });
+          addSvg(svg, "rect", { x: 355, y: 289, width: 20, height: 50, fill: "#6a472f" });
+        }
+      } else if (action === "serving-drink") {
+        drawPerson(svg, 290, 334, "reaching", "#7d4f9e");
+        addSvg(svg, "rect", { x: 400, y: 242, width: 220, height: 65, rx: 8, fill: "#a96f40" });
+        addSvg(svg, "rect", { x: 445, y: 216, width: 34, height: 28, rx: 5, fill: "#fff", stroke: "#597189", "stroke-width": 3 });
+        addSvg(svg, "path", { d: "M 479 222 Q 500 222 495 238 Q 490 248 479 240", fill: "none", stroke: "#597189", "stroke-width": 3 }); drawn = 1;
+      } else if (action === "loading-boxes") {
+        addSvg(svg, "rect", { x: 420, y: 178, width: 235, height: 120, rx: 12, fill: "#e7edf4", stroke: "#52677e", "stroke-width": 5 });
+        addSvg(svg, "circle", { cx: 468, cy: 305, r: 25, fill: "#28394d" });
+        addSvg(svg, "circle", { cx: 608, cy: 305, r: 25, fill: "#28394d" });
+        drawPerson(svg, 300, 334, "carrying", "#3d805b"); drawBox(svg, 258, 238, 84, 58); drawn = 1;
+      } else if (action === "cleaning") {
+        drawPerson(svg, 360, 334, "reaching", "#2b76b9");
+        addSvg(svg, "line", { x1: 415, y1: 250, x2: 455, y2: 340, stroke: "#70482b", "stroke-width": 7 });
+        addSvg(svg, "path", { d: "M 428 345 Q 462 326 495 350", fill: "#d7a439", stroke: "#916718", "stroke-width": 3 }); drawn = 1;
+      } else if (action === "sitting") {
+        addSvg(svg, "rect", { x: 312, y: 277, width: 105, height: 18, rx: 5, fill: "#52677e" });
+        drawPerson(svg, 360, 326, "standing", "#7653a4"); drawn = 1;
+      } else {
+        drawPerson(svg, 360, 334, "standing", action === "walking" ? "#3d805b" : "#2b76b9"); drawn = 1;
+      }
+
+      const target = Math.max(drawn, Math.min(3, Number(people) || 0));
+      const extraPositions = [150, 565, 85];
+      for (let index = drawn; index < target; index += 1) {
+        drawPerson(svg, extraPositions[index - drawn] || 120 + index * 180, 334, "standing", ["#b75d55", "#d08a36", "#496f99"][index % 3]);
+      }
+    }
+
+    function parseToeicScene(content) {
+      const values = {};
+      String(content || "").split("\n").forEach((line) => {
+        const match = line.match(/^([^:]+):\s*(.+)$/);
+        if (match) values[match[1].trim()] = match[2].trim();
+      });
+      return {
+        place: (values["장소"] || "office").toLowerCase(),
+        people: Number(values["인물"] || 1),
+        action: (values["행동"] || "standing").toLowerCase(),
+        background: values["배경"] || ""
+      };
+    }
+
+    function buildToeicSceneCard(content) {
+      const scene = parseToeicScene(content);
+      const placeLabels = { warehouse: "창고", office: "사무실", "meeting-room": "회의실", cafe: "카페", restaurant: "식당", store: "상점", station: "기차역", airport: "공항", street: "거리", park: "공원", garden: "정원", library: "도서관", classroom: "교실", hotel: "호텔" };
+      const actionLabels = { "labeling-box": "상자에 라벨을 붙이는", "carrying-box": "상자를 나르는", "typing-computer": "컴퓨터로 작업하는", "reading-document": "문서를 읽는", "writing-document": "문서를 작성하는", talking: "대화하는", meeting: "회의하는", "serving-drink": "음료를 건네는", "loading-boxes": "상자를 싣는", cleaning: "청소하는", walking: "걷는", sitting: "앉아 있는", standing: "서 있는" };
+      const placeLabel = placeLabels[scene.place] || "실내";
+      const actionLabel = actionLabels[scene.action] || "활동하는";
+      const card = document.createElement("section");
+      card.className = "toeic-scene-card";
+      const heading = document.createElement("p");
+      heading.className = "toeic-scene-heading";
+      heading.append("TOEIC Part 1 사진");
+      const instruction = document.createElement("span");
+      instruction.textContent = "그림과 가장 잘 맞는 문장을 고르세요.";
+      heading.appendChild(instruction);
+      card.appendChild(heading);
+      const svg = addSvg(card, "svg", { viewBox: "0 0 720 405", class: "toeic-scene-svg", role: "img", "aria-label": `${placeLabel}에서 ${actionLabel} 사람을 나타낸 그림`, preserveAspectRatio: "xMidYMid meet" });
+      drawSceneBackground(svg, scene.place);
+      drawToeicAction(svg, scene.action, scene.people);
+      const note = document.createElement("p");
+      note.className = "toeic-scene-note";
+      note.textContent = "장면의 사람, 행동, 물건과 위치를 차례로 살펴보세요.";
+      card.appendChild(note);
+      return card;
     }
 
     function buildVisualCard(content) {
@@ -637,7 +890,23 @@
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
       const parts = extractVisual(text);
-      element.textContent = parts.body;
+      const hasToeicScene = Boolean(parts.toeicScene);
+      if (role === "assistant" && hasToeicScene) {
+        if (parts.sceneBefore) element.appendChild(document.createTextNode(`${parts.sceneBefore}\n`));
+        element.appendChild(buildToeicSceneCard(parts.toeicScene));
+        const sceneExpand = document.createElement("button");
+        sceneExpand.type = "button";
+        sceneExpand.className = "large-view";
+        sceneExpand.textContent = "🖼 그림 크게 보기";
+        sceneExpand.addEventListener("click", () => {
+          modalText.replaceChildren(buildToeicSceneCard(parts.toeicScene));
+          largeModal.classList.add("open");
+        });
+        element.appendChild(sceneExpand);
+        if (parts.sceneAfter) element.appendChild(document.createTextNode(`\n${parts.sceneAfter}`));
+      } else {
+        element.textContent = parts.body;
+      }
       const hasVisual = Boolean(parts.visual);
       if (role === "assistant" && IS_VISUAL_LESSON && hasVisual) {
         element.appendChild(buildVisualCard(parts.visual));
