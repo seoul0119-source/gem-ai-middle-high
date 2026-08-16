@@ -78,6 +78,12 @@ function normalizeProblem(text) {
     .slice(0, 280);
 }
 
+function hasRequiredToeflBlank(text) {
+  const output = String(text || "");
+  if (!/Complete\s+the\s+Words/i.test(output)) return true;
+  return /[A-Za-z]{1,12}_{4,}[A-Za-z]{0,8}/.test(output);
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -113,12 +119,15 @@ export default async function handler(request, response) {
         : "";
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
+        const formatRepairRule = course.kind === "toefl" && attempt > 0
+          ? `\n\n[형식 오류 재생성]\nComplete the Words 문제에는 반드시 영어 단어 앞부분 바로 뒤에 밑줄 4개 이상이 이어지는 빈칸(예: wor____)이 보여야 합니다. 완성 단어와 정답은 쓰지 마세요. 빈칸이 없는 후보는 출력하지 마세요.`
+          : "";
         const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule,
+            instructions: course.prompt + historyRule + voiceRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -134,6 +143,10 @@ export default async function handler(request, response) {
         }
         const text = getOutputText(data);
         if (!text) continue;
+        if (course.kind === "toefl" && !hasRequiredToeflBlank(text)) {
+          console.warn("TOEFL Complete the Words without a visible blank rejected", attempt + 1);
+          continue;
+        }
         const signature = normalizeProblem(text);
         if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text });
         console.warn("Duplicate lesson problem rejected", attempt + 1);
