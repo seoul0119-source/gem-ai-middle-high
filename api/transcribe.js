@@ -42,7 +42,9 @@ export default async function handler(request, response) {
       || courseId.endsWith("-english")
       || courseId === "toefl"
       || courseId === "toeic";
-    const language = isEnglishCourse ? "en" : "ko";
+    // 새 영어 과정은 한국어와 영어가 자연스럽게 섞이므로 언어를 강제로
+    // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
+    const language = isEnglishWord ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
     const lessonPrompt = isMath
       ? "한국 중고등학생의 수학 문제에 대한 짧은 답변입니다."
@@ -82,9 +84,9 @@ export default async function handler(request, response) {
       form.append("response_format", "json");
       form.append("prompt", lessonPrompt);
       if (model === "gpt-transcribe") {
-        form.append("languages[]", language);
+        if (language) form.append("languages[]", language);
         keywords.forEach((keyword) => form.append("keywords[]", keyword));
-      } else {
+      } else if (language) {
         form.append("language", language);
       }
       return form;
