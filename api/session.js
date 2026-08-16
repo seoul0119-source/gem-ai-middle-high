@@ -32,8 +32,14 @@ function decodeHtmlEntities(value) {
     .replace(/&gt;/g, ">");
 }
 
+function decodeJavaScriptHexEscapes(value) {
+  return String(value || "").replace(/\\x([0-9a-f]{2})/gi, (_, hex) =>
+    String.fromCharCode(Number.parseInt(hex, 16))
+  );
+}
+
 function extractUserHtml(wrapper) {
-  const body = String(wrapper || "");
+  const body = decodeJavaScriptHexEscapes(wrapper);
   const match = body.match(/"userHtml"\s*:\s*"((?:\\.|[^"\\])*)"/);
   if (!match) return decodeHtmlEntities(body);
   try {
@@ -69,15 +75,18 @@ async function requestSheet(params) {
   const body = await result.text();
   if (!result.ok) throw new Error("학생관리 시트 연결이 잠시 원활하지 않습니다.");
   const html = extractUserHtml(body);
-  return { html, message: plainMessage(html) };
+  return {
+    html: `${html}\n${decodeJavaScriptHexEscapes(body)}`,
+    message: plainMessage(html)
+  };
 }
 
 function findLoginRedirect(html, expectedId) {
-  const normalized = String(html || "")
+  const normalized = decodeHtmlEntities(decodeJavaScriptHexEscapes(html))
     .replace(/\\u003d/gi, "=")
     .replace(/\\u0026/gi, "&")
-    .replace(/\\\//g, "/");
-  const match = normalized.match(/https:\/\/gem-ai-middle-high\.vercel\.app\/class\.html\?[^"'<>\s]+/i);
+    .replace(/\\+\//g, "/");
+  const match = normalized.match(/https:\/\/gem-ai-middle-high\.vercel\.app\/class\.html\?[^"'<>\\\s]+/i);
   if (!match) return null;
   try {
     const target = new URL(decodeHtmlEntities(match[0]));
