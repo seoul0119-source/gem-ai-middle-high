@@ -470,7 +470,13 @@
     function cleanForDisplay(text) {
       return String(text || "")
         .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
-        .replace(/\*\*|__|`|#+\s?/g, "")
+        // Remove Markdown emphasis without deleting TOEFL word blanks such as
+        // recycl____. The old generic `__` removal erased every visible blank.
+        .replace(/__([^_\n]+)__/g, "$1")
+        .replace(/\*\*|`|#+\s?/g, "")
+        // Four underscores are enough for validation, but eight are easier to
+        // see on classroom TVs and small phone screens.
+        .replace(/_{4,}/g, "________")
         .replace(/^\s*[-*]\s+/gm, "• ")
         .trim();
     }
@@ -482,16 +488,15 @@
 
       const awaitsAnswer = /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output)
         || /Complete\s+the\s+Words/i.test(output)
-        || /(?:답|정답).{0,24}(?:입력|말해|적어|써|고르|골라|선택|대답)/s.test(output)
         || /(?:다시|한\s*번\s*더).{0,20}(?:답해|말해|입력|적어|써)/s.test(output);
       if (!awaitsAnswer) return output;
 
       output = output.replace(
         /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
-        "답: (          )"
+        "답: (________)"
       );
       if (/답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/.test(output)) return output;
-      return `${output}\n\n답: (          )`;
+      return `${output}\n\n답: (________)`;
     }
 
     function cleanMathForSpeech(text) {
