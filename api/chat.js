@@ -108,6 +108,9 @@ export default async function handler(request, response) {
         ? `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
         : "";
       const signatures = new Set(history.map(normalizeProblem).filter(Boolean));
+      const voiceRule = request.body?.inputMode === "voice"
+        ? `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
+        : "";
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -115,7 +118,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule,
+            instructions: course.prompt + historyRule + voiceRule,
             input: messages,
             max_output_tokens: ["korean", "social"].includes(course.kind) ? 900 : 650
           })
