@@ -97,6 +97,27 @@ function hasRequiredToeflBlank(text) {
   return /[A-Za-z]{1,12}_{4,}[A-Za-z]{0,8}/.test(output);
 }
 
+function hasRequiredToeicBlank(text) {
+  const output = String(text || "");
+  const questionHeader = /(?:문제\s*)?\d+\s*\/\s*10[^\n]*/gi;
+  let match;
+  let latestQuestionStart = -1;
+
+  while ((match = questionHeader.exec(output)) !== null) {
+    latestQuestionStart = match.index;
+  }
+
+  if (latestQuestionStart < 0) return true;
+  const latestQuestion = output.slice(latestQuestionStart);
+  const isCompletionQuestion = /Part\s*[56]|문장\s*완성|지문\s*완성/i.test(latestQuestion);
+  if (!isCompletionQuestion) return true;
+  const questionWithoutAnswerSlots = latestQuestion.replace(
+    /^답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gm,
+    ""
+  );
+  return /_{4,}/.test(questionWithoutAnswerSlots);
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -111,13 +132,14 @@ function awaitsStudentAnswer(text) {
 
 function ensureAnswerSlot(text, courseKind) {
   let output = String(text || "").trimEnd();
-  const isToeflProblem = courseKind === "toefl"
+  const isEnglishExam = courseKind === "toefl" || courseKind === "toeic";
+  const isEnglishExamProblem = isEnglishExam
     && /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output);
-  if (!awaitsStudentAnswer(output) && !isToeflProblem) return output;
+  if (!awaitsStudentAnswer(output) && !isEnglishExamProblem) return output;
 
-  // Never expose an answer where TOEFL should show an empty response slot.
-  // This also repairs occasional model output such as "답: she".
-  if (courseKind === "toefl") {
+  // Never expose an answer where TOEFL or TOEIC should show an empty response
+  // slot. This also repairs occasional model output such as "답: she".
+  if (isEnglishExam) {
     output = output.replace(
       /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
       "답: (________)"
@@ -164,9 +186,13 @@ export default async function handler(request, response) {
         : "";
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        const formatRepairRule = course.kind === "toefl" && attempt > 0
-          ? `\n\n[형식 오류 재생성]\nComplete the Words 문제에는 반드시 영어 단어 앞부분 바로 뒤에 밑줄 4개 이상이 이어지는 빈칸(예: wor____)이 보여야 합니다. 완성 단어와 정답은 쓰지 마세요. 빈칸이 없는 후보는 출력하지 마세요.`
-          : "";
+        let formatRepairRule = "";
+        if (course.kind === "toefl" && attempt > 0) {
+          formatRepairRule = `\n\n[형식 오류 재생성]\nComplete the Words 문제에는 반드시 영어 단어 앞부분 바로 뒤에 밑줄 4개 이상이 이어지는 빈칸(예: wor____)이 보여야 합니다. 완성 단어와 정답은 쓰지 마세요. 빈칸이 없는 후보는 출력하지 마세요.`;
+        }
+        if (course.kind === "toeic" && attempt > 0) {
+          formatRepairRule = `\n\n[형식 오류 재생성]\nTOEIC Part 5·6 문장 또는 지문에서 학생이 채울 위치에는 반드시 키보드의 일반 밑줄 문자(_) 8개인 “________”을 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 문제 맨 아래에는 별도로 정확히 “답: (________)”을 표시하세요. 빈칸이 없는 후보는 출력하지 마세요.`;
+        }
         const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -190,6 +216,10 @@ export default async function handler(request, response) {
         if (!text) continue;
         if (course.kind === "toefl" && !hasRequiredToeflBlank(text)) {
           console.warn("TOEFL Complete the Words without a visible blank rejected", attempt + 1);
+          continue;
+        }
+        if (course.kind === "toeic" && !hasRequiredToeicBlank(text)) {
+          console.warn("TOEIC Part 5/6 without a visible blank rejected", attempt + 1);
           continue;
         }
         const answerReadyText = ensureAnswerSlot(text, course.kind);
