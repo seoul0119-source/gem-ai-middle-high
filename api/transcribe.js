@@ -82,10 +82,12 @@ export default async function handler(request, response) {
       return { result, data };
     }
 
-    let { result, data } = await requestTranscription("gpt-transcribe");
+    let transcriptionModel = "gpt-transcribe";
+    let { result, data } = await requestTranscription(transcriptionModel);
     if (!result.ok && [400, 403, 404].includes(result.status)) {
       console.warn("GPT Transcribe fallback", result.status, data?.error?.code, data?.error?.param);
-      ({ result, data } = await requestTranscription("gpt-4o-transcribe"));
+      transcriptionModel = "gpt-4o-transcribe";
+      ({ result, data } = await requestTranscription(transcriptionModel));
     }
     if (!result.ok || !data.text?.trim()) {
       console.error(
@@ -99,6 +101,7 @@ export default async function handler(request, response) {
     }
 
     const transcript = data.text.trim();
+    console.info("GEM transcription success", transcriptionModel, transcript.length);
     const promptLeak = (
       /한국\s*중고등학생이\s*(?:수학|사회|국어)\s*(?:수업\s*문제의\s*)?답을/.test(transcript)
       || /숫자.*음수.*분수.*제곱.*루트/.test(transcript)
@@ -129,4 +132,3 @@ export default async function handler(request, response) {
     console.error("GEM transcription error", error);
     return sendJson(response, 500, { error: "음성 인식 연결 중 문제가 발생했습니다." });
   }
-}
