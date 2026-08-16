@@ -317,6 +317,8 @@
     let recordingTimer = null;
     let currentAudio = null;
     let autoSpeak = false;
+    let conversationMode = false;
+    let discardRecording = false;
 
     document.title = `GEM AI ${COURSE.title}`;
     document.getElementById("course-title").textContent = COURSE.title;
@@ -324,10 +326,11 @@
     document.getElementById("course-grade").textContent = COURSE.grade;
     document.getElementById("initial-message").textContent = COURSE.greeting;
     input.placeholder = COURSE.placeholder;
+    autoSpeakButton.hidden = false;
+    autoSpeakButton.textContent = "🎙 음성 대화 시작";
     if (!COURSE.voice) {
       micButton.hidden = true;
       document.getElementById("speak").hidden = true;
-      autoSpeakButton.hidden = false;
       mathToolsToggle.hidden = false;
     }
 
@@ -399,6 +402,10 @@
         if (!response.ok || !data.audio) throw new Error(data.error || "음성 생성 실패");
         currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
         await currentAudio.play();
+        await new Promise((resolve) => {
+          currentAudio.addEventListener("ended", resolve, { once: true });
+          currentAudio.addEventListener("error", resolve, { once: true });
+        });
       } catch (error) {
         console.warn("Natural voice fallback", error);
         browserSpeak(clean);
@@ -473,7 +480,7 @@
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: data.text });
         rememberMathProblem(data.text);
-        if (COURSE.voice || autoSpeak) speakText(lastAssistantText);
+        if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
       } catch (error) {
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
@@ -481,6 +488,7 @@
       } finally {
         setLoading(false);
         input.focus();
+        if (conversationMode) setTimeout(startRecording, 250);
       }
     }
 
@@ -505,14 +513,20 @@
       if (COURSE.voice) speakText(lastAssistantText);
     });
 
-    autoSpeakButton.addEventListener("click", () => {
-      autoSpeak = !autoSpeak;
-      autoSpeakButton.textContent = autoSpeak ? "■ 음성 멈춤" : "🔊 음성 계속";
-      if (autoSpeak) {
-        speakText(lastAssistantText);
+    autoSpeakButton.addEventListener("click", async () => {
+      conversationMode = !conversationMode;
+      autoSpeak = conversationMode;
+      autoSpeakButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+      if (conversationMode) {
+        connection.innerHTML = "<strong>상태</strong> 음성 대화 시작";
+        await speakText(lastAssistantText);
+        if (conversationMode) startRecording();
       } else {
+        discardRecording = true;
+        if (recorder?.state === "recording") recorder.stop();
         currentAudio?.pause();
         window.speechSynthesis?.cancel();
+        connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
       }
     });
 
@@ -563,7 +577,7 @@
         const response = await fetch("/api/transcribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audio, mimeType: blob.type })
+          body: JSON.stringify({ audio, mimeType: blob.type, courseId: COURSE_ID })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
@@ -573,11 +587,13 @@
       } finally {
         micButton.disabled = false;
         if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+        if (conversationMode && !input.disabled) setTimeout(startRecording, 400);
       }
     }
 
     async function startRecording() {
-      if (!COURSE.voice) return;
+      if (!COURSE.voice && !conversationMode) return;
+      if (input.disabled || recorder?.state === "recording") return;
       if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
         addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
         return;
@@ -598,6 +614,10 @@
         recorder.addEventListener("stop", () => {
           const blob = new Blob(recordingChunks, { type: recorder.mimeType || "audio/webm" });
           resetMic();
+          if (discardRecording) {
+            discardRecording = false;
+            return;
+          }
           if (blob.size > 500) transcribeRecording(blob);
         });
         recorder.start();
@@ -606,7 +626,7 @@
         connection.innerHTML = "<strong>상태</strong> 학생 음성 듣는 중";
         recordingTimer = setTimeout(() => {
           if (recorder?.state === "recording") recorder.stop();
-        }, 6000);
+        }, conversationMode ? 8000 : 6000);
       } catch (error) {
         resetMic();
         addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
