@@ -43,7 +43,17 @@ export default async function handler(request, response) {
       return sendJson(response, 502, { error: "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
     }
 
-    return sendJson(response, 200, { text: data.text.trim() });
+    const transcript = data.text.trim();
+    const promptLeak = isMath && (
+      /한국\s*중학교\s*1학년\s*학생이\s*수학\s*답을/.test(transcript)
+      || /숫자.*음수.*분수.*제곱.*루트/.test(transcript)
+      || /표현을\s*정확한\s*한국어/.test(transcript)
+    );
+    if (promptLeak) {
+      return sendJson(response, 422, { error: "답을 듣지 못했습니다. 준비되면 천천히 다시 말해 주세요." });
+    }
+
+    return sendJson(response, 200, { text: transcript });
   } catch (error) {
     console.error("GEM transcription error", error);
     return sendJson(response, 500, { error: "음성 인식 연결 중 문제가 발생했습니다." });
