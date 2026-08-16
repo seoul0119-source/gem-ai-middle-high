@@ -10,12 +10,12 @@ const INTERACTIVE_COURSE_KINDS = new Set([
 const ANSWER_SLOT_RULE = `
 
 [모든 과목 공통 답안 칸 표시 규칙]
-- 학생이 답해야 하는 새 문제·활동·과제에는 문제 내용의 맨 마지막 줄에 반드시 정확히 “답: (          )”을 표시합니다.
-- 오답이나 불분명한 음성 때문에 같은 문제에서 다시 답을 기다릴 때도 응답의 맨 마지막 줄에 반드시 “답: (          )”을 다시 표시합니다.
+- 학생이 답해야 하는 새 문제·활동·과제에는 문제 내용의 맨 마지막 줄에 반드시 정확히 “답: (________)”을 표시합니다.
+- 오답이나 불분명한 음성 때문에 같은 문제에서 다시 답을 기다릴 때도 응답의 맨 마지막 줄에 반드시 “답: (________)”을 다시 표시합니다.
 - 객관식, 단답형, 서술형, 말하기, 듣기, 빈칸 완성 문제를 포함한 모든 문제에 같은 답안 칸을 표시합니다.
-- 답이 여러 개인 문제라면 “답 1: (          )”, “답 2: (          )”처럼 필요한 수만큼 각각 표시합니다.
+- 답이 여러 개인 문제라면 “답 1: (________)”, “답 2: (________)”처럼 필요한 수만큼 각각 표시합니다.
 - 답안 칸 안에는 정답, 정답 번호, 첫 글자, 힌트나 예시 답을 넣지 않습니다.
-- TOEFL Complete the Words처럼 문제 문장 안에 철자 빈칸이 있는 유형도 문장 안의 빈칸과 별도로 맨 아래에 “답: (          )”을 표시합니다.
+- TOEFL Complete the Words처럼 문제 문장 안에 철자 빈칸이 있는 유형도 문장 안의 빈칸과 별도로 맨 아래에 “답: (________)”을 표시합니다.
 - 수업 종료 요약처럼 학생의 답을 더 기다리지 않는 응답에는 답안 칸을 표시하지 않습니다.`;
 const FALLBACK_WORDS = [
   { word: "protect", pronunciation: "프로텍트", meaning: "보호하다", example: "We must protect the environment.", translation: "우리는 환경을 보호해야 합니다." },
@@ -120,13 +120,13 @@ function ensureAnswerSlot(text, courseKind) {
   if (courseKind === "toefl") {
     output = output.replace(
       /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
-      "답: (          )"
+      "답: (________)"
     );
   }
 
   const visibleSlot = /답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/;
   if (visibleSlot.test(output)) return output;
-  return `${output}\n\n답: (          )`;
+  return `${output}\n\n답: (________)`;
 }
 
 export default async function handler(request, response) {
