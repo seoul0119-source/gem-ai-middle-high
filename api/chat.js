@@ -102,7 +102,7 @@ export default async function handler(request, response) {
   }
 
   try {
-    if (course.kind === "math") {
+    if (["math", "korean"].includes(course.kind)) {
       const history = sanitizeHistory(request.body?.history);
       const historyRule = history.length
         ? `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
@@ -117,19 +117,19 @@ export default async function handler(request, response) {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
             instructions: course.prompt + historyRule,
             input: messages,
-            max_output_tokens: 650
+            max_output_tokens: course.kind === "korean" ? 900 : 650
           })
         });
         const data = await openAIResponse.json();
         if (!openAIResponse.ok) {
-          console.error("OpenAI math error", openAIResponse.status, data?.error?.code);
-          return sendJson(response, 502, { error: "수학 선생님 연결이 잠시 원활하지 않습니다." });
+          console.error("OpenAI lesson error", openAIResponse.status, data?.error?.code);
+          return sendJson(response, 502, { error: "AI 선생님 연결이 잠시 원활하지 않습니다." });
         }
         const text = getOutputText(data);
         if (!text) continue;
         const signature = normalizeProblem(text);
         if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text });
-        console.warn("Duplicate math problem rejected", attempt + 1);
+        console.warn("Duplicate lesson problem rejected", attempt + 1);
       }
       return sendJson(response, 502, { error: "새 문제를 다시 준비해 주세요." });
     }
