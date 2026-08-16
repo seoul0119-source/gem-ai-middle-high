@@ -297,6 +297,22 @@
         placeholder: "시작 또는 답을 입력하세요",
         voice: true
       },
+      "toefl": {
+        title: "TOEFL 2026 4영역 자동 학습", subject: "TOEFL", grade: "TOEFL 대비",
+        greeting: "안녕하세요! “시작”이라고 입력하면 최신 TOEFL 4영역을 반영한 새 연습 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "toeic": {
+        title: "TOEIC 7파트 자동 학습", subject: "TOEIC", grade: "TOEIC 대비",
+        greeting: "안녕하세요! “시작”이라고 입력하면 TOEIC Part 1–7의 새 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m1-english": { title: "중1 영어 Lv.7", subject: "영어", grade: "중학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 단어·회화·이야기·퀴즈 새 활동 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m2-english": { title: "중2 영어 Lv.8", subject: "영어", grade: "중학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 단어·회화·이야기·퀴즈 새 활동 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "m3-english": { title: "중3 영어 Lv.9", subject: "영어", grade: "중학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 단어·회화·이야기·퀴즈 새 활동 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h1-english": { title: "고1 영어 Lv.10", subject: "영어", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h2-english": { title: "고2 영어 Lv.11", subject: "영어", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "h3-english": { title: "고3 영어 Lv.12", subject: "영어", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
       "m1-math": {
         title: "중1 수학 Lv.7 시험판",
         subject: "수학",
@@ -387,7 +403,8 @@
     const IS_SOCIAL = COURSE_ID.endsWith("-social");
     const IS_HISTORY = COURSE_ID.endsWith("-history");
     const IS_SCIENCE = COURSE_ID.endsWith("-science");
-    const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE;
+    const IS_ENGLISH = COURSE_ID.endsWith("-english") || COURSE_ID === "toefl" || COURSE_ID === "toeic";
+    const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
     const IS_VISUAL_LESSON = IS_GENERATIVE_LESSON;
     const messages = [];
     const chat = document.getElementById("chat");
@@ -651,7 +668,9 @@
               ? (isStarting ? "새 한국사 자료와 문제를 만들고 사실을 검토하고 있습니다…" : "답의 역사적 근거를 확인하고 다음 문제를 준비하고 있습니다…")
               : IS_SCIENCE
                 ? (isStarting ? "새 과학 자료와 문제를 만들고 검산하고 있습니다…" : "답의 과학적 근거를 확인하고 다음 문제를 준비하고 있습니다…")
-                : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
+                : IS_ENGLISH
+                  ? (isStarting ? "새 영어 활동과 문제를 만들고 검토하고 있습니다…" : "영어 답을 확인하고 다음 활동을 준비하고 있습니다…")
+                  : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
       const typing = addMessage("assistant", loadingText, "typing");
 
       try {
