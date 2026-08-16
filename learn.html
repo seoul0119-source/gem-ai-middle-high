@@ -446,7 +446,8 @@
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
       element.textContent = text;
-      if (role === "assistant" && IS_MATH && /(좌표|그래프|도표|표\s|도형|히스토그램|수직선|사분면|함수|분포)/.test(text)) {
+      const hasVisual = /\[도표 시작\][\s\S]*?\[도표 끝\]/.test(text);
+      if (role === "assistant" && IS_MATH && hasVisual) {
         const expand = document.createElement("button");
         expand.type = "button";
         expand.className = "large-view";
