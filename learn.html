@@ -385,6 +385,7 @@
     let audioContext = null;
     let audioLevelTimer = null;
     let heardSpeech = false;
+    let speechFrameCount = 0;
     let currentAudio = null;
     let autoSpeak = false;
     let conversationMode = false;
@@ -688,6 +689,7 @@
         window.speechSynthesis?.cancel();
         recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         heardSpeech = false;
+        speechFrameCount = 0;
         try {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
           const source = audioContext.createMediaStreamSource(recordingStream);
@@ -702,7 +704,10 @@
               const sample = (level - 128) / 128;
               energy += sample * sample;
             }
-            if (Math.sqrt(energy / levels.length) > 0.018) heardSpeech = true;
+            if (Math.sqrt(energy / levels.length) > 0.024) {
+              speechFrameCount += 1;
+              if (speechFrameCount >= 3) heardSpeech = true;
+            }
           }, 100);
         } catch (error) {
           console.warn("Voice level detection unavailable", error);
