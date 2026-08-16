@@ -754,6 +754,9 @@
         voiceFailureNoticeShown = false;
         input.value = data.text;
         connection.innerHTML = `<strong>인식</strong> ${data.text}`;
+        // The recognized answer is already rendered as a user message. Clear
+        // the input so the previous answer never remains under the next problem.
+        input.value = "";
         await sendMessage(data.text, "voice");
       } catch (error) {
         if (!voiceFailureNoticeShown) {
