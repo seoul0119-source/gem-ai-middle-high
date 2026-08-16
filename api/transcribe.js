@@ -23,23 +23,28 @@ export default async function handler(request, response) {
     const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
     const form = new FormData();
     const courseId = String(request.body?.courseId || "");
+    const questionContext = String(request.body?.context || "")
+      .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, " ")
+      .replace(/\s+/g, " ")
+      .slice(0, 900);
     const isMath = courseId.includes("math");
     const isSocial = courseId.includes("social");
     const isKorean = courseId.includes("korean");
     const isEnglishWord = courseId.includes("english-word");
     form.append("file", new Blob([Buffer.from(base64, "base64")], { type: mimeType }), `student.${extension}`);
-    form.append("model", "gpt-4o-mini-transcribe");
+    form.append("model", "gpt-4o-transcribe");
     // Korean, social studies and mathematics lessons expect Korean answers.
     // Only the English vocabulary course should force English recognition.
     form.append("language", isEnglishWord ? "en" : "ko");
     form.append("response_format", "json");
-    form.append("prompt", isMath
+    const lessonPrompt = isMath
       ? "한국 중고등학생이 수학 답을 짧게 말합니다. 숫자, 음수, 분수, 제곱, 루트, 좌표, 사분면, 이상, 이하, 합집합, 교집합 표현을 정확한 한국어와 일반 키보드 수식으로 보존하세요."
       : isSocial
         ? "한국 중고등학생의 사회 수업 짧은 답변입니다. 지리, 정치, 법, 경제, 사회, 문화 관련 용어와 숫자를 기록합니다."
         : isKorean
           ? "한국 중고등학생의 국어 수업 짧은 답변입니다. 문학, 문법, 읽기, 쓰기 관련 표현을 기록합니다."
-          : "A Korean middle school student is repeating one English vocabulary word or a short English example sentence. Preserve the intended English spelling.");
+          : "A Korean middle school student is repeating one English vocabulary word or a short English example sentence. Preserve the intended English spelling.";
+    form.append("prompt", `${lessonPrompt}${questionContext ? ` 현재 문제 문맥: ${questionContext}` : ""}`);
 
     const result = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
