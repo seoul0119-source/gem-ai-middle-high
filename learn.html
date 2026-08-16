@@ -677,9 +677,10 @@
       autoSpeak = conversationMode;
       micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
       if (conversationMode) {
-        connection.innerHTML = "<strong>상태</strong> 음성 대화 시작";
-        await speakText(lastAssistantText);
-        if (conversationMode) startRecording();
+        connection.innerHTML = "<strong>상태</strong> 학생 음성 준비 중";
+        // The question has already been spoken. Start listening immediately so
+        // an answer given right after the button click is never missed.
+        startRecording();
       } else {
         discardRecording = true;
         if (recorder?.state === "recording") recorder.stop();
@@ -817,13 +818,9 @@
             discardRecording = false;
             return;
           }
-          if (!heardSpeech) {
-            if (!voiceFailureNoticeShown) {
-              addMessage("assistant", "답을 듣지 못했습니다. 준비되면 천천히 말해 주세요.");
-              voiceFailureNoticeShown = true;
-            }
-            if (conversationMode) setTimeout(startRecording, 900);
-          } else if (blob.size > 500) {
+          // MediaRecorder is the source of truth. Some browsers suspend the
+          // AudioContext level meter even while the microphone records normally.
+          if (blob.size > 500) {
             transcribeRecording(blob);
           } else {
             if (!voiceFailureNoticeShown) {
