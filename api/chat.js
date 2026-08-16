@@ -118,6 +118,27 @@ function hasRequiredToeicBlank(text) {
   return /_{4,}/.test(questionWithoutAnswerSlots);
 }
 
+function hasRequiredSchoolEnglishBlank(text) {
+  const output = String(text || "");
+  const questionHeader = /(?:문제|활동)\s*\d+\s*\/\s*10[^\n]*/gi;
+  let match;
+  let latestQuestionStart = -1;
+
+  while ((match = questionHeader.exec(output)) !== null) {
+    latestQuestionStart = match.index;
+  }
+
+  if (latestQuestionStart < 0) return true;
+  const latestQuestion = output.slice(latestQuestionStart);
+  const isCompletionQuestion = /빈칸|문장\s*완성|지문\s*완성|완성하|괄호.{0,24}(?:넣|쓰|고르)|알맞은\s+(?:단어|표현|말).{0,24}(?:넣|쓰|고르)/i.test(latestQuestion);
+  if (!isCompletionQuestion) return true;
+  const questionWithoutAnswerSlots = latestQuestion.replace(
+    /^답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gm,
+    ""
+  );
+  return /_{4,}/.test(questionWithoutAnswerSlots);
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -132,14 +153,14 @@ function awaitsStudentAnswer(text) {
 
 function ensureAnswerSlot(text, courseKind) {
   let output = String(text || "").trimEnd();
-  const isEnglishExam = courseKind === "toefl" || courseKind === "toeic";
-  const isEnglishExamProblem = isEnglishExam
+  const isEnglishAnswerCourse = ["english", "toefl", "toeic"].includes(courseKind);
+  const isEnglishProblem = isEnglishAnswerCourse
     && /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output);
-  if (!awaitsStudentAnswer(output) && !isEnglishExamProblem) return output;
+  if (!awaitsStudentAnswer(output) && !isEnglishProblem) return output;
 
-  // Never expose an answer where TOEFL or TOEIC should show an empty response
-  // slot. This also repairs occasional model output such as "답: she".
-  if (isEnglishExam) {
+  // Never expose an answer where an English course should show an empty
+  // response slot. This also repairs occasional output such as "답: because".
+  if (isEnglishAnswerCourse) {
     output = output.replace(
       /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
       "답: (________)"
@@ -193,6 +214,9 @@ export default async function handler(request, response) {
         if (course.kind === "toeic" && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\nTOEIC Part 5·6 문장 또는 지문에서 학생이 채울 위치에는 반드시 키보드의 일반 밑줄 문자(_) 8개인 “________”을 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 문제 맨 아래에는 별도로 정확히 “답: (________)”을 표시하세요. 빈칸이 없는 후보는 출력하지 마세요.`;
         }
+        if (course.kind === "english" && attempt > 0) {
+          formatRepairRule = `\n\n[형식 오류 재생성]\n중1-고3 영어의 빈칸·문장 완성·지문 완성·알맞은 단어 또는 표현 넣기 문제에서는 학생이 채울 실제 위치에 키보드의 일반 밑줄 문자(_) 8개인 “________”을 반드시 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 모든 활동과 문제 맨 아래에는 문제 유형과 관계없이 별도로 정확히 “답: (________)”을 표시하세요. 표시가 하나라도 빠진 후보는 출력하지 마세요.`;
+        }
         const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -220,6 +244,10 @@ export default async function handler(request, response) {
         }
         if (course.kind === "toeic" && !hasRequiredToeicBlank(text)) {
           console.warn("TOEIC Part 5/6 without a visible blank rejected", attempt + 1);
+          continue;
+        }
+        if (course.kind === "english" && !hasRequiredSchoolEnglishBlank(text)) {
+          console.warn("Grade 7-12 English completion question without a visible blank rejected", attempt + 1);
           continue;
         }
         const answerReadyText = ensureAnswerSlot(text, course.kind);
