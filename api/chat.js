@@ -102,7 +102,7 @@ export default async function handler(request, response) {
   }
 
   try {
-    if (["math", "korean", "social"].includes(course.kind)) {
+    if (["math", "korean", "social", "history"].includes(course.kind)) {
       const history = sanitizeHistory(request.body?.history);
       const historyRule = history.length
         ? `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
@@ -120,7 +120,7 @@ export default async function handler(request, response) {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
             instructions: course.prompt + historyRule + voiceRule,
             input: messages,
-            max_output_tokens: ["korean", "social"].includes(course.kind) ? 900 : 650
+            max_output_tokens: ["korean", "social", "history"].includes(course.kind) ? 900 : 650
           })
         });
         const data = await openAIResponse.json();
