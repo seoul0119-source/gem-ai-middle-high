@@ -35,6 +35,7 @@ export default async function handler(request, response) {
     const isMath = courseId.includes("math");
     const isSocial = courseId.includes("social");
     const isKorean = courseId.includes("korean");
+    const isHistory = courseId.includes("history");
     const isEnglishWord = courseId.includes("english-word");
     const language = isEnglishWord ? "en" : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
@@ -44,14 +45,18 @@ export default async function handler(request, response) {
         ? "한국 중고등학생의 사회 문제에 대한 짧은 답변입니다."
         : isKorean
           ? "한국 중고등학생의 국어 문제에 대한 짧은 답변입니다."
-          : "A Korean student is repeating one English word or a short sentence.";
+          : isHistory
+            ? "한국 중고등학생의 한국사 문제에 대한 짧은 답변입니다. 인물, 시대, 사건, 제도와 연도를 정확히 받아쓰세요."
+            : "A Korean student is repeating one English word or a short sentence.";
     const courseKeywords = isMath
       ? ["음수", "분수", "제곱", "루트", "좌표", "사분면", "합집합", "교집합"]
       : isSocial
         ? ["지리", "정치", "법", "경제", "사회", "문화", "기후", "기본권"]
         : isKorean
           ? ["문학", "문법", "읽기", "쓰기", "화자", "서술자"]
-          : [];
+          : isHistory
+            ? ["고조선", "삼국", "통일신라", "발해", "고려", "조선", "개항", "독립운동", "광복", "대한민국", "민주화"]
+            : [];
     const contextKeywords = questionContext.match(/[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]{2,}|-?\d+(?:[.,]\d+)*/g) || [];
     const keywords = [...new Set([...courseKeywords, ...contextKeywords])]
       .filter((word) => word.length <= 30)
@@ -103,10 +108,11 @@ export default async function handler(request, response) {
     const transcript = data.text.trim();
     console.info("GEM transcription success", transcriptionModel, transcript.length);
     const promptLeak = (
-      /한국\s*중고등학생이\s*(?:수학|사회|국어)\s*(?:수업\s*문제의\s*)?답을/.test(transcript)
+      /한국\s*중고등학생이\s*(?:수학|사회|국어|한국사)\s*(?:수업\s*문제의\s*)?답을/.test(transcript)
       || /숫자.*음수.*분수.*제곱.*루트/.test(transcript)
       || /지리.*정치.*법.*경제.*사회.*문화/.test(transcript)
       || /문학.*문법.*읽기.*쓰기/.test(transcript)
+      || /고조선.*삼국.*고려.*조선.*독립운동/.test(transcript)
       || /들리지\s*않는\s*말을\s*추측/.test(transcript)
       || /같은\s*글자를\s*반복하지\s*마세요/.test(transcript)
       || /표현을\s*정확한\s*한국어/.test(transcript)
