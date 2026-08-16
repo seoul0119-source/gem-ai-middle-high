@@ -173,6 +173,24 @@
       color: #173d70;
       font-size: 13px;
     }
+    .visual-card {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #bfd0e5;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .visual-title { margin: 0 0 9px; color: #173d70; font-weight: 700; }
+    .visual-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .visual-table th, .visual-table td { padding: 8px; border: 1px solid #cbd7e7; text-align: center; }
+    .visual-table th { background: #eaf2fc; color: #173d70; }
+    .visual-plain { margin: 0; white-space: pre-wrap; font: inherit; line-height: 1.7; }
+    .visual-bars { display: grid; gap: 8px; }
+    .visual-bar-row { display: grid; grid-template-columns: minmax(62px, auto) 1fr auto; gap: 8px; align-items: center; }
+    .visual-bar-track { height: 18px; overflow: hidden; border-radius: 9px; background: #e6edf7; }
+    .visual-bar-fill { height: 100%; border-radius: 9px; background: linear-gradient(90deg, #1e67c6, #65a7ed); }
     .modal {
       position: fixed;
       inset: 0;
@@ -193,7 +211,8 @@
       background: white;
       box-shadow: 0 14px 45px rgba(0, 0, 0, .3);
     }
-    .modal-text { white-space: pre-wrap; font-size: clamp(19px, 3vw, 28px); line-height: 1.8; }
+    .modal-text { white-space: pre-wrap; font-size: clamp(17px, 2.5vw, 24px); line-height: 1.8; }
+    .modal-text .visual-table { font-size: inherit; }
     .modal-close { float: right; padding: 9px 13px; }
     @media (max-width: 520px) {
       main { width: 96%; margin-top: 10px; }
@@ -355,7 +374,7 @@
     const IS_KOREAN = COURSE_ID.endsWith("-korean");
     const IS_SOCIAL = COURSE_ID.endsWith("-social");
     const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN || IS_SOCIAL;
-    const IS_VISUAL_LESSON = IS_MATH || IS_SOCIAL;
+    const IS_VISUAL_LESSON = IS_GENERATIVE_LESSON;
     const messages = [];
     const chat = document.getElementById("chat");
     const form = document.getElementById("chat-form");
@@ -458,7 +477,8 @@
     }
 
     async function speakText(text) {
-      const clean = IS_MATH ? cleanMathForSpeech(text) : cleanForDisplay(text);
+      const withoutRawVisual = String(text || "").replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "");
+      const clean = IS_MATH ? cleanMathForSpeech(withoutRawVisual) : cleanForDisplay(withoutRawVisual);
       if (!clean) return;
       if (currentAudio) currentAudio.pause();
       window.speechSynthesis?.cancel();
@@ -483,18 +503,80 @@
       }
     }
 
+    function extractVisual(text) {
+      const match = String(text || "").match(/\[도표 시작\]([\s\S]*?)\[도표 끝\]/);
+      return {
+        body: String(text || "").replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "").trim(),
+        visual: match ? match[1].trim() : ""
+      };
+    }
+
+    function buildVisualCard(content) {
+      const card = document.createElement("section");
+      card.className = "visual-card";
+      const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
+      const kind = (lines.find((line) => line.startsWith("종류:")) || "").slice(3).trim();
+      const titleText = (lines.find((line) => line.startsWith("제목:")) || "").slice(3).trim() || "학습 시각 자료";
+      const title = document.createElement("p");
+      title.className = "visual-title";
+      title.textContent = titleText;
+      card.appendChild(title);
+
+      const headerLine = lines.find((line) => line.startsWith("열:"));
+      const rowLines = lines.filter((line) => line.startsWith("행:"));
+      if (headerLine && rowLines.length) {
+        const headers = headerLine.slice(2).split("|").map((cell) => cell.trim());
+        const rows = rowLines.map((line) => line.slice(2).split("|").map((cell) => cell.trim()));
+        const table = document.createElement("table");
+        table.className = "visual-table";
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        headers.forEach((header) => { const th = document.createElement("th"); th.textContent = header; headRow.appendChild(th); });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        const tbody = document.createElement("tbody");
+        rows.forEach((row) => { const tr = document.createElement("tr"); row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); }); tbody.appendChild(tr); });
+        table.appendChild(tbody);
+        card.appendChild(table);
+
+        if (/그래프/.test(kind)) {
+          const numericRows = rows.map((row) => ({ label: row[0], value: Number(String(row[1] || "").replace(/[^0-9.-]/g, "")) })).filter((row) => Number.isFinite(row.value));
+          const max = Math.max(1, ...numericRows.map((row) => Math.abs(row.value)));
+          const bars = document.createElement("div");
+          bars.className = "visual-bars";
+          numericRows.forEach((row) => {
+            const line = document.createElement("div"); line.className = "visual-bar-row";
+            const label = document.createElement("span"); label.textContent = row.label;
+            const track = document.createElement("div"); track.className = "visual-bar-track";
+            const fill = document.createElement("div"); fill.className = "visual-bar-fill"; fill.style.width = `${Math.max(2, Math.abs(row.value) / max * 100)}%`;
+            const value = document.createElement("span"); value.textContent = String(row.value);
+            track.appendChild(fill); line.append(label, track, value); bars.appendChild(line);
+          });
+          card.appendChild(bars);
+        }
+      } else {
+        const plain = document.createElement("pre");
+        plain.className = "visual-plain";
+        plain.textContent = lines.filter((line) => !line.startsWith("종류:") && !line.startsWith("제목:")).join("\n");
+        card.appendChild(plain);
+      }
+      return card;
+    }
+
     function addMessage(role, text, extraClass = "") {
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
-      element.textContent = text;
-      const hasVisual = /\[도표 시작\][\s\S]*?\[도표 끝\]/.test(text);
+      const parts = extractVisual(text);
+      element.textContent = parts.body;
+      const hasVisual = Boolean(parts.visual);
       if (role === "assistant" && IS_VISUAL_LESSON && hasVisual) {
+        element.appendChild(buildVisualCard(parts.visual));
         const expand = document.createElement("button");
         expand.type = "button";
         expand.className = "large-view";
         expand.textContent = IS_SOCIAL ? "🔍 자료·문제 크게 보기" : "🔍 도표·문제 크게 보기";
         expand.addEventListener("click", () => {
-          modalText.textContent = text;
+          modalText.replaceChildren(buildVisualCard(parts.visual));
           largeModal.classList.add("open");
         });
         element.appendChild(expand);
