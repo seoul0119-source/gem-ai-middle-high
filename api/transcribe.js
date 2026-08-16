@@ -21,39 +21,80 @@ export default async function handler(request, response) {
   try {
     const mimeType = String(request.body?.mimeType || "audio/webm").split(";")[0];
     const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
-    const form = new FormData();
     const courseId = String(request.body?.courseId || "");
-    const questionContext = String(request.body?.context || "")
+    const cleanContext = String(request.body?.context || "")
       .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, " ")
       .replace(/\s+/g, " ")
-      .slice(0, 900);
+      .trim();
+    const problemStart = Math.max(
+      cleanContext.lastIndexOf("문제 "),
+      cleanContext.lastIndexOf("단어입니다")
+    );
+    const questionContext = (problemStart >= 0 ? cleanContext.slice(problemStart) : cleanContext.slice(-360))
+      .slice(0, 360);
     const isMath = courseId.includes("math");
     const isSocial = courseId.includes("social");
     const isKorean = courseId.includes("korean");
     const isEnglishWord = courseId.includes("english-word");
-    form.append("file", new Blob([Buffer.from(base64, "base64")], { type: mimeType }), `student.${extension}`);
-    form.append("model", "gpt-4o-transcribe");
-    // Korean, social studies and mathematics lessons expect Korean answers.
-    // Only the English vocabulary course should force English recognition.
-    form.append("language", isEnglishWord ? "en" : "ko");
-    form.append("response_format", "json");
+    const language = isEnglishWord ? "en" : "ko";
+    const audioBuffer = Buffer.from(base64, "base64");
     const lessonPrompt = isMath
-      ? "한국 중고등학생이 수학 답을 짧게 말합니다. 숫자, 음수, 분수, 제곱, 루트, 좌표, 사분면, 이상, 이하, 합집합, 교집합 표현을 정확한 한국어와 일반 키보드 수식으로 보존하세요."
+      ? "한국 중고등학생의 수학 문제에 대한 짧은 답변입니다."
       : isSocial
-        ? "한국 중고등학생의 사회 수업 짧은 답변입니다. 지리, 정치, 법, 경제, 사회, 문화 관련 용어와 숫자를 기록합니다."
+        ? "한국 중고등학생의 사회 문제에 대한 짧은 답변입니다."
         : isKorean
-          ? "한국 중고등학생의 국어 수업 짧은 답변입니다. 문학, 문법, 읽기, 쓰기 관련 표현을 기록합니다."
-          : "A Korean middle school student is repeating one English vocabulary word or a short English example sentence. Preserve the intended English spelling.";
-    form.append("prompt", `${lessonPrompt}${questionContext ? ` 현재 문제 문맥: ${questionContext}` : ""}`);
+          ? "한국 중고등학생의 국어 문제에 대한 짧은 답변입니다."
+          : "A Korean student is repeating one English word or a short sentence.";
+    const courseKeywords = isMath
+      ? ["음수", "분수", "제곱", "루트", "좌표", "사분면", "합집합", "교집합"]
+      : isSocial
+        ? ["지리", "정치", "법", "경제", "사회", "문화", "기후", "기본권"]
+        : isKorean
+          ? ["문학", "문법", "읽기", "쓰기", "화자", "서술자"]
+          : [];
+    const contextKeywords = questionContext.match(/[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]{2,}|-?\d+(?:[.,]\d+)*/g) || [];
+    const keywords = [...new Set([...courseKeywords, ...contextKeywords])]
+      .filter((word) => word.length <= 30)
+      .slice(0, 24);
 
-    const result = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form
-    });
-    const data = await result.json();
+    function createForm(model) {
+      const form = new FormData();
+      form.append("file", new Blob([audioBuffer], { type: mimeType }), `student.${extension}`);
+      form.append("model", model);
+      form.append("response_format", "json");
+      form.append("prompt", lessonPrompt);
+      if (model === "gpt-transcribe") {
+        form.append("languages[]", language);
+        keywords.forEach((keyword) => form.append("keywords[]", keyword));
+      } else {
+        form.append("language", language);
+      }
+      return form;
+    }
+
+    async function requestTranscription(model) {
+      const result = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: createForm(model)
+      });
+      const data = await result.json();
+      return { result, data };
+    }
+
+    let { result, data } = await requestTranscription("gpt-transcribe");
+    if (!result.ok && [400, 403, 404].includes(result.status)) {
+      console.warn("GPT Transcribe fallback", result.status, data?.error?.code, data?.error?.param);
+      ({ result, data } = await requestTranscription("gpt-4o-transcribe"));
+    }
     if (!result.ok || !data.text?.trim()) {
-      console.error("OpenAI transcription error", result.status, data?.error?.code);
+      console.error(
+        "OpenAI transcription error",
+        result.status,
+        data?.error?.code,
+        data?.error?.param,
+        data?.error?.message
+      );
       return sendJson(response, 502, { error: "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
     }
 
