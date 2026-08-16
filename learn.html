@@ -388,6 +388,16 @@
     const largeModal = document.getElementById("large-modal");
     const modalText = document.getElementById("modal-text");
     const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
+
+    async function readJsonResponse(response, fallbackMessage) {
+      const raw = await response.text();
+      try {
+        return raw ? JSON.parse(raw) : {};
+      } catch (error) {
+        console.error("Non-JSON server response", response.status, raw.slice(0, 160));
+        throw new Error(fallbackMessage);
+      }
+    }
     let courseHistory = [];
     try {
       const savedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
@@ -490,7 +500,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: clean })
         });
-        const data = await response.json();
+        const data = await readJsonResponse(response, "AI 음성 서버가 잠시 응답하지 않습니다.");
         if (!response.ok || !data.audio) throw new Error(data.error || "음성 생성 실패");
         currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
         await currentAudio.play();
@@ -632,7 +642,7 @@
             inputMode
           })
         });
-        const data = await response.json();
+        const data = await readJsonResponse(response, "AI 선생님 서버가 잠시 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
         if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
 
         typing.remove();
@@ -749,7 +759,7 @@
             context: lastAssistantText
           })
         });
-        const data = await response.json();
+        const data = await readJsonResponse(response, "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
         voiceFailureNoticeShown = false;
         input.value = data.text;
