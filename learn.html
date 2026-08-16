@@ -310,12 +310,44 @@
         title: "고3 수학 Lv.12 시험판", subject: "수학", grade: "고등학교 3학년",
         greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 수학 문제 10개를 한 문제씩 시작합니다.",
         placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m1-korean": {
+        title: "중1 국어 Lv.7 시험판", subject: "국어", grade: "중학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중1 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m2-korean": {
+        title: "중2 국어 Lv.8 시험판", subject: "국어", grade: "중학교 2학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중2 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "m3-korean": {
+        title: "중3 국어 Lv.9 시험판", subject: "국어", grade: "중학교 3학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 중3 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h1-korean": {
+        title: "고1 국어 Lv.10 시험판", subject: "국어", grade: "고등학교 1학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고1 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h2-korean": {
+        title: "고2 국어 Lv.11 시험판", subject: "국어", grade: "고등학교 2학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
+      },
+      "h3-korean": {
+        title: "고3 국어 Lv.12 시험판", subject: "국어", grade: "고등학교 3학년",
+        greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 국어 지문과 문제 10개를 시작합니다.",
+        placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false
       }
     };
     const requestedCourse = new URLSearchParams(location.search).get("course");
     const COURSE_ID = COURSE_CONFIGS[requestedCourse] ? requestedCourse : "m1-english-word";
     const COURSE = COURSE_CONFIGS[COURSE_ID];
     const IS_MATH = COURSE_ID.endsWith("-math");
+    const IS_KOREAN = COURSE_ID.endsWith("-korean");
+    const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN;
     const messages = [];
     const chat = document.getElementById("chat");
     const form = document.getElementById("chat-form");
@@ -361,7 +393,7 @@
     if (!COURSE.voice) {
       micButton.hidden = false;
       document.getElementById("speak").hidden = true;
-      mathToolsToggle.hidden = false;
+      mathToolsToggle.hidden = !IS_MATH;
     }
 
     function cleanForDisplay(text) {
@@ -471,8 +503,8 @@
         : "<strong>상태</strong> 수업 진행 중";
     }
 
-    function rememberMathProblem(text) {
-      if (!IS_MATH) return;
+    function rememberGeneratedProblem(text) {
+      if (!IS_GENERATIVE_LESSON) return;
       const clean = cleanForDisplay(text);
       const match = clean.match(/문제\s*\d+\s*\/\s*10[\s\S]*/i);
       if (!match) return;
@@ -490,7 +522,9 @@
       const isStarting = /^(시작|시작하기|start)$/i.test(text.trim());
       const loadingText = IS_MATH
         ? (isStarting ? "새 수학 문제를 만들고 검산하고 있습니다…" : "답을 확인하고 다음 단계를 준비하고 있습니다…")
-        : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
+        : IS_KOREAN
+          ? (isStarting ? "새 국어 지문과 문제를 만들고 검토하고 있습니다…" : "답의 근거를 확인하고 다음 문제를 준비하고 있습니다…")
+          : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
       const typing = addMessage("assistant", loadingText, "typing");
 
       try {
@@ -500,7 +534,7 @@
           body: JSON.stringify({
             courseId: COURSE_ID,
             messages,
-            history: IS_MATH ? courseHistory : []
+            history: IS_GENERATIVE_LESSON ? courseHistory : []
           })
         });
         const data = await response.json();
@@ -510,7 +544,7 @@
         lastAssistantText = cleanForDisplay(data.text);
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: data.text });
-        rememberMathProblem(data.text);
+        rememberGeneratedProblem(data.text);
         if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
       } catch (error) {
         typing.remove();
