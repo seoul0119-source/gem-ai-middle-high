@@ -109,9 +109,20 @@ function awaitsStudentAnswer(text) {
     || /(?:따라\s*말해|영어로\s+짧게\s+다시\s+말해)/.test(output);
 }
 
-function ensureAnswerSlot(text) {
-  const output = String(text || "").trimEnd();
-  if (!awaitsStudentAnswer(output)) return output;
+function ensureAnswerSlot(text, courseKind) {
+  let output = String(text || "").trimEnd();
+  const isToeflProblem = courseKind === "toefl"
+    && /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output);
+  if (!awaitsStudentAnswer(output) && !isToeflProblem) return output;
+
+  // Never expose an answer where TOEFL should show an empty response slot.
+  // This also repairs occasional model output such as "답: she".
+  if (courseKind === "toefl") {
+    output = output.replace(
+      /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
+      "답: (          )"
+    );
+  }
 
   const visibleSlot = /답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/;
   if (visibleSlot.test(output)) return output;
@@ -181,7 +192,7 @@ export default async function handler(request, response) {
           console.warn("TOEFL Complete the Words without a visible blank rejected", attempt + 1);
           continue;
         }
-        const answerReadyText = ensureAnswerSlot(text);
+        const answerReadyText = ensureAnswerSlot(text, course.kind);
         const signature = normalizeProblem(answerReadyText);
         if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text: answerReadyText });
         console.warn("Duplicate lesson problem rejected", attempt + 1);
