@@ -118,6 +118,31 @@ function hasRequiredToeicBlank(text) {
   return /_{4,}/.test(questionWithoutAnswerSlots);
 }
 
+function getLatestToeicQuestion(text) {
+  const output = String(text || "");
+  const questionHeader = /(?:문제\s*)?\d+\s*\/\s*10[^\n]*/gi;
+  let match;
+  let latestQuestionStart = -1;
+
+  while ((match = questionHeader.exec(output)) !== null) {
+    latestQuestionStart = match.index;
+  }
+
+  return latestQuestionStart < 0 ? "" : output.slice(latestQuestionStart);
+}
+
+function hasRequiredToeicScene(text) {
+  const latestQuestion = getLatestToeicQuestion(text);
+  if (!latestQuestion || !/Part\s*1\b|사진\s*묘사|사진\s*(?:문제|장면)/i.test(latestQuestion)) return true;
+  const sceneMatch = latestQuestion.match(/\[TOEIC 그림 시작\]([\s\S]*?)\[TOEIC 그림 끝\]/);
+  if (!sceneMatch) return false;
+  const scene = sceneMatch[1];
+  return /^장소\s*:\s*\S+/m.test(scene)
+    && /^인물\s*:\s*[0-3]\s*$/m.test(scene)
+    && /^행동\s*:\s*\S+/m.test(scene)
+    && /^배경\s*:\s*\S+/m.test(scene);
+}
+
 function hasRequiredSchoolEnglishBlank(text) {
   const output = String(text || "");
   const questionHeader = /(?:문제|활동)\s*\d+\s*\/\s*10[^\n]*/gi;
@@ -212,7 +237,7 @@ export default async function handler(request, response) {
           formatRepairRule = `\n\n[형식 오류 재생성]\nComplete the Words 문제에는 반드시 영어 단어 앞부분 바로 뒤에 밑줄 4개 이상이 이어지는 빈칸(예: wor____)이 보여야 합니다. 완성 단어와 정답은 쓰지 마세요. 빈칸이 없는 후보는 출력하지 마세요.`;
         }
         if (course.kind === "toeic" && attempt > 0) {
-          formatRepairRule = `\n\n[형식 오류 재생성]\nTOEIC Part 5·6 문장 또는 지문에서 학생이 채울 위치에는 반드시 키보드의 일반 밑줄 문자(_) 8개인 “________”을 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 문제 맨 아래에는 별도로 정확히 “답: (________)”을 표시하세요. 빈칸이 없는 후보는 출력하지 마세요.`;
+          formatRepairRule = `\n\n[형식 오류 재생성]\nTOEIC Part 5·6 문장 또는 지문에서 학생이 채울 위치에는 반드시 키보드의 일반 밑줄 문자(_) 8개인 “________”을 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 문제 맨 아래에는 별도로 정확히 “답: (________)”을 표시하세요. Part 1 사진 묘사형 문제라면 선택지보다 먼저 [TOEIC 그림 시작]과 [TOEIC 그림 끝] 사이에 장소, 인물, 행동, 배경 네 줄을 반드시 넣으세요. “사진:”이라는 설명문만 쓰지 마세요. 빈칸이나 그림 블록이 없는 후보는 출력하지 마세요.`;
         }
         if (course.kind === "english" && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\n중1-고3 영어의 빈칸·문장 완성·지문 완성·알맞은 단어 또는 표현 넣기 문제에서는 학생이 채울 실제 위치에 키보드의 일반 밑줄 문자(_) 8개인 “________”을 반드시 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 모든 활동과 문제 맨 아래에는 문제 유형과 관계없이 별도로 정확히 “답: (________)”을 표시하세요. 표시가 하나라도 빠진 후보는 출력하지 마세요.`;
@@ -244,6 +269,10 @@ export default async function handler(request, response) {
         }
         if (course.kind === "toeic" && !hasRequiredToeicBlank(text)) {
           console.warn("TOEIC Part 5/6 without a visible blank rejected", attempt + 1);
+          continue;
+        }
+        if (course.kind === "toeic" && !hasRequiredToeicScene(text)) {
+          console.warn("TOEIC Part 1 without a renderable scene rejected", attempt + 1);
           continue;
         }
         if (course.kind === "english" && !hasRequiredSchoolEnglishBlank(text)) {
