@@ -483,8 +483,10 @@
 
     function ensureVisibleAnswerSlot(text) {
       let output = String(text || "").trimEnd();
-      const isEnglishExam = COURSE_ID === "toefl" || COURSE_ID === "toeic";
-      if (!isEnglishExam) return output;
+      const needsEnglishAnswerSlot = COURSE_ID === "toefl"
+        || COURSE_ID === "toeic"
+        || COURSE_ID.endsWith("-english");
+      if (!needsEnglishAnswerSlot) return output;
       if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(output)) return output;
 
       const awaitsAnswer = /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output)
