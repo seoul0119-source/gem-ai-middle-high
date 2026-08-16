@@ -607,7 +607,7 @@
       localStorage.setItem(HISTORY_KEY, JSON.stringify(courseHistory));
     }
 
-    async function sendMessage(text) {
+    async function sendMessage(text, inputMode = "text") {
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       setLoading(true);
@@ -628,7 +628,8 @@
           body: JSON.stringify({
             courseId: COURSE_ID,
             messages,
-            history: IS_GENERATIVE_LESSON ? courseHistory : []
+            history: IS_GENERATIVE_LESSON ? courseHistory : [],
+            inputMode
           })
         });
         const data = await response.json();
@@ -741,14 +742,19 @@
         const response = await fetch("/api/transcribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audio, mimeType: blob.type, courseId: COURSE_ID })
+          body: JSON.stringify({
+            audio,
+            mimeType: blob.type,
+            courseId: COURSE_ID,
+            context: lastAssistantText
+          })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
         voiceFailureNoticeShown = false;
         input.value = data.text;
         connection.innerHTML = `<strong>인식</strong> ${data.text}`;
-        await sendMessage(data.text);
+        await sendMessage(data.text, "voice");
       } catch (error) {
         if (!voiceFailureNoticeShown) {
           addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
