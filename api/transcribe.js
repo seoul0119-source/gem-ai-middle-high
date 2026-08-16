@@ -53,9 +53,13 @@ export default async function handler(request, response) {
     }
 
     const transcript = data.text.trim();
-    const promptLeak = isMath && (
-      /한국\s*중학교\s*1학년\s*학생이\s*수학\s*답을/.test(transcript)
+    const promptLeak = (
+      /한국\s*중고등학생이\s*(?:수학|사회|국어)\s*(?:수업\s*문제의\s*)?답을/.test(transcript)
       || /숫자.*음수.*분수.*제곱.*루트/.test(transcript)
+      || /지리.*정치.*법.*경제.*사회.*문화/.test(transcript)
+      || /문학.*문법.*읽기.*쓰기/.test(transcript)
+      || /들리지\s*않는\s*말을\s*추측/.test(transcript)
+      || /같은\s*글자를\s*반복하지\s*마세요/.test(transcript)
       || /표현을\s*정확한\s*한국어/.test(transcript)
     );
     if (promptLeak) {
