@@ -132,3 +132,4 @@ export default async function handler(request, response) {
     console.error("GEM transcription error", error);
     return sendJson(response, 500, { error: "음성 인식 연결 중 문제가 발생했습니다." });
   }
+}
