@@ -13,16 +13,31 @@ function sendJson(response, status, payload) {
 }
 
 function cleanText(value) {
-  return String(value || "")
+  const raw = String(value || "");
+  const isSchoolEnglish = /(?:활동\s*\d+\s*\/\s*10\s*[—–-]\s*(?:단어|회화|이야기|퀴즈)|문제\s*\d+\s*\/\s*10\s*[—–-]\s*(?:문법|독해|수능형|내신형|어휘|문맥))/i.test(raw);
+
+  let output = raw
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
     .replace(/\*\*|__|`|#+\s?/g, "")
-    // Never speak dummy option placeholders such as "① ..." that may appear
-    // after an unclear voice transcription.
+    // Never speak dummy option placeholders such as "① ...".
     .replace(/^\s*[①②③④⑤⑥⑦⑧⑨⑩]\s*(?:\.{2,}|…+|⋯+|_{2,}|[-–—]*)\s*$/gm, "")
-    .replace(/^\s*\d+\s*[.)]\s*(?:\.{2,}|…+|⋯+|_{2,}|[-–—]*)\s*$/gm, "")
-    // Meaningful circled choices are spoken naturally as 1번, 2번, 3번...
-    // instead of letting the TTS engine guess the Unicode symbol.
-    .replace(/[①②③④⑤⑥⑦⑧⑨⑩]/g, (mark) => CIRCLED_TO_SPOKEN[mark] || "")
+    .replace(/^\s*\d+\s*[.)]\s*(?:\.{2,}|…+|⋯+|_{2,}|[-–—]*)\s*$/gm, "");
+
+  // For middle/high-school English, answer choices stay visible on screen but
+  // are not spoken. This prevents the teacher voice from literally saying the
+  // correct option before the learner answers.
+  if (isSchoolEnglish) {
+    output = output
+      .replace(/^\s*[①②③④⑤⑥⑦⑧⑨⑩]\s+.+$/gm, "")
+      .replace(/^\s*\d+\s*[.)]\s+.+$/gm, "")
+      .replace(/^\s*[A-Da-d]\s*[.)]\s+.+$/gm, "")
+      .replace(/^\s*(?:보기|선택지)\s*[:：].*$/gm, "");
+  } else {
+    // In other subjects, meaningful circled choices are spoken naturally.
+    output = output.replace(/[①②③④⑤⑥⑦⑧⑨⑩]/g, (mark) => CIRCLED_TO_SPOKEN[mark] || "");
+  }
+
+  return output
     // Keep lesson counters visible on screen, but remove them from TTS input.
     .replace(/^\s*(?:(?:활동|문제|과제|연습)\s*)?\d+\s*\/\s*10\s*(?:[—–-]\s*[^\n]*)?\s*$/gm, "")
     .replace(/^\s*(?:활동|문제|과제|연습)\s*\d+\s*\/\s*10\s*[:：]?\s*/gm, "")
@@ -56,7 +71,7 @@ export default async function handler(request, response) {
         model: "gpt-4o-mini-tts",
         voice: "marin",
         input,
-        instructions: "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols, visual blanks, answer boxes, dummy ellipsis choices, or lesson counters. Read numbered answer choices naturally as 1번, 2번, 3번.",
+        instructions: "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols, visual blanks, answer boxes, dummy ellipsis choices, or lesson counters. For middle/high-school English multiple-choice activities, do not speak the answer-choice text; the learner reads choices on screen and answers by number.",
         response_format: "mp3"
       })
     });
