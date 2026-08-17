@@ -18,9 +18,20 @@ const ANSWER_SLOT_RULE = `
 - 답안 칸 안에는 정답, 정답 번호, 첫 글자, 힌트나 예시 답을 넣지 않습니다.
 - TOEFL Complete the Words처럼 문제 문장 안에 철자 빈칸이 있는 유형도 문장 안의 빈칸과 별도로 맨 아래에 “답: (________)”을 표시합니다.
 - 수업 종료 요약처럼 학생의 답을 더 기다리지 않는 응답에는 답안 칸을 표시하지 않습니다.`;
+const SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE = `
+
+[중1-고3 영어 정답 사전 공개 금지 — 최우선 규칙]
+- 빈칸 완성, 문장 완성, 지문 완성, 알맞은 단어·표현 넣기 문제에서는 학생이 현재 문제에 답하기 전까지 정답 단어·표현을 절대로 말하거나 쓰지 않습니다.
+- 새 문제를 제시하는 같은 응답 안에서 정답, 모범 답, 완성된 문장, 정답이 포함된 번역·예문·힌트를 함께 제공하지 않습니다.
+- 학생이 “답을 말하지 마세요”, “정답 말하지 마”, “모르겠어요”, “힌트”, 침묵, 잡음, 불분명한 음성처럼 아직 정답을 제출하지 않은 말을 하면 현재 문제의 정답을 공개하지 않습니다.
+- 이때는 문제를 그대로 다시 보여 주거나 정답이 직접 드러나지 않는 짧은 힌트만 제공하고 학생의 답을 기다립니다.
+- “정답은 ○○”, “답은 ○○”, “빈칸에는 ○○가 들어갑니다”, “The answer is ○○”, “Fill the blank with ○○” 같은 정답 공개 문장을 학생이 답하기 전에 절대로 출력하지 않습니다.
+- 객관식 문제는 선택지 자체를 보여 줄 수 있지만, 학생이 답하기 전에는 어느 선택지가 정답인지 표시하거나 말하지 않습니다.
+- 학생이 답한 뒤에는 그 답을 채점하고 필요한 설명을 할 수 있습니다. 단, 같은 응답에서 새 빈칸 문제를 제시한다면 새 문제의 정답은 다시 숨깁니다.
+- 화면에 표시되는 내용과 음성으로 읽히는 내용 모두 이 규칙을 따릅니다.`;
 const FALLBACK_WORDS = [
   { word: "protect", pronunciation: "프로텍트", meaning: "보호하다", example: "We must protect the environment.", translation: "우리는 환경을 보호해야 합니다." },
-  { word: "invite", pronunciation: "인바이트", meaning: "초대하다", example: "I will invite my friend.", translation: "나는 친구를 초대할 것입니다." },
+  { word: "invite", pronunciation: "인바이트", meaning: "초대하다", example: "I will invite my friend.", translation: "나는 내 친구를 초대할 것입니다." },
   { word: "return", pronunciation: "리턴", meaning: "돌아오다, 돌려주다", example: "Please return the book tomorrow.", translation: "내일 그 책을 돌려주세요." },
   { word: "future", pronunciation: "퓨처", meaning: "미래", example: "I have a dream for the future.", translation: "나는 미래를 위한 꿈이 있습니다." },
   { word: "reason", pronunciation: "리즌", meaning: "이유", example: "Tell me the reason.", translation: "그 이유를 말해 주세요." },
@@ -165,6 +176,22 @@ function hasRequiredSchoolEnglishBlank(text) {
   return /_{4,}/.test(questionWithoutAnswerSlots);
 }
 
+function hasPrematureSchoolEnglishAnswer(text) {
+  const output = String(text || "");
+  if (!awaitsStudentAnswer(output)) return false;
+
+  const cleaned = output
+    .replace(/정답(?:은|을)?\s*(?:말하지|공개하지|알려\s*주지|알려주지)[^\n.]*/gi, "")
+    .replace(/^답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gm, "");
+
+  return /(?:정답|답)\s*:\s*["'“”‘’]?[^\s_(][^\n]{0,40}/i.test(cleaned)
+    || /(?:정답|답)\s*(?:은|는)\s*["'“”‘’]?[^\s_(][^\n.!?]{0,30}(?:입니다|이에요|예요|이다|야)(?:[.!?]|$)/im.test(cleaned)
+    || /(?:빈칸|괄호)(?:에|에는)\s*["'“”‘’]?[^\s_][A-Za-z가-힣'-]{0,30}(?:이|가)?\s*(?:들어갑니다|들어가요|맞습니다|맞아요)/i.test(cleaned)
+    || /(?:빈칸|괄호)(?:에|에는)\s*(?:들어갈|들어가는|알맞은)\s*(?:단어|표현|말)?\s*(?:은|는|이|가)?\s*["'“”‘’]?[^\s_][^\n.!?]{0,30}(?:입니다|이에요|예요|이다|들어갑니다|들어가요)/i.test(cleaned)
+    || /(?:the\s+)?(?:correct\s+)?answer\s*(?:is|:)\s*["']?[A-Za-z][A-Za-z'-]*/i.test(cleaned)
+    || /fill(?:\s+in)?\s+(?:the\s+)?blank\s+with\s+["']?[A-Za-z][A-Za-z'-]*/i.test(cleaned);
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -184,8 +211,6 @@ function ensureAnswerSlot(text, courseKind) {
     && /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output);
   if (!awaitsStudentAnswer(output) && !isEnglishProblem) return output;
 
-  // Never expose an answer where an English course should show an empty
-  // response slot. This also repairs occasional output such as "답: because".
   if (isEnglishAnswerCourse) {
     output = output.replace(
       /^답\s*:\s*(?!\([ _\u3000]{3,}\)\s*$).+$/gm,
@@ -230,6 +255,9 @@ export default async function handler(request, response) {
         ? `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
         : "";
       const signatures = new Set(history.map(normalizeProblem).filter(Boolean));
+      const schoolEnglishAnswerRule = course.kind === "english"
+        ? SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE
+        : "";
       const voiceRule = request.body?.inputMode === "voice"
         ? `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
         : "";
@@ -250,7 +278,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + ANSWER_SLOT_RULE + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + ANSWER_SLOT_RULE + schoolEnglishAnswerRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -280,6 +308,10 @@ export default async function handler(request, response) {
         }
         if (course.kind === "english" && !hasRequiredSchoolEnglishBlank(text)) {
           console.warn("Grade 7-12 English completion question without a visible blank rejected", attempt + 1);
+          continue;
+        }
+        if (course.kind === "english" && hasPrematureSchoolEnglishAnswer(text)) {
+          console.warn("Grade 7-12 English premature answer disclosure rejected", attempt + 1);
           continue;
         }
         const answerReadyText = ensureAnswerSlot(text, course.kind);
