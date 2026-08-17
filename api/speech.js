@@ -12,6 +12,10 @@ function cleanText(value) {
   return String(value || "")
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
     .replace(/\*\*|__|`|#+\s?/g, "")
+    // Keep lesson counters visible on screen, but remove them from TTS input.
+    // Examples: "활동 2/10 — 회화", "문제 4/10 - 독해", "2/10 — 퀴즈".
+    .replace(/^\s*(?:(?:활동|문제|과제|연습)\s*)?\d+\s*\/\s*10\s*(?:[—–-]\s*[^\n]*)?\s*$/gm, "")
+    .replace(/^\s*(?:활동|문제|과제|연습)\s*\d+\s*\/\s*10\s*[:：]?\s*/gm, "")
     .replace(/^\s*(?:한글\s*)?발음(?:은)?\s*[:：].*$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
@@ -38,7 +42,7 @@ export default async function handler(request, response) {
         model: "gpt-4o-mini-tts",
         voice: "marin",
         input,
-        instructions: "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols.",
+        instructions: "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols. Never read lesson counters or labels such as 활동 1/10, 문제 2/10, or 3/10.",
         response_format: "mp3"
       })
     });
