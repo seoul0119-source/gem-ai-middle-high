@@ -919,6 +919,26 @@
       return output.slice(0, answerEnd).trimEnd();
     }
 
+    function cleanAvatarReply(text, userText = "") {
+      let output = String(text || "");
+      const isHint = /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(String(userText || ""));
+      if (isHint) {
+        output = output.replace(
+          /^\s*(?:Answer|답|정답)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim,
+          ""
+        );
+      }
+
+      const lines = output.split(/\r?\n/);
+      output = lines.filter((line, index) => {
+        if (!/^\s*[A-Da-d](?:[).:：])?\s*$/.test(line)) return true;
+        const nearby = lines.slice(Math.max(0, index - 3), index + 4).join("\n");
+        return /^\s*[A-Da-d]\s*[).:：]\s*\S+/m.test(nearby);
+      }).join("\n");
+
+      return output.replace(/\n{3,}/g, "\n\n").trim();
+    }
+
     function cleanMathForSpeech(text) {
       const output = cleanForDisplay(text)
         .replace(/\[도표 시작\]|\[도표 끝\]/g, "")
@@ -1421,7 +1441,12 @@
         const protectedText = COURSE.avatar && isStarting
           ? keepOnlyFirstAvatarQuestion(data.text)
           : data.text;
-        const answerReadyText = ensureVisibleAnswerSlot(protectedText);
+        const cleanedAvatarText = COURSE.avatar
+          ? cleanAvatarReply(protectedText, text)
+          : protectedText;
+        const answerReadyText = COURSE.avatar && /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(text)
+          ? cleanedAvatarText
+          : ensureVisibleAnswerSlot(cleanedAvatarText);
         lastAssistantText = cleanForDisplay(answerReadyText);
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText });
