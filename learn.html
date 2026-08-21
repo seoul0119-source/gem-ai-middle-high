@@ -369,6 +369,8 @@
       <button id="auto-speak" class="secondary" type="button" hidden>🔊 음성 계속</button>
       <button id="math-tools-toggle" class="secondary" type="button" hidden>⌨ 수학 입력 도구</button>
       <button id="restart" class="secondary" type="button">↻ 새 수업</button>
+      <button id="end-lesson" class="secondary" type="button">■ 수업 마치기</button>
+      <button id="back-entrance" class="secondary" type="button">← 입구로 돌아가기</button>
     </div>
     <label class="volume-control" for="teacher-volume">
       <span id="teacher-volume-label">🔉 선생님 음량</span>
@@ -550,10 +552,13 @@
     const modalText = document.getElementById("modal-text");
     const teacherVolumeInput = document.getElementById("teacher-volume");
     const teacherVolumeValue = document.getElementById("teacher-volume-value");
+    const endLessonButton = document.getElementById("end-lesson");
+    const backEntranceButton = document.getElementById("back-entrance");
     const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
     const VOLUME_KEY = "gem-teacher-volume";
     let sessionEnded = false;
     let sessionEnding = false;
+    let lessonManuallyEnded = false;
 
     async function readJsonResponse(response, fallbackMessage) {
       const raw = await response.text();
@@ -583,6 +588,7 @@
     let heardSpeech = false;
     let speechFrameCount = 0;
     let currentAudio = null;
+    let currentSpeechResolve = null;
     const savedTeacherVolume = Number(localStorage.getItem(VOLUME_KEY));
     let teacherVolume = Number.isFinite(savedTeacherVolume) && savedTeacherVolume >= 0.05 && savedTeacherVolume <= 1
       ? savedTeacherVolume
@@ -619,6 +625,8 @@
       document.getElementById("send").textContent = "Send";
       document.getElementById("mic").textContent = "🎙 Start voice conversation";
       document.getElementById("restart").textContent = "↻ New lesson";
+      endLessonButton.textContent = "■ End Lesson";
+      backEntranceButton.textContent = "← Back to Entrance";
       document.getElementById("math-tools-toggle").textContent = "⌨ Math input tools";
       document.getElementById("teacher-volume-label").textContent = "🔉 Teacher volume";
       document.getElementById("math-help").textContent = "Examples: x² = x^2 · √2 = sqrt(2) · fraction = 2/3 · x≤3 = x<=3";
@@ -834,6 +842,7 @@
         currentAudio.volume = teacherVolume;
         await currentAudio.play();
         await new Promise((resolve) => {
+          currentSpeechResolve = resolve;
           currentAudio.addEventListener("ended", resolve, { once: true });
           currentAudio.addEventListener("error", resolve, { once: true });
         });
@@ -841,6 +850,7 @@
         console.warn("Natural voice fallback", error);
         browserSpeak(clean);
       } finally {
+        currentSpeechResolve = null;
         window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: false } }));
       }
     }
@@ -1158,8 +1168,15 @@
     }
 
     function setLoading(loading) {
-      input.disabled = loading;
-      sendButton.disabled = loading;
+      input.disabled = loading || lessonManuallyEnded;
+      sendButton.disabled = loading || lessonManuallyEnded;
+      micButton.disabled = loading || lessonManuallyEnded;
+      if (lessonManuallyEnded) {
+        connection.innerHTML = COURSE.avatar
+          ? "<strong>Status</strong> Lesson ended"
+          : "<strong>상태</strong> 수업 종료";
+        return;
+      }
       connection.innerHTML = COURSE.avatar
         ? (loading ? "<strong>Status</strong> Teacher is preparing" : "<strong>Status</strong> Lesson in progress")
         : loading
@@ -1180,6 +1197,7 @@
     }
 
     async function sendMessage(text, inputMode = "text") {
+      if (lessonManuallyEnded) return;
       if (!await sessionReady) return;
       addMessage("user", text);
       messages.push({ role: "user", content: text });
@@ -1224,9 +1242,8 @@
         messages.push({ role: "assistant", content: answerReadyText });
         rememberGeneratedProblem(answerReadyText);
         if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
-        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(lastAssistantText)) {
-          await endCourseTracking();
-          connection.innerHTML = "<strong>상태</strong> 수업 완료·기록 저장";
+        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|lesson (?:is )?(?:complete|completed|finished)|you (?:have |'ve )?completed (?:today's |this )?lesson/i.test(lastAssistantText)) {
+          await finishLesson(false);
         }
       } catch (error) {
         typing.remove();
@@ -1255,6 +1272,7 @@
         : "<strong>상태</strong> 새 수업 기록 준비 중";
       try {
         await sessionRequest({ action: "restart", courseId: COURSE_ID });
+        lessonManuallyEnded = false;
         sessionEnded = false;
         sessionEnding = false;
         messages.length = 0;
@@ -1263,6 +1281,10 @@
         lastAssistantText = COURSE.greeting;
         addMessage("assistant", COURSE.avatar ? `A new lesson is ready. ${COURSE.greeting}` : `새 수업을 준비했습니다. ${COURSE.greeting}`);
         connection.innerHTML = COURSE.avatar ? "<strong>Status</strong> New lesson ready" : "<strong>상태</strong> 새 수업 기록 중";
+        input.disabled = false;
+        sendButton.disabled = false;
+        micButton.disabled = false;
+        endLessonButton.disabled = false;
         input.focus();
       } catch (error) {
         addMessage("assistant", error.message || (COURSE.avatar
@@ -1366,10 +1388,51 @@
         : (isEnglishAvatar ? "🎙 Start voice conversation" : "🎙 음성 대화 시작");
     }
 
+    function stopLessonMedia() {
+      lessonManuallyEnded = true;
+      conversationMode = false;
+      autoSpeak = false;
+      discardRecording = true;
+      clearTimeout(nextRecordingTimer);
+      nextRecordingTimer = null;
+      clearTimeout(recordingTimer);
+      clearInterval(recordingCountdownTimer);
+      clearInterval(audioLevelTimer);
+      if (recorder?.state === "recording") recorder.stop();
+      recordingStream?.getTracks().forEach((track) => track.stop());
+      recordingStream = null;
+      currentAudio?.pause();
+      currentAudio = null;
+      currentSpeechResolve?.();
+      currentSpeechResolve = null;
+      window.speechSynthesis?.cancel();
+      window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: false } }));
+      resetMic(true);
+      input.disabled = true;
+      sendButton.disabled = true;
+      micButton.disabled = true;
+    }
+
+    async function finishLesson(returnToEntrance = false) {
+      stopLessonMedia();
+      endLessonButton.disabled = true;
+      connection.innerHTML = COURSE.avatar
+        ? "<strong>Status</strong> Lesson ended"
+        : "<strong>상태</strong> 수업 종료·기록 저장";
+      await endCourseTracking();
+      if (returnToEntrance) {
+        location.href = "/";
+        return;
+      }
+      addMessage("assistant", COURSE.avatar
+        ? "The lesson has ended. Great work today! Select Back to Entrance when you are ready."
+        : "오늘 수업을 마쳤습니다. 수고하셨습니다! 준비되면 ‘입구로 돌아가기’를 선택해 주세요.");
+    }
+
     function scheduleRecording(delay = 500) {
       clearTimeout(nextRecordingTimer);
       nextRecordingTimer = null;
-      if (!conversationMode || input.disabled) return;
+      if (lessonManuallyEnded || !conversationMode || input.disabled) return;
       nextRecordingTimer = setTimeout(() => {
         nextRecordingTimer = null;
         startRecording();
@@ -1565,7 +1628,11 @@
     }
 
     micButton.addEventListener("click", toggleConversation);
-    document.getElementById("avatar-start").addEventListener("click", () => sendMessage("Start"));
+    endLessonButton.addEventListener("click", () => finishLesson(false));
+    backEntranceButton.addEventListener("click", () => finishLesson(true));
+    document.getElementById("avatar-start").addEventListener("click", () => {
+      if (!lessonManuallyEnded) sendMessage("Start");
+    });
   </script>
 
   <script type="importmap">
