@@ -371,7 +371,7 @@
       <button id="restart" class="secondary" type="button">↻ 새 수업</button>
     </div>
     <label class="volume-control" for="teacher-volume">
-      <span>🔉 선생님 음량</span>
+      <span id="teacher-volume-label">🔉 선생님 음량</span>
       <input id="teacher-volume" type="range" min="5" max="100" step="5" value="45">
       <span id="teacher-volume-value" class="volume-value">45%</span>
     </label>
@@ -391,10 +391,10 @@
         <button class="math-key" type="button" data-insert=" 합집합 ">∪</button>
         <button class="math-key" type="button" data-insert=" 교집합 ">∩</button>
       </div>
-      <p class="math-help">예: x²는 x^2 · √2는 sqrt(2) · 2/3 · x≤3은 x&lt;=3 · 집합은 {1,2,3}처럼 입력합니다.</p>
+      <p id="math-help" class="math-help">예: x²는 x^2 · √2는 sqrt(2) · 2/3 · x≤3은 x&lt;=3 · 집합은 {1,2,3}처럼 입력합니다.</p>
     </section>
 
-    <div class="notice">
+    <div id="privacy-notice" class="notice">
       이 수업은 보호자 또는 교사의 지도 아래 이용합니다. 이름·학교·주소·전화번호 등 개인정보를 입력하지 마세요.
     </div>
   </main>
@@ -614,6 +614,9 @@
       document.getElementById("mic").textContent = "🎙 Start voice conversation";
       document.getElementById("restart").textContent = "↻ New lesson";
       document.getElementById("math-tools-toggle").textContent = "⌨ Math input tools";
+      document.getElementById("teacher-volume-label").textContent = "🔉 Teacher volume";
+      document.getElementById("math-help").textContent = "Examples: x² = x^2 · √2 = sqrt(2) · fraction = 2/3 · x≤3 = x<=3";
+      document.getElementById("privacy-notice").textContent = "Use this lesson with a parent or teacher. Do not enter personal information such as your name, school, address, or phone number.";
     }
     input.disabled = true;
     sendButton.disabled = true;
@@ -690,7 +693,7 @@
     window.addEventListener("pagehide", finishTrackingOnExit);
 
     function cleanForDisplay(text) {
-      return String(text || "")
+      let output = String(text || "")
         .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
         // Remove Markdown emphasis without deleting TOEFL word blanks such as
         // recycl____. The old generic `__` removal erased every visible blank.
@@ -701,6 +704,12 @@
         .replace(/_{4,}/g, "________")
         .replace(/^\s*[-*]\s+/gm, "• ")
         .trim();
+      if (COURSE.avatar) {
+        output = output
+          .replace(/^답(?:\s*\d+)?\s*:/gm, "Answer:")
+          .replace(/^정답(?:\s*\d+)?\s*:/gm, "Answer:");
+      }
+      return output;
     }
 
     function ensureVisibleAnswerSlot(text) {
@@ -1126,15 +1135,17 @@
     function setLoading(loading) {
       input.disabled = loading;
       sendButton.disabled = loading;
-      connection.innerHTML = loading
-        ? "<strong>상태</strong> AI 선생님 응답 중"
-        : "<strong>상태</strong> 수업 진행 중";
+      connection.innerHTML = COURSE.avatar
+        ? (loading ? "<strong>Status</strong> Teacher is preparing" : "<strong>Status</strong> Lesson in progress")
+        : loading
+          ? "<strong>상태</strong> AI 선생님 응답 중"
+          : "<strong>상태</strong> 수업 진행 중";
     }
 
     function rememberGeneratedProblem(text) {
       if (!IS_GENERATIVE_LESSON) return;
       const clean = cleanForDisplay(text);
-      const match = clean.match(/(?:문제|활동)\s*\d+\s*\/\s*10[\s\S]*/i);
+      const match = clean.match(/(?:(?:문제|활동)|(?:problem|activity))\s*\d+\s*\/\s*10[\s\S]*/i);
       if (!match) return;
       const problem = match[0].slice(0, 700).trim();
       if (!problem || courseHistory.includes(problem)) return;
@@ -1223,8 +1234,8 @@
         lessonSeed = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
         chat.replaceChildren();
         lastAssistantText = COURSE.greeting;
-        addMessage("assistant", `새 수업을 준비했습니다. ${COURSE.greeting}`);
-        connection.innerHTML = "<strong>상태</strong> 새 수업 기록 중";
+        addMessage("assistant", COURSE.avatar ? `A new lesson is ready. ${COURSE.greeting}` : `새 수업을 준비했습니다. ${COURSE.greeting}`);
+        connection.innerHTML = COURSE.avatar ? "<strong>Status</strong> New lesson ready" : "<strong>상태</strong> 새 수업 기록 중";
         input.focus();
       } catch (error) {
         addMessage("assistant", error.message || "새 수업 기록을 준비하지 못했습니다.");
