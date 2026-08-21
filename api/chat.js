@@ -301,15 +301,47 @@ function hasOrphanChoiceLabel(text) {
   });
 }
 
-function isAvatarHintRequest(messages, courseId) {
+export function isAvatarHintRequest(messages, courseId) {
   if (courseId !== "g3-math-en") return false;
   const latest = [...messages].reverse().find((message) => message.role === "user");
-  return /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(latest?.content || "");
+  return /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(latest?.content || "")
+    || /(?:힌트|모르겠|잘\s*모르|도와\s*주|도움)/i.test(latest?.content || "");
+}
+
+export function buildSafeGrade3Hint(messages) {
+  const latestQuestion = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant")?.content || "";
+  const activityMatches = [...latestQuestion.matchAll(/Activity\s+\d+\s*\/\s*10\b/gi)];
+  const currentActivity = activityMatches.length
+    ? latestQuestion.slice(activityMatches[activityMatches.length - 1].index)
+    : latestQuestion;
+
+  // These hints deliberately contain no operands, results, option letters, or
+  // completed counting sequences. This keeps both visible text and TTS from
+  // disclosing the answer before the learner responds.
+  if (/true\s+or\s+false|true-or-false/i.test(currentActivity)) {
+    return "Work out the multiplication first. Then compare your result with the number in the question.";
+  }
+  if (/skip\s+count|number\s+pattern|missing\s+number/i.test(currentActivity)) {
+    return "Look at how much the numbers increase each time. Continue the same pattern by one step.";
+  }
+  if (/\b(?:A|B|C)\)|multiple[ -]?choice|choice\b/i.test(currentActivity)) {
+    return "Work out the question first. Then choose the option that matches your result.";
+  }
+  if (/array|row|column|equal\s+group|basket|shelf|cup|picture/i.test(currentActivity)) {
+    return "Count one equal group at a time. Add the groups without skipping any.";
+  }
+  if (/missing\s+factor|fact\s+family|how\s+many\s+groups/i.test(currentActivity)) {
+    return "Use equal groups and work one small step at a time. Stop before saying the final result, then check your work.";
+  }
+  return "Use the picture, pattern, or choices in the question. Work one small step at a time, then say or type your answer.";
 }
 
 function hasAnswerRevealingHint(text) {
   const output = String(text || "");
   return /\b(?:the\s+(?:correct\s+)?answer\s+is|choose\s+[A-C]|option\s+[A-C]|equals?\s+\d+|make(?:s)?\s+\d+|total\s+is\s+\d+)\b/i.test(output)
+    || /\b\d+(?:\s*,\s*\d+){2,}\b/.test(output)
     || /(?:Activity|Question)\s+\d+\s*\/\s*10/i.test(output);
 }
 
@@ -402,6 +434,10 @@ export default async function handler(request, response) {
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
       const grade3Hint = isAvatarHintRequest(messages, request.body?.courseId);
       const avatarHintRule = grade3Hint ? AVATAR_HINT_PROTECTION_RULE : "";
+
+      if (grade3Hint) {
+        return sendJson(response, 200, { text: buildSafeGrade3Hint(messages) });
+      }
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         let formatRepairRule = "";
