@@ -199,6 +199,30 @@ function hasPrematureSchoolEnglishAnswer(text) {
     || /fill(?:\s+in)?\s+(?:the\s+)?blank\s+with\s+["']?[A-Za-z][A-Za-z'-]*/i.test(cleaned);
 }
 
+function hasPrematureGrade3MathAnswer(text) {
+  const output = String(text || "");
+  if (!awaitsStudentAnswer(output)) return false;
+
+  const activityMatches = [...output.matchAll(/Activity\s+\d+\s*\/\s*10\b/gi)];
+  const currentActivity = activityMatches.length
+    ? output.slice(activityMatches[activityMatches.length - 1].index)
+    : output;
+  const withoutAnswerSlot = currentActivity
+    .replace(/^Answer(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "")
+    .replace(/^답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "");
+
+  // Completed equations are legitimate visible choices in a multiple-choice
+  // activity; the rule below targets direct questions that reveal their own
+  // answer in the stem or narration.
+  if (/^\s*[A-D][).]\s+/m.test(withoutAnswerSlot)) return false;
+
+  // A new Grade 3 question may contain an unfinished expression such as
+  // "7 × 2 = ?", but it must never contain a completed result before the
+  // learner answers. Catch both symbolic and spoken completed equations.
+  return /\b\d{1,2}\s*(?:×|x|\*)\s*\d{1,2}\s*=\s*\d{1,3}\b/i.test(withoutAnswerSlot)
+    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,2})\s+times\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:equals|is|makes)\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,3})\b/i.test(withoutAnswerSlot);
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -332,6 +356,10 @@ export default async function handler(request, response) {
         }
         if (course.kind === "english" && hasPrematureSchoolEnglishAnswer(text)) {
           console.warn("Grade 7-12 English premature answer disclosure rejected", attempt + 1);
+          continue;
+        }
+        if (request.body?.courseId === "g3-math-en" && hasPrematureGrade3MathAnswer(text)) {
+          console.warn("Grade 3 math premature answer disclosure rejected", attempt + 1);
           continue;
         }
         const answerReadyText = ensureAnswerSlot(text, course.kind, course.language);
