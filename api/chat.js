@@ -18,6 +18,13 @@ const ANSWER_SLOT_RULE = `
 - 답안 칸 안에는 정답, 정답 번호, 첫 글자, 힌트나 예시 답을 넣지 않습니다.
 - TOEFL Complete the Words처럼 문제 문장 안에 철자 빈칸이 있는 유형도 문장 안의 빈칸과 별도로 맨 아래에 “답: (________)”을 표시합니다.
 - 수업 종료 요약처럼 학생의 답을 더 기다리지 않는 응답에는 답안 칸을 표시하지 않습니다.`;
+const ENGLISH_ANSWER_SLOT_RULE = `
+
+[English-only answer field rule]
+- Write the entire visible response in English. Do not display Korean words or labels unless the learner explicitly asks for Korean help.
+- End every new activity or retry that awaits the learner with exactly “Answer: (________)”.
+- Never write the Korean label “답:”. Never place the correct answer or a hint inside the answer field.
+- Do not add an answer field to a final lesson summary that expects no further response.`;
 const SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE = `
 
 [중1-고3 영어 정답 사전 공개 금지 — 최우선 규칙]
@@ -204,12 +211,21 @@ function awaitsStudentAnswer(text) {
     || /(?:따라\s*말해|영어로\s+짧게\s+다시\s+말해)/.test(output);
 }
 
-function ensureAnswerSlot(text, courseKind) {
+function ensureAnswerSlot(text, courseKind, language) {
   let output = String(text || "").trimEnd();
+  const isEnglishOnly = language === "en";
   const isEnglishAnswerCourse = ["english", "toefl", "toeic"].includes(courseKind);
   const isEnglishProblem = isEnglishAnswerCourse
     && /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output);
   if (!awaitsStudentAnswer(output) && !isEnglishProblem) return output;
+
+  if (isEnglishOnly) {
+    output = output
+      .replace(/^답(?:\s*\d+)?\s*:\s*.*$/gm, "Answer: (________)")
+      .replace(/^정답(?:\s*\d+)?\s*:\s*.*$/gm, "Answer: (________)");
+    if (/Answer(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/i.test(output)) return output;
+    return `${output}\n\nAnswer: (________)`;
+  }
 
   if (isEnglishAnswerCourse) {
     output = output.replace(
@@ -252,7 +268,9 @@ export default async function handler(request, response) {
     if (INTERACTIVE_COURSE_KINDS.has(course.kind)) {
       const history = sanitizeHistory(request.body?.history);
       const historyRule = history.length
-        ? `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
+        ? course.language === "en"
+          ? `\n\n[Previous activities — do not repeat]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\nReject any new activity that uses the same task structure with only different numbers, objects, names, or word order. Choose a different activity family.`
+          : `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
         : "";
       const signatures = new Set(history.map(normalizeProblem).filter(Boolean));
       const schoolEnglishAnswerRule = course.kind === "english"
@@ -278,7 +296,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + ANSWER_SLOT_RULE + schoolEnglishAnswerRule + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -314,7 +332,7 @@ export default async function handler(request, response) {
           console.warn("Grade 7-12 English premature answer disclosure rejected", attempt + 1);
           continue;
         }
-        const answerReadyText = ensureAnswerSlot(text, course.kind);
+        const answerReadyText = ensureAnswerSlot(text, course.kind, course.language);
         const signature = normalizeProblem(answerReadyText);
         if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text: answerReadyText });
         console.warn("Duplicate lesson problem rejected", attempt + 1);
