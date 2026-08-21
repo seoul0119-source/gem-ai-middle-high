@@ -975,6 +975,8 @@ const GRADE_3_ENGLISH_MATH_PROMPT = `You are the warm, calm, and encouraging ava
 - On the second wrong answer, give a stronger step-by-step hint without stating the final answer.
 - On the third wrong answer, explain the solution clearly and then give a new, similar check question.
 - If the learner says "hint", "I don't know", "repeat", or "say it again", respond appropriately and remain on the same activity.
+- A requested hint must contain only one concrete clue. Do not state the result, correct option letter, completed equation, praise, grading, the next activity, or another “Answer: (________)” line.
+- Never output a standalone option label such as “A”, “A)”, “B”, or “C”. If an activity is not multiple-choice, do not show any option labels. If it is multiple-choice, show all three complete choices A), B), and C).
 - Treat small speech-recognition variations sensibly, but never invent an answer the learner did not give.
 
 [Finish]
