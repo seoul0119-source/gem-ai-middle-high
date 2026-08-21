@@ -324,8 +324,10 @@
       input { flex-basis: calc(100% - 84px); }
       .mic { order: 3; width: 100%; min-height: 48px; }
       .toeic-scene-heading { align-items: flex-start; flex-direction: column; }
-      .avatar-stage { min-height: 270px; }
-      #avatar-canvas { height: 270px; }
+      .avatar-stage { min-height: 320px; }
+      #avatar-canvas { height: 320px; }
+      .avatar-controls { right: 8px; bottom: 8px; }
+      .avatar-toggle { min-height: 42px; padding: 9px 11px; font-size: 12px; }
     }
   </style>
 </head>
@@ -784,6 +786,7 @@
       if (!clean) return;
       if (currentAudio) currentAudio.pause();
       window.speechSynthesis?.cancel();
+      window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: true } }));
 
       try {
         const response = await fetch("/api/speech", {
@@ -803,6 +806,8 @@
       } catch (error) {
         console.warn("Natural voice fallback", error);
         browserSpeak(clean);
+      } finally {
+        window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: false } }));
       }
     }
 
@@ -1519,8 +1524,14 @@
       applyVisibility();
 
       try {
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-        renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        const isSmallScreen = window.matchMedia("(max-width: 520px)").matches;
+        const renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: !isSmallScreen,
+          alpha: true,
+          powerPreference: "high-performance"
+        });
+        renderer.setPixelRatio(Math.min(devicePixelRatio, isSmallScreen ? 1.35 : 2));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -1544,18 +1555,46 @@
         const height = Math.max(box.getSize(new THREE.Vector3()).y, 1);
         vrm.scene.position.x -= center.x;
         vrm.scene.position.y -= box.min.y;
-        camera.position.set(0, height * 0.56, height * 1.32);
-        camera.lookAt(0, height * 0.56, 0);
+        const targetHeight = height * 0.54;
+        camera.position.set(0, targetHeight, height * 1.42);
+        camera.lookAt(0, targetHeight, 0);
         loading.hidden = true;
 
         const clock = new THREE.Clock();
         let elapsed = 0;
         let nextBlink = 2.2;
+        let avatarSpeaking = false;
+        window.addEventListener("gem-avatar-speaking", (event) => {
+          avatarSpeaking = Boolean(event.detail?.speaking);
+        });
+
+        const hips = vrm.humanoid?.getNormalizedBoneNode("hips");
+        const chest = vrm.humanoid?.getNormalizedBoneNode("chest");
+        const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode("leftUpperArm");
+        const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode("rightUpperArm");
+        const leftLowerArm = vrm.humanoid?.getNormalizedBoneNode("leftLowerArm");
+        const rightLowerArm = vrm.humanoid?.getNormalizedBoneNode("rightLowerArm");
+        const leftHand = vrm.humanoid?.getNormalizedBoneNode("leftHand");
+        const rightHand = vrm.humanoid?.getNormalizedBoneNode("rightHand");
+
+        // VRM models load in a T-pose. These rotations form a relaxed teacher
+        // stance before the first frame so the avatar never flashes a T-pose.
+        if (leftUpperArm) leftUpperArm.rotation.z = -1.18;
+        if (rightUpperArm) rightUpperArm.rotation.z = 1.18;
+        if (leftLowerArm) leftLowerArm.rotation.y = -0.12;
+        if (rightLowerArm) rightLowerArm.rotation.y = 0.12;
+        if (leftHand) leftHand.rotation.z = -0.08;
+        if (rightHand) rightHand.rotation.z = 0.08;
+
         function resize() {
           const width = Math.max(canvas.clientWidth, 1);
           const heightPx = Math.max(canvas.clientHeight, 1);
           renderer.setSize(width, heightPx, false);
           camera.aspect = width / heightPx;
+          // A narrow phone canvas needs a little more distance to keep the
+          // teacher's complete body and gestures inside the frame.
+          const narrowScreenFactor = camera.aspect < 0.9 ? 1.18 : 1;
+          camera.position.z = height * 1.42 * narrowScreenFactor;
           camera.updateProjectionMatrix();
         }
         new ResizeObserver(resize).observe(stage);
@@ -1570,6 +1609,30 @@
             head.rotation.y = Math.sin(elapsed * 0.55) * 0.035;
             head.rotation.z = Math.sin(elapsed * 0.8) * 0.012;
           }
+          const breath = Math.sin(elapsed * 1.7);
+          if (hips) hips.position.y = breath * 0.0025;
+          if (chest) {
+            chest.rotation.x = breath * 0.012;
+            chest.rotation.y = avatarSpeaking ? Math.sin(elapsed * 1.8) * 0.018 : 0;
+          }
+
+          // Keep both arms relaxed. While speaking, the right arm makes a
+          // small classroom gesture rather than swinging continuously.
+          if (leftUpperArm) leftUpperArm.rotation.z = -1.18 + breath * 0.012;
+          if (rightUpperArm) {
+            const gesture = avatarSpeaking ? (Math.sin(elapsed * 2.2) + 1) * 0.10 : 0;
+            rightUpperArm.rotation.z = 1.18 - gesture;
+            rightUpperArm.rotation.x = avatarSpeaking ? Math.sin(elapsed * 1.35) * 0.08 : 0;
+          }
+          if (leftLowerArm) leftLowerArm.rotation.y = -0.12;
+          if (rightLowerArm) rightLowerArm.rotation.y = avatarSpeaking ? 0.30 : 0.12;
+
+          // Simple audio-synchronised mouth movement. The expression is kept
+          // deliberately subtle so it looks natural on a classroom TV.
+          const mouthOpen = avatarSpeaking
+            ? 0.18 + Math.abs(Math.sin(elapsed * 9.2)) * 0.42
+            : 0;
+          vrm.expressionManager?.setValue("aa", mouthOpen);
           if (elapsed > nextBlink) {
             const phase = elapsed - nextBlink;
             const blink = phase < 0.11 ? phase / 0.11 : phase < 0.22 ? 1 - (phase - 0.11) / 0.11 : 0;
