@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GEM AI English Program</title>
+  <style>
+    :root { --navy:#07162d; --blue:#1e67c6; --gold:#e7c46a; --ink:#172033; --muted:#617087; --line:#cfdaea; --bg:#eef3fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font-family:Arial,"Noto Sans KR",sans-serif; }
+    body.auth-pending > * { visibility:hidden; }
+    header { padding:38px 18px; text-align:center; color:#fff; background:linear-gradient(135deg,var(--navy),#173d70); }
+    .brand { color:var(--gold); font-size:13px; font-weight:800; letter-spacing:2px; }
+    h1 { margin:10px 0 8px; font-size:clamp(28px,6vw,44px); }
+    header p { margin:0; color:#dce7f7; font-size:17px; }
+    main { width:min(900px,94%); margin:25px auto 42px; }
+    .student { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:13px 16px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+    .student strong { color:#173d70; }
+    .logout,.secondary { border:1px solid #b8c8dc; border-radius:10px; padding:9px 12px; background:#fff; color:#173d70; font:inherit; font-weight:700; cursor:pointer; }
+    .section-title { margin:28px 0 14px; text-align:center; }
+    .section-title h2 { margin:0 0 7px; color:#173d70; }
+    .section-title p { margin:0; color:var(--muted); line-height:1.6; }
+    .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+    .card { padding:22px; border:1px solid var(--line); border-radius:20px; background:#fff; box-shadow:0 8px 22px rgba(7,22,45,.08); }
+    .card.active { border:2px solid #6e9fdf; background:linear-gradient(180deg,#fff,#f2f7ff); }
+    .icon { font-size:38px; }
+    .card h3 { margin:10px 0 7px; font-size:24px; }
+    .card p { min-height:76px; margin:0 0 18px; color:var(--muted); line-height:1.6; }
+    .go { display:block; padding:14px 16px; border-radius:12px; color:#fff; background:var(--blue); font-weight:800; text-align:center; text-decoration:none; }
+    .planned { display:block; padding:12px; border-radius:12px; background:#edf1f6; color:#68758a; font-weight:700; text-align:center; }
+    .notice { margin-top:20px; padding:15px 17px; border:1px solid #ecd38c; border-radius:13px; background:#fff8e5; color:#594a22; line-height:1.6; }
+    .back { display:inline-block; margin-top:18px; color:#174d8d; font-weight:700; text-decoration:none; }
+    @media(max-width:650px) { .grid { grid-template-columns:1fr; } .student { align-items:flex-start; flex-direction:column; } .card p { min-height:0; } }
+  </style>
+</head>
+<body class="auth-pending">
+  <header>
+    <div class="brand">GEM AI LEARNING MISSION CLASS INTERNATIONAL</div>
+    <h1>🇺🇸 English Program</h1>
+    <p>Elementary School · Grades 1–5</p>
+  </header>
+  <main>
+    <section class="student">
+      <span><strong id="student-name">Registered student</strong> · <span id="student-id"></span></span>
+      <button id="logout" class="logout" type="button">End class · Sign out</button>
+    </section>
+
+    <section class="section-title">
+      <h2>Choose today’s class</h2>
+      <p>The first avatar classroom begins with Grade 3 Mathematics.</p>
+    </section>
+
+    <section class="grid" aria-label="English elementary classes">
+      <article class="card active">
+        <div class="icon">🧮</div>
+        <h3>Grade 3 Mathematics</h3>
+        <p>Learn multiplication through groups, arrays, pictures, short questions, and step-by-step hints.</p>
+        <a class="go" href="/learn.html?course=g3-math-en">Meet the Avatar Teacher</a>
+      </article>
+      <article class="card">
+        <div class="icon">📖</div>
+        <h3>English Language Arts</h3>
+        <p>Reading, vocabulary, writing, and speaking activities for elementary learners.</p>
+        <span class="planned">Planned Pathway</span>
+      </article>
+      <article class="card">
+        <div class="icon">🔬</div>
+        <h3>Elementary Science</h3>
+        <p>Observation, simple experiments, scientific questions, and age-appropriate explanations.</p>
+        <span class="planned">Planned Pathway</span>
+      </article>
+      <article class="card">
+        <div class="icon">🌍</div>
+        <h3>More Grade Levels</h3>
+        <p>Additional elementary, middle, high school, and college-prep support will be added after testing.</p>
+        <span class="planned">Future Support</span>
+      </article>
+    </section>
+
+    <div class="notice">AI teaches. A human homeroom teacher takes responsibility. This pilot classroom is used with a parent or teacher present.</div>
+    <a class="back" href="/">← Change language or program</a>
+  </main>
+  <script>
+    async function loadStudentSession() {
+      try {
+        const response = await fetch("/api/session", { cache:"no-store" });
+        if (!response.ok) throw new Error("Login required");
+        const data = await response.json();
+        document.getElementById("student-name").textContent = `${data.student.name}`;
+        document.getElementById("student-id").textContent = data.student.id;
+        document.body.classList.remove("auth-pending");
+      } catch (_) { location.replace("/"); }
+    }
+    document.getElementById("logout").addEventListener("click", async () => {
+      await fetch("/api/session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"logout"}) }).catch(() => null);
+      location.replace("/");
+    });
+    loadStudentSession();
+  </script>
+</body>
+</html>
