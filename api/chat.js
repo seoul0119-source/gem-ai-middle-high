@@ -36,6 +36,13 @@ const SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE = `
 - 객관식 문제는 선택지 자체를 보여 줄 수 있지만, 학생이 답하기 전에는 어느 선택지가 정답인지 표시하거나 말하지 않습니다.
 - 학생이 답한 뒤에는 그 답을 채점하고 필요한 설명을 할 수 있습니다. 단, 같은 응답에서 새 빈칸 문제를 제시한다면 새 문제의 정답은 다시 숨깁니다.
 - 화면에 표시되는 내용과 음성으로 읽히는 내용 모두 이 규칙을 따릅니다.`;
+const AVATAR_START_PROTECTION_RULE = `
+
+[Grade 3 avatar start response — highest priority]
+- The learner has only asked to start the lesson and has not answered activity 1 yet.
+- Output exactly one greeting and exactly one Activity 1/10 question.
+- End immediately with “Answer: (________)” and wait for the learner.
+- Do not output praise, grading, an explanation, a completed equation, the correct answer, or Activity 2/10 in this response.`;
 const FALLBACK_WORDS = [
   { word: "protect", pronunciation: "프로텍트", meaning: "보호하다", example: "We must protect the environment.", translation: "우리는 환경을 보호해야 합니다." },
   { word: "invite", pronunciation: "인바이트", meaning: "초대하다", example: "I will invite my friend.", translation: "나는 내 친구를 초대할 것입니다." },
@@ -242,6 +249,25 @@ function hasTooAdvancedGrade3MathQuestion(text) {
     || /Activity\s+\d+\s*\/\s*10\s*[—-]\s*Explain\b/i.test(currentActivity);
 }
 
+function isGrade3AvatarStart(messages, courseId) {
+  if (courseId !== "g3-math-en") return false;
+  const lastMessage = messages[messages.length - 1];
+  return lastMessage?.role === "user" && /^(?:start|begin|시작|시작하기)$/i.test(lastMessage.content.trim());
+}
+
+function hasInvalidGrade3StartResponse(text) {
+  const output = String(text || "");
+  const activities = output.match(/Activity\s+\d+\s*\/\s*10\b/gi) || [];
+  if (activities.length !== 1 || !/Activity\s+1\s*\/\s*10\b/i.test(output)) return true;
+
+  const answerSlot = /Answer(?:\s*1)?\s*:\s*\([ _\u3000]{3,}\)/i.exec(output);
+  if (!answerSlot) return true;
+  const afterSlot = output.slice(answerSlot.index + answerSlot[0].length).trim();
+  if (afterSlot) return true;
+
+  return /\b(?:great job|correct|well done|the answer is|equals|makes)\b/i.test(output.slice(0, answerSlot.index));
+}
+
 function hasIncompleteChoiceSet(text) {
   const output = String(text || "");
   const activityMatches = [...output.matchAll(/(?:Activity|문제|활동)\s+\d+\s*\/\s*10\b/gi)];
@@ -341,6 +367,8 @@ export default async function handler(request, response) {
           ? `\n\n[The learner's answer came from speech recognition]\nIf it is unclear or unrelated to the current activity, do not grade it as wrong and never reveal the answer. Say only: “I couldn't understand that clearly. Please give a short answer again.” Then wait on the same activity. Use English only.`
           : `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
         : "";
+      const grade3Start = isGrade3AvatarStart(messages, request.body?.courseId);
+      const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         let formatRepairRule = "";
@@ -363,7 +391,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -379,6 +407,10 @@ export default async function handler(request, response) {
         }
         const text = getOutputText(data);
         if (!text) continue;
+        if (grade3Start && hasInvalidGrade3StartResponse(text)) {
+          console.warn("Grade 3 start response disclosed feedback or multiple activities", attempt + 1);
+          continue;
+        }
         if (course.kind === "toefl" && !hasRequiredToeflBlank(text)) {
           console.warn("TOEFL Complete the Words without a visible blank rejected", attempt + 1);
           continue;
