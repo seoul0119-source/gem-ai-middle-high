@@ -60,8 +60,12 @@ export default async function handler(request, response) {
   if (!requireStudentSession(request, response)) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
+  const courseId = String(request.body?.courseId || "");
+  const isEnglishAvatar = courseId === "g3-math-en";
   const input = cleanText(request.body?.text);
-  if (!apiKey || !input) return sendJson(response, 400, { error: "읽을 문장이 없습니다." });
+  if (!apiKey || !input) return sendJson(response, 400, { error: isEnglishAvatar
+    ? "There is no text to speak."
+    : "읽을 문장이 없습니다." });
 
   try {
     const result = await fetch("https://api.openai.com/v1/audio/speech", {
@@ -71,20 +75,26 @@ export default async function handler(request, response) {
         model: "gpt-4o-mini-tts",
         voice: "marin",
         input,
-        instructions: "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols, visual blanks, answer boxes, dummy ellipsis choices, or lesson counters. For middle/high-school English multiple-choice activities, do not speak the answer-choice text; the learner reads choices on screen and answers by number.",
+        instructions: isEnglishAvatar
+          ? "Speak only in clear natural American English as a warm Grade 3 mathematics teacher. Never speak Korean. Read the multiplication sign as 'times', never as the Korean word '곱하기'. Do not read markdown symbols, visual blanks, answer boxes, or lesson counters."
+          : "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols, visual blanks, answer boxes, dummy ellipsis choices, or lesson counters. For middle/high-school English multiple-choice activities, do not speak the answer-choice text; the learner reads choices on screen and answers by number.",
         response_format: "mp3"
       })
     });
 
     if (!result.ok) {
       console.error("OpenAI speech error", result.status);
-      return sendJson(response, 502, { error: "음성을 만들지 못했습니다." });
+      return sendJson(response, 502, { error: isEnglishAvatar
+        ? "The teacher voice could not be created."
+        : "음성을 만들지 못했습니다." });
     }
 
     const audio = Buffer.from(await result.arrayBuffer()).toString("base64");
     return sendJson(response, 200, { audio, mimeType: "audio/mpeg" });
   } catch (error) {
     console.error("GEM speech error", error);
-    return sendJson(response, 500, { error: "음성 연결 중 문제가 발생했습니다." });
+    return sendJson(response, 500, { error: isEnglishAvatar
+      ? "There was a problem connecting the teacher voice."
+      : "음성 연결 중 문제가 발생했습니다." });
   }
 }
