@@ -328,6 +328,98 @@
       #avatar-canvas { height: 320px; }
       .avatar-controls { right: 8px; bottom: 8px; }
       .avatar-toggle { min-height: 42px; padding: 9px 11px; font-size: 12px; }
+
+      /* The avatar lesson becomes a single-screen classroom on phones. */
+      body.avatar-course { height: 100dvh; overflow: hidden; }
+      body.avatar-course header,
+      body.avatar-course .status,
+      body.avatar-course .notice,
+      body.avatar-course .volume-control { display: none; }
+      body.avatar-course main {
+        display: grid;
+        grid-template-rows: 148px minmax(0, 1fr) auto auto;
+        gap: 7px;
+        width: 100%;
+        height: 100dvh;
+        margin: 0;
+        padding: 6px;
+        overflow: hidden;
+      }
+      body.avatar-course .avatar-stage {
+        position: relative;
+        min-height: 148px;
+        height: 148px;
+        margin: 0;
+        border-radius: 14px;
+      }
+      body.avatar-course #avatar-canvas { height: 148px; }
+      body.avatar-course .avatar-loading {
+        align-items: start;
+        padding: 10px 8px;
+        font-size: 13px;
+      }
+      body.avatar-course .avatar-controls { right: 6px; bottom: 6px; }
+      body.avatar-course .avatar-toggle {
+        min-height: 34px;
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+      body.avatar-course .chat {
+        min-height: 0;
+        max-height: none;
+        height: 100%;
+        padding: 9px;
+        border-radius: 14px;
+        overscroll-behavior: contain;
+      }
+      body.avatar-course.mobile-lesson-focus .chat .message:not(.mobile-current):not(.typing) {
+        display: none;
+      }
+      body.avatar-course .message {
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 8px;
+        padding: 11px 12px;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      body.avatar-course form {
+        flex-wrap: nowrap;
+        gap: 7px;
+        margin: 0;
+      }
+      body.avatar-course form input { flex-basis: auto; padding: 11px 12px; font-size: 16px; }
+      body.avatar-course .mic {
+        order: initial;
+        width: auto;
+        min-width: 92px;
+        min-height: 44px;
+        padding: 7px 10px;
+        font-size: 13px;
+      }
+      body.avatar-course .send { min-width: 64px; padding: 0 10px; font-size: 15px; }
+      body.avatar-course .actions {
+        flex-wrap: nowrap;
+        gap: 6px;
+        margin: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      body.avatar-course .actions::-webkit-scrollbar { display: none; }
+      body.avatar-course .actions .secondary {
+        flex: 0 0 auto;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      body.avatar-course.voice-conversation form input,
+      body.avatar-course.voice-conversation form .send,
+      body.avatar-course.voice-conversation .actions { display: none; }
+      body.avatar-course.voice-conversation form .mic {
+        display: block;
+        width: 100%;
+        min-height: 46px;
+        font-size: 15px;
+      }
     }
   </style>
 </head>
@@ -597,6 +689,20 @@
     let conversationMode = false;
     let discardRecording = false;
     let voiceFailureNoticeShown = false;
+    const mobileLessonMedia = window.matchMedia("(max-width: 520px)");
+
+    function isMobileAvatarLesson() {
+      return Boolean(COURSE.avatar && mobileLessonMedia.matches);
+    }
+
+    function settleMobileLessonView() {
+      if (!isMobileAvatarLesson()) return;
+      input.blur();
+      requestAnimationFrame(() => {
+        chat.scrollTop = chat.scrollHeight;
+        window.scrollTo(0, 0);
+      });
+    }
 
     document.title = `GEM AI ${COURSE.title}`;
     document.getElementById("course-title").textContent = COURSE.title;
@@ -616,6 +722,7 @@
       mathToolsToggle.hidden = !IS_MATH;
     }
     if (COURSE.avatar) {
+      document.body.classList.add("avatar-course");
       document.documentElement.lang = "en";
       document.getElementById("avatar-stage").classList.add("open");
       document.querySelector("header > p").textContent = "AI teaches, and a human teacher remains responsible.";
@@ -662,7 +769,8 @@
         sendButton.disabled = false;
         micButton.disabled = false;
         connection.innerHTML = `<strong>학생</strong> ${session.student.name} · 수업 기록 중`;
-        input.focus();
+        if (isMobileAvatarLesson()) settleMobileLessonView();
+        else input.focus();
         return true;
       } catch (error) {
         if (error.status === 401) {
@@ -1127,6 +1235,11 @@
     function addMessage(role, text, extraClass = "") {
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
+    if (COURSE.avatar && role === "assistant" && extraClass !== "typing") {
+        chat.querySelectorAll(".mobile-current").forEach((message) => message.classList.remove("mobile-current"));
+        element.classList.add("mobile-current");
+        document.body.classList.add("mobile-lesson-focus");
+      }
       const parts = extractVisual(text);
       const hasToeicScene = Boolean(parts.toeicScene);
       if (role === "assistant" && hasToeicScene) {
@@ -1164,6 +1277,7 @@
       }
       chat.appendChild(element);
       chat.scrollTop = chat.scrollHeight;
+      if (isMobileAvatarLesson()) requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
       return element;
     }
 
@@ -1251,7 +1365,8 @@
         connection.innerHTML = "<strong>상태</strong> 연결 확인 필요";
       } finally {
         setLoading(false);
-        input.focus();
+        if (isMobileAvatarLesson()) settleMobileLessonView();
+        else input.focus();
         scheduleRecording(450);
       }
     }
@@ -1285,7 +1400,8 @@
         sendButton.disabled = false;
         micButton.disabled = false;
         endLessonButton.disabled = false;
-        input.focus();
+        if (isMobileAvatarLesson()) settleMobileLessonView();
+        else input.focus();
       } catch (error) {
         addMessage("assistant", error.message || (COURSE.avatar
           ? "The new lesson could not be prepared."
@@ -1312,11 +1428,13 @@
     async function toggleConversation() {
       conversationMode = !conversationMode;
       autoSpeak = conversationMode;
+      document.body.classList.toggle("voice-conversation", conversationMode && COURSE.avatar);
       const isEnglishAvatar = COURSE.language === "en" || COURSE.avatar;
       micButton.textContent = conversationMode
         ? (isEnglishAvatar ? "■ Stop voice conversation" : "■ 음성 대화 멈춤")
         : (isEnglishAvatar ? "🎙 Start voice conversation" : "🎙 음성 대화 시작");
       if (conversationMode) {
+        settleMobileLessonView();
         discardRecording = false;
         connection.innerHTML = isEnglishAvatar
           ? "<strong>Status</strong> Preparing to listen"
@@ -1325,6 +1443,7 @@
         // an answer given right after the button click is never missed.
         startRecording();
       } else {
+        settleMobileLessonView();
         clearTimeout(nextRecordingTimer);
         nextRecordingTimer = null;
         discardRecording = true;
