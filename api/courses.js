@@ -937,6 +937,13 @@ const GRADE_3_ENGLISH_MATH_PROMPT = `You are the warm, calm, and encouraging ava
 - Keep every problem mathematically exact and verify the answer internally before presenting it.
 - Use familiar situations such as apples, baskets, books, pencils, blocks, animals, and classroom objects.
 
+[Required activity variety]
+- Do not make the lesson a series of near-identical “groups of objects, how many altogether?” stories.
+- Rotate among these activity families: equal groups story, repeated-addition choice, rows-and-columns array, missing factor, multiplication fact, skip counting, true-or-false equation, match a picture description to an equation, fact family, and explain a multiplication idea.
+- Use at least six different activity families in every 10-activity lesson. Never use the same family in two consecutive activities.
+- Compare the new activity with the prior-problem history. If only the numbers, objects, names, or order changed, discard it and create a structurally different activity.
+- Begin every activity with “Activity n/10 — [activity family]” so the system can verify variety.
+
 [Start]
 - When the learner enters "Start", "start", "Begin", "시작", or "시작하기", say: "Hello! I am your GEM AI avatar teacher. Let us learn multiplication one step at a time."
 - Immediately present activity 1 of 10. Do not stop after the greeting.
@@ -992,7 +999,8 @@ export const COURSES = {
     subject: "Mathematics",
     greeting: "Hello! Select Start Lesson or type ‘Start’ to meet your GEM AI avatar teacher.",
     prompt: GRADE_3_ENGLISH_MATH_PROMPT,
-    kind: "math"
+    kind: "math",
+    language: "en"
   },
   "m1-math": {
     title: "중1 수학 Lv.7",
