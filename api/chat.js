@@ -239,6 +239,23 @@ function hasTooAdvancedGrade3MathQuestion(text) {
     || /Activity\s+\d+\s*\/\s*10\s*[—-]\s*Explain\b/i.test(currentActivity);
 }
 
+function hasIncompleteChoiceSet(text) {
+  const output = String(text || "");
+  const activityMatches = [...output.matchAll(/(?:Activity|문제|활동)\s+\d+\s*\/\s*10\b/gi)];
+  const currentActivity = activityMatches.length
+    ? output.slice(activityMatches[activityMatches.length - 1].index)
+    : output;
+  const optionLines = [...currentActivity.matchAll(/^\s*([A-Da-d])\s*[).:：]\s*(.*?)\s*$/gm)];
+  if (!optionLines.length) return false;
+
+  const options = new Map(optionLines.map((match) => [match[1].toUpperCase(), match[2].trim()]));
+  if ([...options.values()].some((value) => !value)) return true;
+
+  const looksLikeChoiceActivity = /(?:multiple[ -]?choice|fact choice|equation choice|repeated-addition choice|선택|객관식)/i.test(currentActivity);
+  if (!looksLikeChoiceActivity) return false;
+  return !["A", "B", "C"].every((label) => options.get(label));
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -324,6 +341,11 @@ export default async function handler(request, response) {
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         let formatRepairRule = "";
+        if (attempt > 0) {
+          formatRepairRule += course.language === "en"
+            ? `\n\n[Multiple-choice format repair]\nEvery multiple-choice activity must contain three complete choices labeled A), B), and C). Write meaningful text after every label. Never output an empty label such as “C)” or “C answer”. Verify that exactly one choice is correct before responding.`
+            : `\n\n[객관식 형식 오류 재생성]\n객관식 문제에는 A), B), C) 선택지를 모두 완전하게 작성하세요. 어떤 선택지 뒤도 비워 두지 말고 “C 답”처럼 쓰지 마세요. 출력 전에 정답이 하나뿐인지 확인하세요.`;
+        }
         if (course.kind === "toefl" && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\nComplete the Words 문제에는 반드시 영어 단어 앞부분 바로 뒤에 밑줄 4개 이상이 이어지는 빈칸(예: wor____)이 보여야 합니다. 완성 단어와 정답은 쓰지 마세요. 빈칸이 없는 후보는 출력하지 마세요.`;
         }
@@ -380,6 +402,10 @@ export default async function handler(request, response) {
         }
         if (request.body?.courseId === "g3-math-en" && hasTooAdvancedGrade3MathQuestion(text)) {
           console.warn("Grade 3 math abstract explanation question rejected", attempt + 1);
+          continue;
+        }
+        if (hasIncompleteChoiceSet(text)) {
+          console.warn("Incomplete multiple-choice set rejected", attempt + 1);
           continue;
         }
         const answerReadyText = ensureAnswerSlot(text, course.kind, course.language);
