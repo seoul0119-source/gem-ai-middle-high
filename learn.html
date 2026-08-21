@@ -330,7 +330,13 @@
       .avatar-toggle { min-height: 42px; padding: 9px 11px; font-size: 12px; }
 
       /* The avatar lesson becomes a single-screen classroom on phones. */
-      body.avatar-course { height: 100dvh; overflow: hidden; }
+      html:has(body.avatar-course),
+      body.avatar-course {
+        width: 100%;
+        max-width: 100%;
+        height: 100dvh;
+        overflow: hidden;
+      }
       body.avatar-course header,
       body.avatar-course .status,
       body.avatar-course .notice,
@@ -345,6 +351,12 @@
         padding: 6px;
         overflow: hidden;
       }
+      body.avatar-course main > *,
+      body.avatar-course form > *,
+      body.avatar-course .actions > * {
+        min-width: 0;
+        max-width: 100%;
+      }
       body.avatar-course .avatar-stage {
         position: relative;
         min-height: 148px;
@@ -352,13 +364,26 @@
         margin: 0;
         border-radius: 14px;
       }
+      body.avatar-course.avatar-hidden main {
+        grid-template-rows: 52px minmax(0, 1fr) auto auto;
+      }
+      body.avatar-course .avatar-stage.hidden-avatar {
+        min-height: 52px;
+        height: 52px;
+      }
       body.avatar-course #avatar-canvas { height: 148px; }
       body.avatar-course .avatar-loading {
         align-items: start;
         padding: 10px 8px;
         font-size: 13px;
       }
-      body.avatar-course .avatar-controls { right: 6px; bottom: 6px; }
+      body.avatar-course .avatar-controls {
+        right: 6px;
+        bottom: 6px;
+        left: 6px;
+        justify-content: flex-end;
+        min-width: 0;
+      }
       body.avatar-course .avatar-toggle {
         min-height: 34px;
         padding: 6px 8px;
@@ -372,7 +397,7 @@
         border-radius: 14px;
         overscroll-behavior: contain;
       }
-      body.avatar-course.mobile-lesson-focus .chat .message:not(.mobile-current):not(.typing) {
+      body.avatar-course.mobile-lesson-focus .chat .message:not(.mobile-current):not(.mobile-previous):not(.typing) {
         display: none;
       }
       body.avatar-course .message {
@@ -382,34 +407,45 @@
         padding: 11px 12px;
         font-size: 16px;
         line-height: 1.5;
+        overflow-wrap: anywhere;
       }
       body.avatar-course form {
+        width: 100%;
         flex-wrap: nowrap;
         gap: 7px;
         margin: 0;
+        overflow: hidden;
       }
-      body.avatar-course form input { flex-basis: auto; padding: 11px 12px; font-size: 16px; }
+      body.avatar-course form input {
+        width: 0;
+        flex: 1 1 0;
+        flex-basis: 0;
+        padding: 11px 10px;
+        font-size: 16px;
+      }
       body.avatar-course .mic {
         order: initial;
         width: auto;
-        min-width: 92px;
+        min-width: 0;
+        max-width: 44%;
         min-height: 44px;
         padding: 7px 10px;
         font-size: 13px;
       }
-      body.avatar-course .send { min-width: 64px; padding: 0 10px; font-size: 15px; }
+      body.avatar-course .send { flex: 0 0 58px; min-width: 0; padding: 0 7px; font-size: 14px; }
       body.avatar-course .actions {
-        flex-wrap: nowrap;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
         margin: 0;
-        overflow-x: auto;
-        scrollbar-width: none;
+        overflow: hidden;
       }
-      body.avatar-course .actions::-webkit-scrollbar { display: none; }
       body.avatar-course .actions .secondary {
-        flex: 0 0 auto;
-        padding: 8px 10px;
-        font-size: 12px;
+        width: 100%;
+        padding: 8px 6px;
+        font-size: 11px;
+        line-height: 1.2;
+        white-space: normal;
       }
       body.avatar-course.voice-conversation form input,
       body.avatar-course.voice-conversation form .send,
@@ -420,6 +456,10 @@
         min-height: 46px;
         font-size: 15px;
       }
+      vercel-live-feedback,
+      vercel-toolbar,
+      #vercel-toolbar,
+      [data-vercel-toolbar] { display: none !important; }
     }
   </style>
 </head>
@@ -702,6 +742,17 @@
         chat.scrollTop = chat.scrollHeight;
         window.scrollTo(0, 0);
       });
+    }
+
+    function removePreviewToolbar() {
+      if (!isMobileAvatarLesson()) return;
+      document.querySelectorAll("vercel-live-feedback, vercel-toolbar, #vercel-toolbar, [data-vercel-toolbar]")
+        .forEach((element) => element.remove());
+    }
+
+    if (COURSE.avatar) {
+      removePreviewToolbar();
+      new MutationObserver(removePreviewToolbar).observe(document.documentElement, { childList: true, subtree: true });
     }
 
     document.title = `GEM AI ${COURSE.title}`;
@@ -1235,8 +1286,12 @@
     function addMessage(role, text, extraClass = "") {
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
-    if (COURSE.avatar && role === "assistant" && extraClass !== "typing") {
-        chat.querySelectorAll(".mobile-current").forEach((message) => message.classList.remove("mobile-current"));
+      if (COURSE.avatar && role === "assistant" && extraClass !== "typing") {
+        chat.querySelectorAll(".mobile-previous").forEach((message) => message.classList.remove("mobile-previous"));
+        chat.querySelectorAll(".mobile-current").forEach((message) => {
+          message.classList.remove("mobile-current");
+          message.classList.add("mobile-previous");
+        });
         element.classList.add("mobile-current");
         document.body.classList.add("mobile-lesson-focus");
       }
@@ -1778,8 +1833,11 @@
 
       function applyVisibility() {
         stage.classList.toggle("hidden-avatar", !avatarVisible);
+        document.body.classList.toggle("avatar-hidden", !avatarVisible);
+        toggle.setAttribute("aria-pressed", String(!avatarVisible));
         toggle.textContent = avatarVisible ? "Hide avatar" : "Show avatar";
         localStorage.setItem(visibleKey, String(avatarVisible));
+        requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
       }
       toggle.addEventListener("click", () => {
         avatarVisible = !avatarVisible;
