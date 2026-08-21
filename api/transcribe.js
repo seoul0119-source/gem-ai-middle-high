@@ -45,12 +45,15 @@ export default async function handler(request, response) {
     const isEnglishCourse = isEnglishWord
       || courseId.endsWith("-english")
       || courseId === "toefl"
-      || courseId === "toeic";
+      || courseId === "toeic"
+      || courseId === "g3-math-en";
     // 새 영어 과정은 한국어와 영어가 자연스럽게 섞이므로 언어를 강제로
     // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
-    const language = isEnglishWord ? "en" : isEnglishCourse ? null : "ko";
+    const language = isEnglishWord || courseId === "g3-math-en" ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
-    const lessonPrompt = isMath
+    const lessonPrompt = courseId === "g3-math-en"
+      ? "A Grade 3 learner is answering a multiplication activity in English. Transcribe only the short spoken English answer."
+      : isMath
       ? "한국 중고등학생의 수학 문제에 대한 짧은 답변입니다."
       : isSocial
         ? "한국 중고등학생의 사회 문제에 대한 짧은 답변입니다."
@@ -121,7 +124,9 @@ export default async function handler(request, response) {
         data?.error?.param,
         data?.error?.message
       );
-      return sendJson(response, 502, { error: "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
+      return sendJson(response, 502, { error: isEnglishCourse
+        ? "I couldn't understand your answer. Please say it again."
+        : "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
     }
 
     const transcript = data.text.trim();
@@ -141,7 +146,9 @@ export default async function handler(request, response) {
       || /표현을\s*정확한\s*한국어/.test(transcript)
     );
     if (promptLeak) {
-      return sendJson(response, 422, { error: "답을 듣지 못했습니다. 준비되면 천천히 다시 말해 주세요." });
+      return sendJson(response, 422, { error: isEnglishCourse
+        ? "I couldn't hear your answer. Please say it again slowly."
+        : "답을 듣지 못했습니다. 준비되면 천천히 다시 말해 주세요." });
     }
 
     const compactTranscript = transcript.replace(/\s+/g, "");
@@ -153,7 +160,9 @@ export default async function handler(request, response) {
       || /^(감사합니다|고맙습니다|시청해\s*주셔서\s*감사합니다|자막\s*(?:제공|제작))\.?$/i.test(transcript)
       || transcript.length > 320;
     if (abnormalRepetition) {
-      return sendJson(response, 422, { error: "음성이 정확히 인식되지 않았습니다. 짧게 다시 말해 주세요." });
+      return sendJson(response, 422, { error: isEnglishCourse
+        ? "I couldn't recognize that clearly. Please give a short answer again."
+        : "음성이 정확히 인식되지 않았습니다. 짧게 다시 말해 주세요." });
     }
 
     return sendJson(response, 200, { text: transcript });
