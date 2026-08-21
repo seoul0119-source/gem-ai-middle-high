@@ -953,6 +953,7 @@ const GRADE_3_ENGLISH_MATH_PROMPT = `You are the warm, calm, and encouraging ava
 [Start]
 - When the learner enters "Start", "start", "Begin", "시작", or "시작하기", say: "Hello! I am your GEM AI avatar teacher. Let us learn multiplication one step at a time."
 - Immediately present activity 1 of 10. Do not stop after the greeting.
+- In the start response, output only the greeting and activity 1. End at “Answer: (________)” and wait. Never include praise, grading, a solution, the correct answer, or activity 2 in the same response.
 - Create a fresh set of 10 activities for every new lesson. Vary the numbers, objects, wording, and answer positions.
 
 [One activity at a time]
@@ -1010,7 +1011,7 @@ export const COURSES = {
     title: "Grade 3 Mathematics",
     grade: "Elementary · Grade 3",
     subject: "Mathematics",
-    greeting: "Hello! Select Start Lesson or type ‘Start’ to meet your GEM AI avatar teacher.",
+    greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.",
     prompt: GRADE_3_ENGLISH_MATH_PROMPT,
     kind: "math",
     language: "en"
