@@ -570,8 +570,8 @@
         title: "Grade 3 Mathematics",
         subject: "Mathematics",
         grade: "Elementary · Grade 3",
-        greeting: "Hello! Select Start Lesson or type ‘Start’ to meet your GEM AI avatar teacher.",
-        placeholder: "Type Start, your answer, or hint",
+        greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.",
+        placeholder: "Say or type Start, your answer, or hint",
         voice: false,
         avatar: true,
         language: "en"
@@ -904,6 +904,19 @@
       );
       if (/답(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/.test(output)) return output;
       return `${output}\n\n답: (________)`;
+    }
+
+    function keepOnlyFirstAvatarQuestion(text) {
+      const output = String(text || "").trimEnd();
+      const activityStart = output.search(/Activity\s+1\s*\/\s*10\b/i);
+      if (activityStart < 0) return output;
+
+      const answerSlot = /Answer(?:\s*1)?\s*:\s*\([ _\u3000]{3,}\)/i;
+      const match = answerSlot.exec(output.slice(activityStart));
+      if (!match) return output;
+
+      const answerEnd = activityStart + match.index + match[0].length;
+      return output.slice(0, answerEnd).trimEnd();
     }
 
     function cleanMathForSpeech(text) {
@@ -1405,7 +1418,10 @@
         if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
 
         typing.remove();
-        const answerReadyText = ensureVisibleAnswerSlot(data.text);
+        const protectedText = COURSE.avatar && isStarting
+          ? keepOnlyFirstAvatarQuestion(data.text)
+          : data.text;
+        const answerReadyText = ensureVisibleAnswerSlot(protectedText);
         lastAssistantText = cleanForDisplay(answerReadyText);
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText });
