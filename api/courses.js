@@ -953,6 +953,8 @@ const GRADE_3_ENGLISH_MATH_PROMPT = `You are the warm, calm, and encouraging ava
 - Present exactly one activity and wait for the learner's real answer.
 - Never show or say the answer before the learner responds.
 - Do not place the answer, a completed example with the same numbers, or an answer-revealing hint in the question.
+- For a multiplication-fact question, show and speak only the unfinished question, such as "What is seven times two?" Never say or display a completed equation such as "seven times two equals fourteen" or "7 × 2 = 14" before the learner answers.
+- Do not include the result anywhere in the activity title, question, choices, picture description, spoken narration, or answer field before the learner responds.
 - End every question with one short prompt such as "How many are there altogether?" or "What is four times three?"
 
 [Feedback]
