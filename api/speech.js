@@ -5,6 +5,14 @@ const CIRCLED_TO_SPOKEN = {
   "①": "1번 ", "②": "2번 ", "③": "3번 ", "④": "4번 ", "⑤": "5번 ",
   "⑥": "6번 ", "⑦": "7번 ", "⑧": "8번 ", "⑨": "9번 ", "⑩": "10번 "
 };
+const ENGLISH_QUESTION_NUMBERS = {
+  1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+  6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"
+};
+const KOREAN_QUESTION_NUMBERS = {
+  1: "첫 번째", 2: "두 번째", 3: "세 번째", 4: "네 번째", 5: "다섯 번째",
+  6: "여섯 번째", 7: "일곱 번째", 8: "여덟 번째", 9: "아홉 번째", 10: "열 번째"
+};
 
 function sendJson(response, status, payload) {
   response.status(status).setHeader("Content-Type", "application/json; charset=utf-8");
@@ -23,6 +31,19 @@ function cleanText(value) {
     .replace(/^\s*[①②③④⑤⑥⑦⑧⑨⑩]\s*(?:\.{2,}|…+|⋯+|_{2,}|[-–—]*)\s*$/gm, "")
     .replace(/^\s*\d+\s*[.)]\s*(?:\.{2,}|…+|⋯+|_{2,}|[-–—]*)\s*$/gm, "");
 
+  // Counters such as "Activity 2/10" are useful on screen, but a speech
+  // engine often reads 2/10 as a fraction or produces an unnatural suffix.
+  // Convert only the spoken copy into a short, natural question transition.
+  output = output
+    .replace(/^\s*Activity\s*(\d{1,2})\s*\/\s*10\s*(?:[—–-]\s*[^\n]*)?\s*$/gim, (_, number) => {
+      const spoken = ENGLISH_QUESTION_NUMBERS[Number(number)] || number;
+      return `Question ${spoken}.`;
+    })
+    .replace(/^\s*(?:문제|활동|과제|연습)\s*(\d{1,2})\s*\/\s*10\s*(?:[—–-]\s*[^\n]*)?\s*$/gm, (_, number) => {
+      const spoken = KOREAN_QUESTION_NUMBERS[Number(number)] || `${number}번째`;
+      return `${spoken} 문제입니다.`;
+    });
+
   // For middle/high-school English, answer choices stay visible on screen but
   // are not spoken. This prevents the teacher voice from literally saying the
   // correct option before the learner answers.
@@ -38,7 +59,7 @@ function cleanText(value) {
   }
 
   return output
-    // Keep lesson counters visible on screen, but remove them from TTS input.
+    // Remove any counter formats that were not converted above.
     .replace(/^\s*(?:(?:활동|문제|과제|연습)\s*)?\d+\s*\/\s*10\s*(?:[—–-]\s*[^\n]*)?\s*$/gm, "")
     .replace(/^\s*(?:활동|문제|과제|연습)\s*\d+\s*\/\s*10\s*[:：]?\s*/gm, "")
     // Answer boxes and visual blanks are for the screen only.
