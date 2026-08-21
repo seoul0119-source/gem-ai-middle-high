@@ -43,6 +43,13 @@ const AVATAR_START_PROTECTION_RULE = `
 - Output exactly one greeting and exactly one Activity 1/10 question.
 - End immediately with “Answer: (________)” and wait for the learner.
 - Do not output praise, grading, an explanation, a completed equation, the correct answer, or Activity 2/10 in this response.`;
+const AVATAR_HINT_PROTECTION_RULE = `
+
+[Grade 3 avatar hint response — highest priority]
+- The learner asked for a hint, not an answer.
+- Give exactly one short, concrete clue and remain on the current activity.
+- Never state or imply the final answer, the correct option letter, a completed equation, praise, grading, or the next activity.
+- Do not repeat the question's “Answer: (________)” line inside the hint response. The original answer field is already visible above.`;
 const FALLBACK_WORDS = [
   { word: "protect", pronunciation: "프로텍트", meaning: "보호하다", example: "We must protect the environment.", translation: "우리는 환경을 보호해야 합니다." },
   { word: "invite", pronunciation: "인바이트", meaning: "초대하다", example: "I will invite my friend.", translation: "나는 내 친구를 초대할 것입니다." },
@@ -285,6 +292,27 @@ function hasIncompleteChoiceSet(text) {
   return !["A", "B", "C"].every((label) => options.get(label));
 }
 
+function hasOrphanChoiceLabel(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  return lines.some((line, index) => {
+    if (!/^\s*[A-Da-d](?:[).:：])?\s*$/.test(line)) return false;
+    const nearby = lines.slice(Math.max(0, index - 3), index + 4).join("\n");
+    return !/^\s*[A-Da-d]\s*[).:：]\s*\S+/m.test(nearby);
+  });
+}
+
+function isAvatarHintRequest(messages, courseId) {
+  if (courseId !== "g3-math-en") return false;
+  const latest = [...messages].reverse().find((message) => message.role === "user");
+  return /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(latest?.content || "");
+}
+
+function hasAnswerRevealingHint(text) {
+  const output = String(text || "");
+  return /\b(?:the\s+(?:correct\s+)?answer\s+is|choose\s+[A-C]|option\s+[A-C]|equals?\s+\d+|make(?:s)?\s+\d+|total\s+is\s+\d+)\b/i.test(output)
+    || /(?:Activity|Question)\s+\d+\s*\/\s*10/i.test(output);
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -297,8 +325,11 @@ function awaitsStudentAnswer(text) {
     || /(?:따라\s*말해|영어로\s+짧게\s+다시\s+말해)/.test(output);
 }
 
-function ensureAnswerSlot(text, courseKind, language) {
+function ensureAnswerSlot(text, courseKind, language, suppressAnswerSlot = false) {
   let output = String(text || "").trimEnd();
+  if (suppressAnswerSlot) {
+    return output.replace(/^\s*(?:Answer|답|정답)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "").trimEnd();
+  }
   const isEnglishOnly = language === "en";
   const isEnglishAnswerCourse = ["english", "toefl", "toeic"].includes(courseKind);
   const isEnglishProblem = isEnglishAnswerCourse
@@ -369,6 +400,8 @@ export default async function handler(request, response) {
         : "";
       const grade3Start = isGrade3AvatarStart(messages, request.body?.courseId);
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
+      const grade3Hint = isAvatarHintRequest(messages, request.body?.courseId);
+      const avatarHintRule = grade3Hint ? AVATAR_HINT_PROTECTION_RULE : "";
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         let formatRepairRule = "";
@@ -391,7 +424,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -439,11 +472,19 @@ export default async function handler(request, response) {
           console.warn("Grade 3 math abstract explanation question rejected", attempt + 1);
           continue;
         }
+        if (grade3Hint && hasAnswerRevealingHint(text)) {
+          console.warn("Grade 3 hint disclosed an answer or repeated the answer field", attempt + 1);
+          continue;
+        }
         if (hasIncompleteChoiceSet(text)) {
           console.warn("Incomplete multiple-choice set rejected", attempt + 1);
           continue;
         }
-        const answerReadyText = ensureAnswerSlot(text, course.kind, course.language);
+        if (hasOrphanChoiceLabel(text)) {
+          console.warn("Orphan multiple-choice label rejected", attempt + 1);
+          continue;
+        }
+        const answerReadyText = ensureAnswerSlot(text, course.kind, course.language, grade3Hint);
         const signature = normalizeProblem(answerReadyText);
         if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text: answerReadyText });
         console.warn("Duplicate lesson problem rejected", attempt + 1);
