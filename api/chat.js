@@ -223,6 +223,22 @@ function hasPrematureGrade3MathAnswer(text) {
     || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,2})\s+times\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:equals|is|makes)\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,3})\b/i.test(withoutAnswerSlot);
 }
 
+function hasTooAdvancedGrade3MathQuestion(text) {
+  const output = String(text || "");
+  if (!awaitsStudentAnswer(output)) return false;
+
+  const activityMatches = [...output.matchAll(/Activity\s+\d+\s*\/\s*10\b/gi)];
+  const currentActivity = activityMatches.length
+    ? output.slice(activityMatches[activityMatches.length - 1].index)
+    : output;
+
+  return /explain\s+(?:a|the|your|what|how|why|multiplication)/i.test(currentActivity)
+    || /give\s+(?:a\s+)?(?:short\s+)?explanation/i.test(currentActivity)
+    || /what\s+does\s+(?:the\s+)?(?:first|second)\s+(?:number|factor)\s+(?:tell|mean|describe|represent)/i.test(currentActivity)
+    || /(?:define|interpret|justify|generalize)\b/i.test(currentActivity)
+    || /Activity\s+\d+\s*\/\s*10\s*[—-]\s*Explain\b/i.test(currentActivity);
+}
+
 function awaitsStudentAnswer(text) {
   const output = String(text || "");
   if (!output.trim()) return false;
@@ -360,6 +376,10 @@ export default async function handler(request, response) {
         }
         if (request.body?.courseId === "g3-math-en" && hasPrematureGrade3MathAnswer(text)) {
           console.warn("Grade 3 math premature answer disclosure rejected", attempt + 1);
+          continue;
+        }
+        if (request.body?.courseId === "g3-math-en" && hasTooAdvancedGrade3MathQuestion(text)) {
+          console.warn("Grade 3 math abstract explanation question rejected", attempt + 1);
           continue;
         }
         const answerReadyText = ensureAnswerSlot(text, course.kind, course.language);
