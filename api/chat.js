@@ -235,6 +235,9 @@ function hasTooAdvancedGrade3MathQuestion(text) {
   return /explain\s+(?:a|the|your|what|how|why|multiplication)/i.test(currentActivity)
     || /give\s+(?:a\s+)?(?:short\s+)?explanation/i.test(currentActivity)
     || /what\s+does\s+(?:the\s+)?(?:first|second)\s+(?:number|factor)\s+(?:tell|mean|describe|represent)/i.test(currentActivity)
+    || /start\s+at\s+\d+\s+and\s+count\s+by/i.test(currentActivity)
+    || /what\s+numbers\s+do\s+you\s+(?:say|get|reach)/i.test(currentActivity)
+    || /count\s+by\s+\d+\s+(?:two|three|four|five|six|\d+)\s+times/i.test(currentActivity)
     || /(?:define|interpret|justify|generalize)\b/i.test(currentActivity)
     || /Activity\s+\d+\s*\/\s*10\s*[—-]\s*Explain\b/i.test(currentActivity);
 }
