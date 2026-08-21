@@ -599,7 +599,9 @@
     document.getElementById("initial-message").textContent = COURSE.greeting;
     input.placeholder = COURSE.placeholder;
     autoSpeakButton.hidden = true;
-    micButton.textContent = "🎙 음성 대화 시작";
+    micButton.textContent = COURSE.language === "en" || COURSE.avatar
+      ? "🎙 Start voice conversation"
+      : "🎙 음성 대화 시작";
     teacherVolumeInput.value = String(Math.round(teacherVolume * 100));
     teacherVolumeValue.textContent = `${Math.round(teacherVolume * 100)}%`;
     if (!COURSE.voice) {
@@ -610,6 +612,10 @@
     if (COURSE.avatar) {
       document.documentElement.lang = "en";
       document.getElementById("avatar-stage").classList.add("open");
+      document.querySelector("header > p").textContent = "AI teaches, and a human teacher remains responsible.";
+      document.querySelector(".status span:nth-child(1) strong").textContent = "Subject";
+      document.querySelector(".status span:nth-child(2) strong").textContent = "Grade";
+      connection.innerHTML = "<strong>Status</strong> Lesson ready";
       document.getElementById("send").textContent = "Send";
       document.getElementById("mic").textContent = "🎙 Start voice conversation";
       document.getElementById("restart").textContent = "↻ New lesson";
@@ -734,8 +740,23 @@
     }
 
     function cleanMathForSpeech(text) {
-      return cleanForDisplay(text)
+      const output = cleanForDisplay(text)
         .replace(/\[도표 시작\]|\[도표 끝\]/g, "")
+      if (COURSE.language === "en" || COURSE.avatar) {
+        return output
+          .replace(/sqrt\(([^)]+)\)/gi, "the square root of $1")
+          .replace(/([A-Za-z0-9])\^2/g, "$1 squared")
+          .replace(/([A-Za-z0-9])\^3/g, "$1 cubed")
+          .replace(/≤|<=/g, " is less than or equal to ")
+          .replace(/≥|>=/g, " is greater than or equal to ")
+          .replace(/≠|!=/g, " is not equal to ")
+          .replace(/×|\*/g, " times ")
+          .replace(/÷/g, " divided by ")
+          .replace(/π/g, " pi ")
+          .replace(/∪/g, " union ")
+          .replace(/∩/g, " intersection ");
+      }
+      return output
         .replace(/sqrt\(([^)]+)\)/gi, "$1의 제곱근")
         .replace(/([A-Za-z0-9가-힣)])\^2/g, "$1의 제곱")
         .replace(/([A-Za-z0-9가-힣)])\^3/g, "$1의 세제곱")
@@ -801,10 +822,14 @@
         const response = await fetch("/api/speech", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: clean })
+          body: JSON.stringify({ text: clean, courseId: COURSE_ID })
         });
-        const data = await readJsonResponse(response, "AI 음성 서버가 잠시 응답하지 않습니다.");
-        if (!response.ok || !data.audio) throw new Error(data.error || "음성 생성 실패");
+        const data = await readJsonResponse(response, COURSE.avatar
+          ? "The teacher voice is temporarily unavailable."
+          : "AI 음성 서버가 잠시 응답하지 않습니다.");
+        if (!response.ok || !data.audio) throw new Error(data.error || (COURSE.avatar
+          ? "The teacher voice is unavailable."
+          : "음성 생성 실패"));
         currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
         currentAudio.volume = teacherVolume;
         await currentAudio.play();
@@ -1225,7 +1250,9 @@
     document.getElementById("restart").addEventListener("click", async () => {
       const restartButton = document.getElementById("restart");
       restartButton.disabled = true;
-      connection.innerHTML = "<strong>상태</strong> 새 수업 기록 준비 중";
+      connection.innerHTML = COURSE.avatar
+        ? "<strong>Status</strong> Preparing a new lesson"
+        : "<strong>상태</strong> 새 수업 기록 준비 중";
       try {
         await sessionRequest({ action: "restart", courseId: COURSE_ID });
         sessionEnded = false;
@@ -1238,8 +1265,12 @@
         connection.innerHTML = COURSE.avatar ? "<strong>Status</strong> New lesson ready" : "<strong>상태</strong> 새 수업 기록 중";
         input.focus();
       } catch (error) {
-        addMessage("assistant", error.message || "새 수업 기록을 준비하지 못했습니다.");
-        connection.innerHTML = "<strong>상태</strong> 학생관리 연결 확인 필요";
+        addMessage("assistant", error.message || (COURSE.avatar
+          ? "The new lesson could not be prepared."
+          : "새 수업 기록을 준비하지 못했습니다."));
+        connection.innerHTML = COURSE.avatar
+          ? "<strong>Status</strong> Check the lesson connection"
+          : "<strong>상태</strong> 학생관리 연결 확인 필요";
       } finally {
         restartButton.disabled = false;
       }
@@ -1259,10 +1290,15 @@
     async function toggleConversation() {
       conversationMode = !conversationMode;
       autoSpeak = conversationMode;
-      micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+      const isEnglishAvatar = COURSE.language === "en" || COURSE.avatar;
+      micButton.textContent = conversationMode
+        ? (isEnglishAvatar ? "■ Stop voice conversation" : "■ 음성 대화 멈춤")
+        : (isEnglishAvatar ? "🎙 Start voice conversation" : "🎙 음성 대화 시작");
       if (conversationMode) {
         discardRecording = false;
-        connection.innerHTML = "<strong>상태</strong> 학생 음성 준비 중";
+        connection.innerHTML = isEnglishAvatar
+          ? "<strong>Status</strong> Preparing to listen"
+          : "<strong>상태</strong> 학생 음성 준비 중";
         // The question has already been spoken. Start listening immediately so
         // an answer given right after the button click is never missed.
         startRecording();
@@ -1278,13 +1314,17 @@
         }
         currentAudio?.pause();
         window.speechSynthesis?.cancel();
-        connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+        connection.innerHTML = isEnglishAvatar
+          ? "<strong>Status</strong> Lesson in progress"
+          : "<strong>상태</strong> 수업 진행 중";
       }
     }
 
     mathToolsToggle.addEventListener("click", () => {
       const open = mathTools.classList.toggle("open");
-      mathToolsToggle.textContent = open ? "⌨ 입력 도구 닫기" : "⌨ 수학 입력 도구";
+      mathToolsToggle.textContent = COURSE.language === "en" || COURSE.avatar
+        ? (open ? "⌨ Close math tools" : "⌨ Math input tools")
+        : (open ? "⌨ 입력 도구 닫기" : "⌨ 수학 입력 도구");
     });
 
     document.querySelectorAll(".math-key").forEach((button) => {
@@ -1320,7 +1360,10 @@
       recorder = null;
       recordingStarting = false;
       micButton.classList.remove("listening");
-      micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+      const isEnglishAvatar = COURSE.language === "en" || COURSE.avatar;
+      micButton.textContent = conversationMode
+        ? (isEnglishAvatar ? "■ Stop voice conversation" : "■ 음성 대화 멈춤")
+        : (isEnglishAvatar ? "🎙 Start voice conversation" : "🎙 음성 대화 시작");
     }
 
     function scheduleRecording(delay = 500) {
@@ -1334,7 +1377,10 @@
     }
 
     async function transcribeRecording(blob) {
-      connection.innerHTML = "<strong>상태</strong> 학생 음성 인식 중";
+      const isEnglishAvatar = COURSE.language === "en" || COURSE.avatar;
+      connection.innerHTML = isEnglishAvatar
+        ? "<strong>Status</strong> Recognizing your answer"
+        : "<strong>상태</strong> 학생 음성 인식 중";
       micButton.disabled = true;
       let sentToTeacher = false;
       try {
@@ -1354,11 +1400,15 @@
             context: lastAssistantText
           })
         });
-        const data = await readJsonResponse(response, "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
+        const data = await readJsonResponse(response, isEnglishAvatar
+          ? "Voice recognition is temporarily unavailable. Please try again."
+          : "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
         voiceFailureNoticeShown = false;
         input.value = data.text;
-        connection.innerHTML = `<strong>인식</strong> ${data.text}`;
+        connection.innerHTML = isEnglishAvatar
+          ? `<strong>Heard</strong> ${data.text}`
+          : `<strong>인식</strong> ${data.text}`;
         // The recognized answer is already rendered as a user message. Clear
         // the input so the previous answer never remains under the next problem.
         input.value = "";
@@ -1366,12 +1416,16 @@
         await sendMessage(data.text, "voice");
       } catch (error) {
         if (!voiceFailureNoticeShown) {
-          addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
+          addMessage("assistant", error.message || (isEnglishAvatar
+            ? "I couldn't understand your answer. Please say it again."
+            : "목소리를 알아듣지 못했습니다. 다시 말해 주세요."));
           voiceFailureNoticeShown = true;
         }
       } finally {
         micButton.disabled = false;
-        if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+        if (!input.disabled) connection.innerHTML = isEnglishAvatar
+          ? "<strong>Status</strong> Lesson in progress"
+          : "<strong>상태</strong> 수업 진행 중";
         // A successful answer is restarted by sendMessage after the teacher has
         // finished speaking. Only transcription failures restart from here.
         if (!sentToTeacher) scheduleRecording(700);
@@ -1382,7 +1436,9 @@
       if (!COURSE.voice && !conversationMode && !IS_MATH) return;
       if (input.disabled || recordingStarting || recorder?.state === "recording") return;
       if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
-        addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
+        addMessage("assistant", COURSE.language === "en" || COURSE.avatar
+          ? "Voice input is not supported in this browser. Please use the latest Chrome or Edge."
+          : "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
         return;
       }
       recordingStarting = true;
@@ -1461,7 +1517,9 @@
             transcribeRecording(blob);
           } else {
             if (!voiceFailureNoticeShown) {
-              addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
+              addMessage("assistant", COURSE.language === "en" || COURSE.avatar
+                ? "I couldn't hear your answer. Please speak again near the microphone."
+                : "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
               voiceFailureNoticeShown = true;
             }
             scheduleRecording(700);
@@ -1470,7 +1528,9 @@
         activeRecorder.addEventListener("error", (event) => {
           console.error("MediaRecorder error", event.error || event);
           resetMic(true);
-          addMessage("assistant", "음성 녹음 연결을 다시 시작해 주세요.");
+          addMessage("assistant", COURSE.language === "en" || COURSE.avatar
+            ? "Please restart the voice conversation."
+            : "음성 녹음 연결을 다시 시작해 주세요.");
           scheduleRecording(1200);
         });
         // One complete container per answer is more reliable than concatenating
@@ -1478,13 +1538,18 @@
         activeRecorder.start();
         recordingStarting = false;
         micButton.classList.add("listening");
-        micButton.textContent = "■ 음성 대화 멈춤";
+        const isEnglishAvatar = COURSE.language === "en" || COURSE.avatar;
+        micButton.textContent = isEnglishAvatar ? "■ Stop voice conversation" : "■ 음성 대화 멈춤";
         let remaining = conversationMode ? 10 : 8;
-        connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+        connection.innerHTML = isEnglishAvatar
+          ? `<strong>Status</strong> Listening (${remaining}s)`
+          : `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
         recordingCountdownTimer = setInterval(() => {
           remaining -= 1;
           if (remaining > 0 && recorder?.state === "recording") {
-            connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+            connection.innerHTML = isEnglishAvatar
+              ? `<strong>Status</strong> Listening (${remaining}s)`
+              : `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
           }
         }, 1000);
         recordingTimer = setTimeout(() => {
@@ -1493,7 +1558,9 @@
       } catch (error) {
         recordingStarting = false;
         resetMic(true);
-        addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
+        addMessage("assistant", COURSE.language === "en" || COURSE.avatar
+          ? "Please allow microphone access, then try again."
+          : "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
       }
     }
 
