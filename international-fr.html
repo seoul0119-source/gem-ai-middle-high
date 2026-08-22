@@ -5,12 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Programme français GEM AI</title>
   <style>
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#eef3fa;color:#172033;font-family:Arial,"Noto Sans KR",sans-serif} body.auth-pending>*{visibility:hidden} header{padding:42px 18px;text-align:center;color:#fff;background:linear-gradient(135deg,#07162d,#173d70)} .brand{color:#e7c46a;font-size:13px;font-weight:800;letter-spacing:2px} h1{margin:12px 0 8px;font-size:clamp(28px,6vw,44px)} header p{margin:0;color:#dce7f7;font-size:17px} main{width:min(680px,94%);margin:30px auto}.card{padding:28px;border:1px solid #cfdaea;border-radius:20px;background:#fff;box-shadow:0 8px 22px rgba(7,22,45,.08);text-align:center}.card h2{color:#173d70}.card p{color:#5e6d82;line-height:1.7}.student{margin-bottom:18px;padding:12px;border-radius:12px;background:#f3f7fc;color:#173d70;font-weight:700}.back{display:inline-block;margin-top:16px;color:#174d8d;font-weight:700;text-decoration:none}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#eef3fa;color:#172033;font-family:Arial,"Noto Sans",sans-serif}body.auth-pending>*{visibility:hidden}header{padding:38px 18px;text-align:center;color:#fff;background:linear-gradient(135deg,#07162d,#173d70)}.brand{color:#e7c46a;font-size:13px;font-weight:800;letter-spacing:2px}h1{margin:10px 0 8px;font-size:clamp(28px,6vw,44px)}header p{margin:0;color:#dce7f7;font-size:17px}main{width:min(820px,94%);margin:25px auto 42px}.student{margin-bottom:18px;padding:12px 15px;border:1px solid #cfdaea;border-radius:13px;background:#fff;color:#173d70;font-weight:700}.card{padding:26px;border:2px solid #6e9fdf;border-radius:20px;background:linear-gradient(180deg,#fff,#f2f7ff);box-shadow:0 8px 22px rgba(7,22,45,.08)}.icon{font-size:40px}.card h2{margin:10px 0 8px;color:#173d70}.card p{color:#5e6d82;line-height:1.7}.go{display:block;margin-top:18px;padding:14px 16px;border-radius:12px;background:#1e67c6;color:#fff;font-weight:800;text-align:center;text-decoration:none}.note{margin-top:18px;padding:14px;border:1px solid #ecd38c;border-radius:13px;background:#fff8e5;color:#594a22;line-height:1.6}.back{display:inline-block;margin-top:18px;color:#174d8d;font-weight:700;text-decoration:none}
   </style>
 </head>
 <body class="auth-pending">
   <header><div class="brand">GEM AI LEARNING MISSION CLASS INTERNATIONAL</div><h1>🇫🇷 Programme français</h1><p>CP · CE1 · CE2 · CM1 · CM2</p></header>
-  <main><section class="card"><div id="student" class="student">Élève inscrit</div><h2>Le programme est en préparation</h2><p>Le premier cours d’avatar sera adapté au français après la validation de la classe pilote de mathématiques en anglais.</p><p><strong>L’IA enseigne. Le professeur humain assume la responsabilité.</strong></p><a class="back" href="/">← Changer de langue ou de programme</a></section></main>
+  <main>
+    <div id="student" class="student">Élève inscrit</div>
+    <section class="card">
+      <div class="icon">🧮</div>
+      <h2>CE2 · Mathématiques</h2>
+      <p>Classe pilote avec professeur avatar : multiplication, groupes égaux, rangées, suites numériques et petits problèmes adaptés au CE2.</p>
+      <a class="go" href="/learn-fr.html">Entrer dans la classe avec le professeur avatar</a>
+    </section>
+    <div class="note"><strong>L’IA enseigne. Le professeur humain assume la responsabilité.</strong><br>Cette classe pilote est utilisée avec un parent, un enseignant ou un facilitateur présent.</div>
+    <a class="back" href="/">← Changer de langue ou de programme</a>
+  </main>
   <script>
     (async()=>{try{const r=await fetch('/api/session',{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();document.getElementById('student').textContent=`${d.student.name} · ${d.student.id}`;document.body.classList.remove('auth-pending')}catch(_){location.replace('/')}})();
   </script>
