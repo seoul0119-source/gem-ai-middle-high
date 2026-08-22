@@ -541,6 +541,21 @@
   </div>
 
   <script>
+    function elementaryMathConfig(language, level, label) {
+      const french = language === "fr";
+      return {
+        title: french ? "Mathématiques " + label : "Grade " + level + " Mathematics",
+        subject: french ? "Mathématiques" : "Mathematics",
+        grade: french ? "École élémentaire · " + label : "Elementary · Grade " + level,
+        greeting: french
+          ? "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI."
+          : "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.",
+        placeholder: french ? "Dis ou écris Commencer, ta réponse ou indice" : "Say or type Start, your answer, or hint",
+        voice: false,
+        avatar: true,
+        language
+      };
+    }
     const COURSE_CONFIGS = {
       "m1-english-word": {
         title: "중1 영어 단어 Lv.7",
@@ -566,6 +581,8 @@
       "h1-english": { title: "고1 영어 Lv.10", subject: "영어", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
       "h2-english": { title: "고2 영어 Lv.11", subject: "영어", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
       "h3-english": { title: "고3 영어 Lv.12", subject: "영어", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "g1-math-en": elementaryMathConfig("en", 1, "Grade 1"),
+      "g2-math-en": elementaryMathConfig("en", 2, "Grade 2"),
       "g3-math-en": {
         title: "Grade 3 Mathematics",
         subject: "Mathematics",
@@ -576,6 +593,10 @@
         avatar: true,
         language: "en"
       },
+      "g4-math-en": elementaryMathConfig("en", 4, "Grade 4"),
+      "g5-math-en": elementaryMathConfig("en", 5, "Grade 5"),
+      "g1-math-fr": elementaryMathConfig("fr", 1, "CP"),
+      "g2-math-fr": elementaryMathConfig("fr", 2, "CE1"),
       "g3-math-fr": {
         title: "Mathématiques CE2",
         subject: "Mathématiques",
@@ -586,6 +607,8 @@
         avatar: true,
         language: "fr"
       },
+      "g4-math-fr": elementaryMathConfig("fr", 4, "CM1"),
+      "g5-math-fr": elementaryMathConfig("fr", 5, "CM2"),
       "m1-math": {
         title: "중1 수학 Lv.7 시험판",
         subject: "수학",
@@ -1938,8 +1961,8 @@
     import { VRMLoaderPlugin, VRMUtils } from "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.3.0/lib/three-vrm.module.min.js";
 
     const avatarCourseId = new URLSearchParams(location.search).get("course");
-    const avatarCourse = avatarCourseId === "g3-math-en" || avatarCourseId === "g3-math-fr";
-    const avatarLanguage = avatarCourseId === "g3-math-fr" ? "fr" : "en";
+    const avatarCourse = /^g[1-5]-math-(?:en|fr)$/.test(avatarCourseId || "");
+    const avatarLanguage = /-fr$/.test(avatarCourseId || "") ? "fr" : "en";
     if (avatarCourse) {
       const stage = document.getElementById("avatar-stage");
       const canvas = document.getElementById("avatar-canvas");
