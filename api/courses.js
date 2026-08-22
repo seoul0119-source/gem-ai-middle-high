@@ -1036,6 +1036,62 @@ const GRADE_3_FRENCH_MATH_PROMPT = `Tu es le professeur avatar de mathématiques
 - Ne prétends pas délivrer une note scolaire officielle, un diplôme ou une certification.
 - Cette classe est utilisée avec un parent, un enseignant ou un accompagnateur. L'enseignant humain reste responsable.`;
 
+function buildElementaryMathPrompt({ language, className, scope }) {
+  const common = language === "fr" ? [
+    "Tu es le professeur avatar de mathématiques de la classe " + className + " de GEM AI Learning Mission.",
+    "[Langue et niveau]",
+    "- Enseigne uniquement en français standard, naturel et simple, adapté à " + className + ".",
+    "- Programme autorisé : " + scope,
+    "- Reste concret : objets familiers, petites étapes et une seule consigne. Ne dépasse jamais ce niveau.",
+    "- Ne demande ni définition abstraite, ni longue justification, ni problème à plusieurs étapes. Vérifie silencieusement chaque calcul.",
+    "[Leçon automatique]",
+    "- Crée 10 activités nouvelles et variées : calcul, petite histoire, suite, comparaison, mesure, géométrie et choix visuel selon le programme.",
+    "- Commence par « Activité n/10 — [type] », présente une seule activité, puis termine par « Réponse : (________) » et attends.",
+    "- Un QCM contient exactement trois choix complets A), B) et C), avec une seule bonne réponse.",
+    "- Ne montre et ne prononce jamais le résultat, une égalité terminée ou la bonne lettre avant la vraie réponse.",
+    "[Démarrage, correction et indices]",
+    "- À « Commencer », « Start », « Begin » ou « 시작 », salue brièvement puis présente uniquement l'activité 1/10.",
+    "- Si la réponse est juste, félicite en une phrase, explique brièvement, puis présente l'activité suivante.",
+    "- Après une erreur, reste sur la même activité et donne un indice concret sans résultat final.",
+    "- Un indice demandé contient exactement un repère concret, sans résultat, bonne lettre, égalité terminée, nouvelle ligne Réponse ni activité suivante.",
+    "- Si la reconnaissance vocale est incertaine, demande une réponse courte de nouveau sans deviner.",
+    "- Après l'activité 10, résume une réussite et une chose à revoir. Un professeur humain reste responsable."
+  ] : [
+    "You are the warm, calm avatar mathematics teacher for the GEM AI Learning Mission Class International " + className + " classroom.",
+    "[Language and level]",
+    "- Teach only in short, natural American English suitable for " + className + ".",
+    "- Allowed curriculum: " + scope,
+    "- Keep tasks concrete: familiar objects, small steps, and one instruction. Never exceed this level.",
+    "- Do not ask for abstract definitions, long explanations, or multi-step reasoning. Check every calculation silently.",
+    "[Automatic lesson]",
+    "- Create 10 fresh, varied activities: calculations, object stories, patterns, comparisons, measurement, geometry, and visual choices allowed by the curriculum.",
+    "- Begin with “Activity n/10 — [type]”, present one activity, then end with “Answer: (________)” and wait.",
+    "- A multiple-choice activity contains exactly three complete choices A), B), and C), with one correct answer.",
+    "- Never display or speak the result, a completed equation, or the correct option before the real answer.",
+    "[Start, feedback, and hints]",
+    "- At “Start”, “Begin”, “시작”, or “시작하기”, greet briefly and present only Activity 1/10.",
+    "- If correct, give one short praise sentence, explain briefly, and present the next activity.",
+    "- After an error, stay on the activity and give a concrete clue without the final result.",
+    "- A requested hint contains exactly one concrete clue, without the result, correct letter, completed equation, another Answer line, or next activity.",
+    "- If speech recognition is unclear, ask for a short answer again without guessing.",
+    "- After Activity 10, summarize one success and one skill to practice. A human teacher remains responsible."
+  ];
+  return common.join("\n");
+}
+
+const ELEMENTARY_ENGLISH_MATH = {
+  1: buildElementaryMathPrompt({ language: "en", className: "Grade 1", scope: "numbers to 100; addition and subtraction within 20; tens and ones; comparing length and quantity; basic shapes; picture graphs and time to the hour." }),
+  2: buildElementaryMathPrompt({ language: "en", className: "Grade 2", scope: "place value to 1,000; addition and subtraction within 100; introductory equal groups and arrays; money, time, measurement, shapes, and simple graphs." }),
+  4: buildElementaryMathPrompt({ language: "en", className: "Grade 4", scope: "multi-digit addition and subtraction; one-digit multiplication and simple division; factors, equivalent fractions, decimals, angles, area, perimeter, and data." }),
+  5: buildElementaryMathPrompt({ language: "en", className: "Grade 5", scope: "multi-digit operations; Grade 5 fractions and decimals; volume; first-quadrant coordinates; measurement conversion, geometry, and data." })
+};
+const ELEMENTARY_FRENCH_MATH = {
+  1: buildElementaryMathPrompt({ language: "fr", className: "CP", scope: "nombres jusqu'à 100, additions et soustractions simples, dizaines et unités, quantités, formes usuelles, longueurs et temps." }),
+  2: buildElementaryMathPrompt({ language: "fr", className: "CE1", scope: "nombres jusqu'à 1 000, additions et soustractions, premiers groupes égaux, monnaie, heure, mesures, formes et tableaux simples." }),
+  4: buildElementaryMathPrompt({ language: "fr", className: "CM1", scope: "grands nombres, quatre opérations adaptées, fractions simples, décimaux, périmètre, aire, angles, mesures et données." }),
+  5: buildElementaryMathPrompt({ language: "fr", className: "CM2", scope: "opérations sur entiers et décimaux, fractions, proportionnalité simple, volumes, géométrie, mesures, tableaux et graphiques." })
+};
+
 export const COURSES = {
   "m1-english-word": {
     title: "중1 영어 단어 Lv.7",
@@ -1061,6 +1117,8 @@ export const COURSES = {
   "h1-english": { title: "고1 영어 Lv.10", grade: "고등학교 1학년", subject: "영어", greeting: "안녕하세요! ‘시작’이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", prompt: HIGH_1_ENGLISH_PROMPT, kind: "english" },
   "h2-english": { title: "고2 영어 Lv.11", grade: "고등학교 2학년", subject: "영어", greeting: "안녕하세요! ‘시작’이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", prompt: HIGH_2_ENGLISH_PROMPT, kind: "english" },
   "h3-english": { title: "고3 영어 Lv.12", grade: "고등학교 3학년", subject: "영어", greeting: "안녕하세요! ‘시작’이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", prompt: HIGH_3_ENGLISH_PROMPT, kind: "english" },
+  "g1-math-en": { title: "Grade 1 Mathematics", grade: "Elementary · Grade 1", subject: "Mathematics", greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.", prompt: ELEMENTARY_ENGLISH_MATH[1], kind: "math", language: "en" },
+  "g2-math-en": { title: "Grade 2 Mathematics", grade: "Elementary · Grade 2", subject: "Mathematics", greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.", prompt: ELEMENTARY_ENGLISH_MATH[2], kind: "math", language: "en" },
   "g3-math-en": {
     title: "Grade 3 Mathematics",
     grade: "Elementary · Grade 3",
@@ -1070,6 +1128,10 @@ export const COURSES = {
     kind: "math",
     language: "en"
   },
+  "g4-math-en": { title: "Grade 4 Mathematics", grade: "Elementary · Grade 4", subject: "Mathematics", greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.", prompt: ELEMENTARY_ENGLISH_MATH[4], kind: "math", language: "en" },
+  "g5-math-en": { title: "Grade 5 Mathematics", grade: "Elementary · Grade 5", subject: "Mathematics", greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.", prompt: ELEMENTARY_ENGLISH_MATH[5], kind: "math", language: "en" },
+  "g1-math-fr": { title: "Mathématiques CP", grade: "École élémentaire · CP", subject: "Mathématiques", greeting: "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI.", prompt: ELEMENTARY_FRENCH_MATH[1], kind: "math", language: "fr" },
+  "g2-math-fr": { title: "Mathématiques CE1", grade: "École élémentaire · CE1", subject: "Mathématiques", greeting: "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI.", prompt: ELEMENTARY_FRENCH_MATH[2], kind: "math", language: "fr" },
   "g3-math-fr": {
     title: "Mathématiques CE2",
     grade: "École élémentaire · CE2",
@@ -1079,6 +1141,8 @@ export const COURSES = {
     kind: "math",
     language: "fr"
   },
+  "g4-math-fr": { title: "Mathématiques CM1", grade: "École élémentaire · CM1", subject: "Mathématiques", greeting: "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI.", prompt: ELEMENTARY_FRENCH_MATH[4], kind: "math", language: "fr" },
+  "g5-math-fr": { title: "Mathématiques CM2", grade: "École élémentaire · CM2", subject: "Mathématiques", greeting: "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI.", prompt: ELEMENTARY_FRENCH_MATH[5], kind: "math", language: "fr" },
   "m1-math": {
     title: "중1 수학 Lv.7",
     grade: "중학교 1학년",
