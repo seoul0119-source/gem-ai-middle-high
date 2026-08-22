@@ -55,7 +55,10 @@ const AVATAR_HINT_PROTECTION_RULE = `
 
 [Grade 3 avatar hint response — highest priority]
 - The learner asked for a hint, not an answer.
-- Give exactly one short, concrete clue and remain on the current activity.
+- Give exactly one short, concrete, problem-specific teaching step and remain on the current activity.
+- Explain what the learner should look at or do next using the current activity's operation or place-value idea. Never use a generic message that could fit every question.
+- Treat “hint”, “help”, “I don't know”, and “I don't understand” as requests for this explanation. The learner must not need to say “explain”.
+- If the learner asks again, give a different and slightly more specific step while still hiding the result.
 - Never state or imply the final answer, the correct option letter, a completed equation, praise, grading, or the next activity.
 - Do not repeat the question's “Answer: (________)” line inside the hint response. The original answer field is already visible above.`;
 
@@ -326,9 +329,17 @@ export function isAvatarHintRequest(messages, courseId) {
 }
 
 export function buildSafeGrade3Hint(messages, language = "en") {
-  const latestQuestion = [...messages]
-    .reverse()
-    .find((message) => message.role === "assistant")?.content || "";
+  const indexedAssistantMessages = messages
+    .map((message, index) => ({ ...message, index }))
+    .filter((message) => message.role === "assistant")
+    .reverse();
+  // A repeated hint places another assistant message after the question. Find
+  // the most recent message that still contains the activity instead of
+  // treating the previous hint as the current problem.
+  const questionMessage = indexedAssistantMessages.find((message) =>
+    /(?:Activity|Activité)\s+\d+\s*\/\s*10\b/i.test(message.content || "")
+  ) || indexedAssistantMessages[0];
+  const latestQuestion = questionMessage?.content || "";
   const activityMatches = [...latestQuestion.matchAll(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi)];
   const currentActivity = activityMatches.length
     ? latestQuestion.slice(activityMatches[activityMatches.length - 1].index)
@@ -338,6 +349,54 @@ export function buildSafeGrade3Hint(messages, language = "en") {
   // completed counting sequences. This keeps both visible text and TTS from
   // disclosing the answer before the learner responds.
   const isFrench = language === "fr";
+  const hintCount = messages.slice((questionMessage?.index ?? -1) + 1).filter((message) =>
+    message.role === "user" && isAvatarHintRequest([message], `g2-math-${isFrench ? "fr" : "en"}`)
+  ).length;
+
+  const addition = currentActivity.match(/(?:what is|calculate|calcule|combien font)\s*(\d{1,3})\s*\+\s*(\d{1,3})/i);
+  if (addition) {
+    const second = Number(addition[2]);
+    const tens = Math.floor(second / 10) * 10;
+    const ones = second % 10;
+    if (hintCount > 1 && tens > 0 && ones > 0) {
+      if (isFrench) return `Décompose ${second} en ${tens} et ${ones}. Ajoute d'abord ${tens}, puis ${ones}, sans donner encore le total.`;
+      return `Break ${second} into ${tens} and ${ones}. Add ${tens} first, then ${ones}, without saying the total yet.`;
+    }
+    if (isFrench) return "Additionne d'abord les dizaines, puis les unités. Écris seulement le total que tu trouves.";
+    return "Add the tens first, then add the ones. Write only the total you find.";
+  }
+
+  const subtraction = currentActivity.match(/(?:what is|calculate|calcule|combien font)\s*(\d{1,3})\s*[-−]\s*(\d{1,3})/i);
+  if (subtraction) {
+    const second = Number(subtraction[2]);
+    if (isFrench) return `Pars du premier nombre et recule de ${second}. Compte chaque pas une seule fois.`;
+    return `Start with the first number and count back ${second}. Count each step only once.`;
+  }
+
+  if (/\b(?:times|multiplication|equal\s+groups?|array|fois|multiplication|groupes?\s+égaux|rangées?)\b/i.test(currentActivity)) {
+    if (isFrench) return "Dessine ou imagine des groupes égaux. Compte les objets d'un groupe, puis additionne les groupes.";
+    return "Draw or imagine equal groups. Count the objects in one group, then add the groups.";
+  }
+
+  if (/\b(?:divide|division|share\s+equally|each\s+group|divise|division|partage\s+également|chaque\s+groupe)\b/i.test(currentActivity)) {
+    if (isFrench) return "Partage les objets un par un dans chaque groupe jusqu'à ce qu'il n'en reste plus. Compte un seul groupe.";
+    return "Share the objects one at a time into equal groups. Then count just one group.";
+  }
+
+  const placeValue = currentActivity.match(/(?:number|nombre)\s+(\d{2,4}).*?(ones|tens|hundreds|thousands|unités|dizaines|centaines|milliers)/is);
+  if (placeValue) {
+    const place = placeValue[2].toLowerCase();
+    if (isFrench) {
+      const position = /unité/.test(place) ? "premier" : /dizaine/.test(place) ? "deuxième" : /centaine/.test(place) ? "troisième" : "quatrième";
+      return `Lis les chiffres de droite à gauche : unités, dizaines, centaines. Cherche le ${position} chiffre en partant de la droite.`;
+    }
+    const position = place === "ones" ? "first" : place === "tens" ? "second" : place === "hundreds" ? "third" : "fourth";
+    return `Read the digits from right to left: ones, tens, hundreds. Find the ${position} digit from the right.`;
+  }
+  if (/\b(?:greater|less|compare|largest|smallest|supérieur|inférieur|compare|plus grand|plus petit)\b/i.test(currentActivity)) {
+    if (isFrench) return "Compare d'abord le chiffre de gauche de chaque nombre. S'ils sont égaux, compare le chiffre suivant.";
+    return "Compare the leftmost digit in each number first. If they match, compare the next digit.";
+  }
   if (/true\s+or\s+false|true-or-false|vrai\s+ou\s+faux/i.test(currentActivity)) {
     if (isFrench) return "Calcule d'abord la multiplication. Puis compare ton résultat au nombre de la question.";
     return "Work out the multiplication first. Then compare your result with the number in the question.";
@@ -354,11 +413,11 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     if (isFrench) return "Compte un groupe égal à la fois. Additionne les groupes sans en oublier.";
     return "Count one equal group at a time. Add the groups without skipping any.";
   }
-  if (isFrench) return "Regarde l'image, la suite ou les choix. Avance d'une petite étape, puis dis ou écris ta réponse.";
+  if (isFrench) return "Repère l'opération demandée et effectue seulement sa première étape. Dis ou écris ensuite le nombre que tu trouves.";
   if (/missing\s+factor|fact\s+family|how\s+many\s+groups/i.test(currentActivity)) {
     return "Use equal groups and work one small step at a time. Stop before saying the final result, then check your work.";
   }
-  return "Use the picture, pattern, or choices in the question. Work one small step at a time, then say or type your answer.";
+  return "Find the operation in this question and do its first step. Then say or type the number you find.";
 }
 
 export function isKoreanHintRequest(messages, course) {
