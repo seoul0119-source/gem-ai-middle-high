@@ -60,7 +60,7 @@ const AVATAR_HINT_PROTECTION_RULE = `
 - Do not repeat the question's “Answer: (________)” line inside the hint response. The original answer field is already visible above.`;
 
 function isGrade3AvatarCourse(courseId) {
-  return courseId === "g3-math-en" || courseId === "g3-math-fr";
+  return /^g[1-5]-math-(?:en|fr)$/.test(String(courseId || ""));
 }
 const FALLBACK_WORDS = [
   { word: "protect", pronunciation: "프로텍트", meaning: "보호하다", example: "We must protect the environment.", translation: "우리는 환경을 보호해야 합니다." },
@@ -329,7 +329,7 @@ export function buildSafeGrade3Hint(messages, language = "en") {
   const latestQuestion = [...messages]
     .reverse()
     .find((message) => message.role === "assistant")?.content || "";
-  const activityMatches = [...latestQuestion.matchAll(/Activity\s+\d+\s*\/\s*10\b/gi)];
+  const activityMatches = [...latestQuestion.matchAll(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi)];
   const currentActivity = activityMatches.length
     ? latestQuestion.slice(activityMatches[activityMatches.length - 1].index)
     : latestQuestion;
