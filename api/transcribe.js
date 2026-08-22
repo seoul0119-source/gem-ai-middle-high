@@ -48,16 +48,16 @@ export default async function handler(request, response) {
       || courseId.endsWith("-english")
       || courseId === "toefl"
       || courseId === "toeic"
-      || courseId === "g3-math-en";
-    const isFrenchAvatar = courseId === "g3-math-fr";
+      || /^g[1-5]-math-en$/.test(courseId);
+    const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
     // 새 영어 과정은 한국어와 영어가 자연스럽게 섞이므로 언어를 강제로
     // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
-    const language = isFrenchAvatar ? "fr" : isEnglishWord || courseId === "g3-math-en" ? "en" : isEnglishCourse ? null : "ko";
+    const language = isFrenchAvatar ? "fr" : isEnglishWord || /^g[1-5]-math-en$/.test(courseId) ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
-    const lessonPrompt = courseId === "g3-math-en"
-      ? "A Grade 3 learner is answering a multiplication activity in English. Transcribe only the short spoken English answer."
+    const lessonPrompt = /^g[1-5]-math-en$/.test(courseId)
+      ? "An elementary learner is answering a mathematics activity in English. Transcribe only the short spoken answer, including numbers or A, B, or C."
       : isFrenchAvatar
-        ? "Un élève de CE2 répond en français à une activité simple de multiplication. Transcris uniquement sa réponse courte en français, y compris les nombres ou les lettres A, B ou C."
+        ? "Un élève de l'école élémentaire répond en français à une activité de mathématiques. Transcris uniquement sa réponse courte en français, y compris les nombres ou les lettres A, B ou C."
       : isMath
       ? "한국 중고등학생의 수학 문제에 대한 짧은 답변입니다."
       : isSocial
