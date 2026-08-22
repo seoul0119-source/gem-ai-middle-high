@@ -373,6 +373,25 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     return `Start with the first number and count back ${second}. Count each step only once.`;
   }
 
+  // Word problems often describe subtraction without writing a minus sign.
+  // Recognize the starting amount and the amount given away, spent, or lost so
+  // the very first hint is specific to the learner's current question.
+  const subtractionStory = currentActivity.match(
+    /(?:has|have|there\s+(?:are|is)|a|ont|il\s+y\s+a)\s+(\d{1,3})\b[\s\S]{0,180}?(?:gives?|gave|gives\s+away|loses?|lost|spends?|spent|uses?|used|donne|donné|perd|perdu|utilise|utilisé)\s+(\d{1,3})\b/i
+  );
+  if (subtractionStory) {
+    const start = Number(subtractionStory[1]);
+    const taken = Number(subtractionStory[2]);
+    const tens = Math.floor(taken / 10) * 10;
+    const ones = taken % 10;
+    if (hintCount > 1 && tens > 0 && ones > 0) {
+      if (isFrench) return `Enlève d'abord ${tens} de ${start}, puis enlève encore ${ones}. Ne dis pas encore le nombre final.`;
+      return `Take away ${tens} from ${start} first, then take away ${ones}. Do not say the final number yet.`;
+    }
+    if (isFrench) return `Commence avec ${start}. Comme des objets sont donnés ou retirés, fais une soustraction : enlève ${taken}.`;
+    return `Start with ${start}. Because some items are given away or taken away, subtract ${taken}.`;
+  }
+
   if (/\b(?:times|multiplication|equal\s+groups?|array|fois|multiplication|groupes?\s+égaux|rangées?)\b/i.test(currentActivity)) {
     if (isFrench) return "Dessine ou imagine des groupes égaux. Compte les objets d'un groupe, puis additionne les groupes.";
     return "Draw or imagine equal groups. Count the objects in one group, then add the groups.";
