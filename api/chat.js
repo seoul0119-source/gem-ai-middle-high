@@ -323,9 +323,9 @@ function hasOrphanChoiceLabel(text) {
 export function isAvatarHintRequest(messages, courseId) {
   if (!isGrade3AvatarCourse(courseId)) return false;
   const latest = [...messages].reverse().find((message) => message.role === "user");
-  return /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(latest?.content || "")
-    || /(?:indice|aide(?:-moi)?|je\s+ne\s+sais\s+pas|je\s+ne\s+comprends\s+pas|répète|encore)/i.test(latest?.content || "")
-    || /(?:힌트|모르겠|잘\s*모르|도와\s*주|도움)/i.test(latest?.content || "");
+  return /\b(?:hint|help|explain|show\s+me\s+how|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(latest?.content || "")
+    || /(?:indice|aide(?:-moi)?|explique|montre-moi\s+comment|je\s+ne\s+sais\s+pas|je\s+ne\s+comprends\s+pas|répète|encore)/i.test(latest?.content || "")
+    || /(?:힌트|모르겠|잘\s*모르|도와\s*주|도움|설명\s*해\s*주)/i.test(latest?.content || "");
 }
 
 export function buildSafeGrade3Hint(messages, language = "en") {
@@ -345,9 +345,10 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     ? latestQuestion.slice(activityMatches[activityMatches.length - 1].index)
     : latestQuestion;
 
-  // These hints deliberately contain no operands, results, option letters, or
-  // completed counting sequences. This keeps both visible text and TTS from
-  // disclosing the answer before the learner responds.
+  // Hints may repeat the problem's operands so the next step is concrete, but
+  // they never include the result, a correct option letter, or a completed
+  // counting sequence. This keeps both visible text and TTS from disclosing
+  // the answer before the learner responds.
   const isFrench = language === "fr";
   const hintCount = messages.slice((questionMessage?.index ?? -1) + 1).filter((message) =>
     message.role === "user" && isAvatarHintRequest([message], `g2-math-${isFrench ? "fr" : "en"}`)
@@ -392,37 +393,72 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     return "Add the tens first, then add the ones. Write only the total you find.";
   }
 
+  const buildSubtractionHint = (start, taken, reason = "") => {
+    const startOnes = start % 10;
+    const takenOnes = taken % 10;
+    const startTens = Math.floor(start / 10) % 10;
+    const takenTens = Math.floor(taken / 10) % 10;
+    const startHundreds = Math.floor(start / 100) % 10;
+    const takenHundreds = Math.floor(taken / 100) % 10;
+    const borrowFromTens = startOnes < takenOnes;
+    const adjustedTens = startTens - (borrowFromTens ? 1 : 0);
+    const borrowFromHundreds = adjustedTens < takenTens;
+    const adjustedHundreds = startHundreds - (borrowFromHundreds ? 1 : 0);
+
+    if (hintCount <= 1) {
+      if (isFrench) {
+        const why = reason ? `Le mot « ${reason} » indique que des objets quittent le groupe. ` : "";
+        return `${why}Fais une soustraction : pars de ${start} et enlève ${taken}. Ne calcule pas encore le résultat final.`;
+      }
+      const why = reason ? `The word “${reason}” means items leave the group. ` : "";
+      return `${why}Use subtraction: start with ${start} and take away ${taken}. Do not calculate the final answer yet.`;
+    }
+
+    if (hintCount === 2) {
+      if (borrowFromTens) {
+        if (isFrench) return `Commence par les unités. Comme ${startOnes} est plus petit que ${takenOnes}, échange une dizaine puis calcule ${startOnes + 10} moins ${takenOnes}. Garde seulement le chiffre des unités.`;
+        return `Start with the ones. Since ${startOnes} is smaller than ${takenOnes}, regroup one ten and work out ${startOnes + 10} minus ${takenOnes}. Keep only the ones digit.`;
+      }
+      if (isFrench) return `Commence par les unités : calcule ${startOnes} moins ${takenOnes}. Garde seulement le chiffre des unités.`;
+      return `Start with the ones: work out ${startOnes} minus ${takenOnes}. Keep only the ones digit.`;
+    }
+
+    if (hintCount === 3 && (startTens || takenTens)) {
+      const topTens = borrowFromHundreds ? adjustedTens + 10 : adjustedTens;
+      if (isFrench) {
+        const regroup = borrowFromHundreds ? "Échange maintenant une centaine contre dix dizaines. " : "";
+        return `${regroup}Pour les dizaines, calcule ${topTens} moins ${takenTens}. Garde seulement le chiffre des dizaines.`;
+      }
+      const regroup = borrowFromHundreds ? "Now regroup one hundred as ten tens. " : "";
+      return `${regroup}For the tens, work out ${topTens} minus ${takenTens}. Keep only the tens digit.`;
+    }
+
+    if (startHundreds || takenHundreds) {
+      if (isFrench) return `Pour finir, calcule les centaines : ${adjustedHundreds} moins ${takenHundreds}. Assemble toi-même les chiffres des centaines, dizaines et unités.`;
+      return `Finally, work with the hundreds: ${adjustedHundreds} minus ${takenHundreds}. Put your hundreds, tens, and ones digits together yourself.`;
+    }
+    if (isFrench) return "Vérifie chaque valeur de position, puis assemble toi-même les chiffres sans demander le résultat.";
+    return "Check each place-value digit, then put the digits together yourself without asking for the final answer.";
+  };
+
   const subtraction = currentActivity.match(/\b(\d{1,4})\s*[-−]\s*(\d{1,4})\b/);
   if (subtraction) {
     const start = Number(subtraction[1]);
     const taken = Number(subtraction[2]);
-    const tens = Math.floor(taken / 10) * 10;
-    const ones = taken % 10;
-    if (hintCount > 1 && tens > 0 && ones > 0) {
-      if (isFrench) return `Enlève d'abord ${tens} de ${start}, puis enlève encore ${ones}. Ne donne pas le nombre final.`;
-      return `Take away ${tens} from ${start} first, then take away ${ones}. Do not say the final number.`;
-    }
-    if (isFrench) return `Pars de ${start}. Enlève ${taken} en commençant par les dizaines.`;
-    return `Start at ${start}. Take away ${taken}, beginning with the tens.`;
+    return buildSubtractionHint(start, taken);
   }
 
   // Word problems often describe subtraction without writing a minus sign.
   // Recognize the starting amount and the amount given away, spent, or lost so
   // the very first hint is specific to the learner's current question.
   const subtractionStory = currentActivity.match(
-    /(?:has|have|there\s+(?:are|is)|a|ont|il\s+y\s+a)\s+(\d{1,3})\b[\s\S]{0,180}?(?:gives?|gave|gives\s+away|loses?|lost|spends?|spent|uses?|used|donne|donné|perd|perdu|utilise|utilisé)\s+(\d{1,3})\b/i
+    /(?:has|have|there\s+(?:are|is)|a|ont|il\s+y\s+a)\s+(\d{1,4})\b[\s\S]{0,220}?(gives?|gave|gives\s+away|loses?|lost|spends?|spent|uses?|used|borrows?|borrowed|takes?|took|removes?|removed|donne|donné|perd|perdu|utilise|utilisé|emprunte|emprunté|retire|retiré)\s+(\d{1,4})\b/i
   );
   if (subtractionStory) {
     const start = Number(subtractionStory[1]);
-    const taken = Number(subtractionStory[2]);
-    const tens = Math.floor(taken / 10) * 10;
-    const ones = taken % 10;
-    if (hintCount > 1 && tens > 0 && ones > 0) {
-      if (isFrench) return `Enlève d'abord ${tens} de ${start}, puis enlève encore ${ones}. Ne dis pas encore le nombre final.`;
-      return `Take away ${tens} from ${start} first, then take away ${ones}. Do not say the final number yet.`;
-    }
-    if (isFrench) return `Commence avec ${start}. Comme des objets sont donnés ou retirés, fais une soustraction : enlève ${taken}.`;
-    return `Start with ${start}. Because some items are given away or taken away, subtract ${taken}.`;
+    const reason = subtractionStory[2];
+    const taken = Number(subtractionStory[3]);
+    return buildSubtractionHint(start, taken, reason);
   }
 
   if (/\b(?:times|multiplication|equal\s+groups?|array|fois|multiplication|groupes?\s+égaux|rangées?)\b/i.test(currentActivity)) {
@@ -461,7 +497,7 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     if (isFrench) return "Calcule d'abord. Choisis ensuite la proposition qui correspond à ton résultat.";
     return "Work out the question first. Then choose the option that matches your result.";
   }
-  if (/array|row|column|equal\s+group|basket|shelf|cup|picture|rangée|colonne|groupe|panier|image/i.test(currentActivity)) {
+  if (/\b(?:array|rows?|columns?|equal\s+groups?|baskets?|shelves|shelf|cups?|picture|rangées?|colonnes?|groupes?|paniers?|image)\b/i.test(currentActivity)) {
     if (isFrench) return "Compte un groupe égal à la fois. Additionne les groupes sans en oublier.";
     return "Count one equal group at a time. Add the groups without skipping any.";
   }
