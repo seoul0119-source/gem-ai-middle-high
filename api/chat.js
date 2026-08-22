@@ -61,6 +61,14 @@ const AVATAR_HINT_PROTECTION_RULE = `
 - If the learner asks again, give a different and slightly more specific step while still hiding the result.
 - Never state or imply the final answer, the correct option letter, a completed equation, praise, grading, or the next activity.
 - Do not repeat the question's “Answer: (________)” line inside the hint response. The original answer field is already visible above.`;
+const GRADE4_GENTLE_DIFFICULTY_RULE = `
+
+[Grade 4 gentle difficulty — highest priority]
+- Use short, concrete, one-step questions that a learner can understand without knowing a formula first.
+- Begin with place value, addition and subtraction within 1,000, multiplication facts through 10 × 10, exact division, and simple visual fractions.
+- Use familiar objects and plain language. Do not use inches, feet, unit conversions, decimals, remainders, multi-step word problems, or abstract explanations.
+- Do not ask for rectangle area or perimeter from only written side lengths. If geometry appears, show or describe a small grid of unit squares and ask the learner to count the squares.
+- Keep every question to at most two short sentences and ask for one number or one choice only.`;
 
 function isGrade3AvatarCourse(courseId) {
   return /^g[1-5]-math-(?:en|fr)$/.test(String(courseId || ""));
@@ -353,6 +361,12 @@ export function buildSafeGrade3Hint(messages, language = "en") {
   const hintCount = messages.slice((questionMessage?.index ?? -1) + 1).filter((message) =>
     message.role === "user" && isAvatarHintRequest([message], `g2-math-${isFrench ? "fr" : "en"}`)
   ).length;
+  const hintStep = Math.max(1, hintCount);
+
+  const progressiveHint = (englishSteps, frenchSteps) => {
+    const steps = isFrench ? frenchSteps : englishSteps;
+    return steps[Math.min(hintStep - 1, steps.length - 1)];
+  };
 
   // Some activities use a natural-language question ("What is 24 + 13?")
   // while others use a short label ("Add: 247 + 136").  Detect the actual
@@ -501,14 +515,72 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     return "Multiply the numerator and denominator by the same number, then check one choice at a time without asking for the answer.";
   }
 
+  // Written area questions used to fall through to one generic sentence.
+  // Give a concrete visual route first, then a more specific operation on each
+  // later request, while never completing the multiplication for the learner.
+  const asksForArea = /\b(?:area|aire)\b/i.test(currentActivity);
+  if (asksForArea) {
+    const dimensions = currentActivity.match(
+      /(?:rectangle|rectangulaire)[\s\S]{0,180}?(\d{1,2})\s*(?:inches?|feet|cm|mètres?|metres?)?\s*(?:long|length|de\s+long|longueur)[\s\S]{0,100}?(\d{1,2})\s*(?:inches?|feet|cm|mètres?|metres?)?\s*(?:wide|width|de\s+large|largeur)/i
+    );
+    const firstSide = dimensions?.[1];
+    const secondSide = dimensions?.[2];
+    if (firstSide && secondSide) {
+      return progressiveHint(
+        [
+          `Area means the space inside the rectangle. Draw ${secondSide} rows and put ${firstSide} small squares in each row.`,
+          `Use your drawing. Add ${firstSide} once for each of the ${secondSide} rows, but stop before finding the total.`,
+          `Write ${secondSide} groups of ${firstSide} as ${secondSide} × ${firstSide}. Work out that multiplication yourself.`
+        ],
+        [
+          `L’aire est l’espace à l’intérieur du rectangle. Dessine ${secondSide} rangées de ${firstSide} petits carrés.`,
+          `Utilise ton dessin. Additionne ${firstSide} une fois pour chacune des ${secondSide} rangées, sans calculer encore le total.`,
+          `Écris ${secondSide} groupes de ${firstSide} sous la forme ${secondSide} × ${firstSide}. Fais toi-même la multiplication.`
+        ]
+      );
+    }
+    return progressiveHint(
+      [
+        "Area is the space inside a shape. Cover the shape with equal unit squares without gaps.",
+        "Count the squares in one row, then count how many equal rows there are.",
+        "Multiply the number of squares in one row by the number of rows. Work out the result yourself."
+      ],
+      [
+        "L’aire est l’espace à l’intérieur d’une figure. Recouvre-la de carrés-unités sans laisser de trou.",
+        "Compte les carrés d’une rangée, puis le nombre de rangées égales.",
+        "Multiplie le nombre de carrés d’une rangée par le nombre de rangées. Calcule toi-même le résultat."
+      ]
+    );
+  }
+
   if (/\b(?:times|multiplication|equal\s+groups?|array|fois|multiplication|groupes?\s+égaux|rangées?)\b/i.test(currentActivity)) {
-    if (isFrench) return "Dessine ou imagine des groupes égaux. Compte les objets d'un groupe, puis additionne les groupes.";
-    return "Draw or imagine equal groups. Count the objects in one group, then add the groups.";
+    return progressiveHint(
+      [
+        "Draw or imagine the equal groups in the question. Put the same number of objects in every group.",
+        "Count one group, then write that number once for every group as repeated addition.",
+        "Turn the repeated addition into a multiplication. Work out the product yourself."
+      ],
+      [
+        "Dessine ou imagine les groupes égaux de la question. Mets le même nombre d’objets dans chaque groupe.",
+        "Compte un groupe, puis écris ce nombre une fois pour chaque groupe comme une addition répétée.",
+        "Transforme l’addition répétée en multiplication. Calcule toi-même le produit."
+      ]
+    );
   }
 
   if (/\b(?:divide|division|share\s+equally|each\s+group|divise|division|partage\s+également|chaque\s+groupe)\b/i.test(currentActivity)) {
-    if (isFrench) return "Partage les objets un par un dans chaque groupe jusqu'à ce qu'il n'en reste plus. Compte un seul groupe.";
-    return "Share the objects one at a time into equal groups. Then count just one group.";
+    return progressiveHint(
+      [
+        "Draw the groups named in the question. Share one object into each group in turn.",
+        "Keep making equal rounds until no objects remain. Do not count the whole collection again.",
+        "Count the objects in just one group. That count is the number you should enter."
+      ],
+      [
+        "Dessine les groupes indiqués. Distribue un objet dans chaque groupe à tour de rôle.",
+        "Continue les tours égaux jusqu’à ce qu’il ne reste rien. Ne recompte pas toute la collection.",
+        "Compte les objets d’un seul groupe. C’est le nombre à écrire."
+      ]
+    );
   }
 
   const placeValue = currentActivity.match(/(?:number|nombre)\s+(\d{2,4}).*?(ones|tens|hundreds|thousands|unités|dizaines|centaines|milliers)/is);
@@ -546,14 +618,62 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     return "Check your choice by putting its value back into the question. Keep the answer letter to yourself until the end.";
   }
   if (/\b(?:array|rows?|columns?|equal\s+groups?|baskets?|shelves|shelf|cups?|picture|rangées?|colonnes?|groupes?|paniers?|image)\b/i.test(currentActivity)) {
-    if (isFrench) return "Compte un groupe égal à la fois. Additionne les groupes sans en oublier.";
-    return "Count one equal group at a time. Add the groups without skipping any.";
+    return progressiveHint(
+      [
+        "Point to one row or group and count only the objects in it.",
+        "Write that group amount once for each row as repeated addition.",
+        "Add the repeated groups yourself and enter only the total."
+      ],
+      [
+        "Montre une rangée ou un groupe et compte seulement ses objets.",
+        "Écris cette quantité une fois pour chaque rangée comme une addition répétée.",
+        "Additionne toi-même les groupes et écris seulement le total."
+      ]
+    );
   }
-  if (isFrench) return "Repère l'opération demandée et effectue seulement sa première étape. Dis ou écris ensuite le nombre que tu trouves.";
   if (/missing\s+factor|fact\s+family|how\s+many\s+groups/i.test(currentActivity)) {
-    return "Use equal groups and work one small step at a time. Stop before saying the final result, then check your work.";
+    return progressiveHint(
+      [
+        "Draw the equal groups shown in the question and label the known numbers.",
+        "Use the known total to make one equal group at a time.",
+        "Count the groups or the objects in one group, whichever the blank asks for."
+      ],
+      [
+        "Dessine les groupes égaux et note les nombres connus.",
+        "Utilise le total connu pour former un groupe égal à la fois.",
+        "Compte les groupes ou les objets d’un groupe, selon ce que demande la case vide."
+      ]
+    );
   }
-  return "Find the operation in this question and do its first step. Then say or type the number you find.";
+  return progressiveHint(
+    [
+      "Circle the numbers in the current question and underline the words that tell what happens to them.",
+      "Draw the situation with simple dots or boxes. Show only the first action from the question.",
+      "Write the one calculation that matches your drawing. Work out its result yourself."
+    ],
+    [
+      "Entoure les nombres de la question et souligne les mots qui indiquent ce qui leur arrive.",
+      "Dessine la situation avec des points ou des cases. Montre seulement la première action.",
+      "Écris le calcul qui correspond à ton dessin. Calcule toi-même le résultat."
+    ]
+  );
+}
+
+export function hasTooHardGrade4PilotQuestion(text, courseId) {
+  if (!/^g4-math-(?:en|fr)$/.test(String(courseId || ""))) return false;
+  const output = String(text || "");
+  if (!awaitsStudentAnswer(output)) return false;
+  const activityMatches = [...output.matchAll(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi)];
+  const currentActivity = activityMatches.length
+    ? output.slice(activityMatches[activityMatches.length - 1].index)
+    : output;
+
+  const writtenGeometryWithoutGrid = /\b(?:area|perimeter|aire|périmètre)\b/i.test(currentActivity)
+    && !/\b(?:unit\s+squares?|grid|rows?|columns?|carrés?-unités?|quadrillage|rangées?|colonnes?)\b/i.test(currentActivity);
+  return writtenGeometryWithoutGrid
+    || /\b(?:inches?|feet|yards?|pouces?|pieds?|verges?)\b/i.test(currentActivity)
+    || /\b(?:decimal|remainder|convert|conversion|décimal|reste|convertis?|conversion)\b/i.test(currentActivity)
+    || /\b(?:two-step|multi-step|deux\s+étapes|plusieurs\s+étapes)\b/i.test(currentActivity);
 }
 
 export function isKoreanHintRequest(messages, course) {
@@ -713,6 +833,9 @@ export default async function handler(request, response) {
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
       const grade3Hint = isAvatarHintRequest(messages, request.body?.courseId);
       const avatarHintRule = grade3Hint ? AVATAR_HINT_PROTECTION_RULE : "";
+      const grade4GentleRule = /^g4-math-(?:en|fr)$/.test(String(request.body?.courseId || ""))
+        ? GRADE4_GENTLE_DIFFICULTY_RULE
+        : "";
       const koreanHint = isKoreanHintRequest(messages, course);
 
       if (isSchoolEnglishNoAnswerRequest(messages)) {
@@ -752,7 +875,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -798,6 +921,10 @@ export default async function handler(request, response) {
         }
         if (isGrade3AvatarCourse(request.body?.courseId) && hasTooAdvancedGrade3MathQuestion(text)) {
           console.warn("Grade 3 math abstract explanation question rejected", attempt + 1);
+          continue;
+        }
+        if (hasTooHardGrade4PilotQuestion(text, request.body?.courseId)) {
+          console.warn("Grade 4 pilot question exceeded gentle difficulty", attempt + 1);
           continue;
         }
         if (grade3Hint && hasAnswerRevealingHint(text)) {
