@@ -659,6 +659,82 @@ export function buildSafeGrade3Hint(messages, language = "en") {
   );
 }
 
+function getCurrentAvatarActivity(messages) {
+  const question = [...messages].reverse().find((message) =>
+    message.role === "assistant" && /(?:Activity|Activité)\s+\d+\s*\/\s*10\b/i.test(message.content || "")
+  )?.content || "";
+  const matches = [...question.matchAll(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi)];
+  return matches.length ? question.slice(matches[matches.length - 1].index) : question;
+}
+
+function getAvatarHintStep(messages, language) {
+  const questionIndex = messages.map((message) => message.role === "assistant"
+    && /(?:Activity|Activité)\s+\d+\s*\/\s*10\b/i.test(message.content || "")).lastIndexOf(true);
+  const courseId = `g2-math-${language === "fr" ? "fr" : "en"}`;
+  return Math.max(1, messages.slice(questionIndex + 1).filter((message) =>
+    message.role === "user" && isAvatarHintRequest([message], courseId)
+  ).length);
+}
+
+// Phone-friendly diagrams are generated locally from the current problem.
+// They reveal the setup and next action, but never the final result or option.
+export function buildVisualGradeHint(messages, language = "en") {
+  const activity = getCurrentAvatarActivity(messages).replace(
+    /^(?:Activity|Activité)\s+\d+\s*\/\s*10[^\n]*\n?/i,
+    ""
+  );
+  const step = getAvatarHintStep(messages, language);
+  const fr = language === "fr";
+  const expression = activity.match(/\b(\d{1,4})\s*([+\-−×x÷])\s*(\d{1,4})\b/);
+
+  if (expression) {
+    const left = Number(expression[1]);
+    const operator = expression[2];
+    const right = Number(expression[3]);
+    if (operator === "+" || operator === "-" || operator === "−") {
+      const sign = operator === "+" ? "+" : "−";
+      const headings = fr ? ["Nombre", "Centaines", "Dizaines", "Unités"] : ["Number", "Hundreds", "Tens", "Ones"];
+      const row = (value) => `${value} | ${Math.floor(value / 100) % 10} | ${Math.floor(value / 10) % 10} | ${value % 10}`;
+      const focus = step === 1
+        ? (fr ? "Regarde d’abord la colonne des unités. Fais seulement cette petite opération." : "Look at the ones column first. Do only that small operation.")
+        : step === 2
+          ? (fr ? "Passe à la colonne des dizaines. Échange une dizaine si nécessaire." : "Now use the tens column. Regroup one ten if needed.")
+          : (fr ? "Termine avec les centaines, puis réunis toi-même les chiffres." : "Finish with the hundreds, then put your digits together yourself.");
+      return `${fr ? "Tableau de valeur de position" : "Place-value chart"}\n${headings.join(" | ")}\n${row(left)}\n${sign} ${row(right)}\n\n${focus}`;
+    }
+    if (operator === "×" || operator.toLowerCase() === "x") {
+      const rows = Array.from({ length: Math.min(left, 10) }, (_, index) => `${index + 1}: ${"● ".repeat(Math.min(right, 10)).trim()}`).join("\n");
+      return `${fr ? "Groupes égaux" : "Equal groups"}\n${rows}\n\n${fr ? "Compte un groupe, puis le nombre de groupes. Ne donne pas encore le total." : "Count one group, then count the groups. Do not say the total yet."}`;
+    }
+    if (operator === "÷") {
+      const boxes = Array.from({ length: Math.min(right, 10) }, (_, index) => `[${index + 1}:   ]`).join(" ");
+      return `${fr ? "Boîtes à partager" : "Sharing boxes"}\n${boxes}\n${"● ".repeat(Math.min(left, 30)).trim()}\n\n${fr ? "Distribue un point dans chaque boîte à tour de rôle." : "Move one dot into each box, one round at a time."}`;
+    }
+  }
+
+  const storyNumbers = [...activity.matchAll(/\b\d{1,3}\b/g)].map((match) => Number(match[0])).filter((value) => value <= 30);
+  const isTakeAway = /(?:gives? away|gave|left|remain|loses?|lost|borrow|take away|donne|reste|perd|retire)/i.test(activity);
+  if (isTakeAway && storyNumbers.length >= 2) {
+    const [start, take] = storyNumbers.slice(-2);
+    return `${fr ? `Départ : ${start} objets` : `Start: ${start} objects`}\n${"🍎 ".repeat(Math.min(start, 20)).trim()}\n${fr ? `À enlever : ${take}` : `Take away: ${take}`}\n${"❌ ".repeat(Math.min(take, 20)).trim()}\n\n${fr ? "Cache ce nombre d’objets, puis compte seulement ceux qui restent." : "Cover that many objects, then count only the ones still showing."}`;
+  }
+
+  const fraction = activity.match(/(\d+)\s*\/\s*(\d+)/);
+  if (fraction) {
+    const numerator = Math.min(Number(fraction[1]), 12);
+    const denominator = Math.min(Number(fraction[2]), 12);
+    return `${fr ? "Barre de fraction" : "Fraction bar"}\n${"■ ".repeat(numerator)}${"□ ".repeat(Math.max(0, denominator - numerator))}\n${numerator}/${denominator}\n\n${fr ? "Dessine chaque choix avec le même nombre total de cases." : "Draw each choice with the same total number of boxes."}`;
+  }
+
+  const placeValue = activity.match(/(?:number|nombre)\s+(\d{2,4})/i);
+  if (placeValue) {
+    const digits = placeValue[1].padStart(4, " ").split("");
+    return `${fr ? "Milliers | Centaines | Dizaines | Unités" : "Thousands | Hundreds | Tens | Ones"}\n${digits.join(" | ")}\n\n${fr ? "Pars de la droite et montre la colonne demandée." : "Start at the right and point to the place the question asks for."}`;
+  }
+
+  return `${fr ? "Petit dessin" : "Quick picture"}\n[ ● ]  [ ● ]  [ ● ]\n\n${fr ? "Place les nombres dans des cases ou dessine des points. Montre seulement la première action." : "Put the numbers in boxes or draw dots. Show only the first action."}`;
+}
+
 export function hasTooHardGrade4PilotQuestion(text, courseId) {
   if (!/^g4-math-(?:en|fr)$/.test(String(courseId || ""))) return false;
   const output = String(text || "");
@@ -846,7 +922,9 @@ export default async function handler(request, response) {
       }
 
       if (grade3Hint) {
-        return sendJson(response, 200, { text: buildSafeGrade3Hint(messages, course.language) });
+        const visual = buildVisualGradeHint(messages, course.language);
+        const explanation = buildSafeGrade3Hint(messages, course.language);
+        return sendJson(response, 200, { text: `${visual}\n\n${explanation}` });
       }
       if (koreanHint) {
         return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind) });
