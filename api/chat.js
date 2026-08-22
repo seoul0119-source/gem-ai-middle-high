@@ -26,6 +26,13 @@ const ENGLISH_ANSWER_SLOT_RULE = `
 - End every new activity or retry that awaits the learner with exactly “Answer: (________)”.
 - Never write the Korean label “답:”. Never place the correct answer or a hint inside the answer field.
 - Do not add an answer field to a final lesson summary that expects no further response.`;
+const FRENCH_ANSWER_SLOT_RULE = `
+
+[Règle du champ de réponse en français]
+- Écris toute la réponse visible en français. N'affiche aucun mot ou libellé coréen ou anglais.
+- Termine chaque nouvelle activité ou nouvelle tentative qui attend l'élève exactement par « Réponse : (________) ».
+- Ne place jamais la bonne réponse, une lettre correcte ou un indice dans le champ de réponse.
+- N'ajoute pas de champ de réponse au résumé final qui n'attend plus de réponse.`;
 const SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE = `
 
 [중1-고3 영어 정답 사전 공개 금지 — 최우선 규칙]
@@ -51,6 +58,10 @@ const AVATAR_HINT_PROTECTION_RULE = `
 - Give exactly one short, concrete clue and remain on the current activity.
 - Never state or imply the final answer, the correct option letter, a completed equation, praise, grading, or the next activity.
 - Do not repeat the question's “Answer: (________)” line inside the hint response. The original answer field is already visible above.`;
+
+function isGrade3AvatarCourse(courseId) {
+  return courseId === "g3-math-en" || courseId === "g3-math-fr";
+}
 const FALLBACK_WORDS = [
   { word: "protect", pronunciation: "프로텍트", meaning: "보호하다", example: "We must protect the environment.", translation: "우리는 환경을 보호해야 합니다." },
   { word: "invite", pronunciation: "인바이트", meaning: "초대하다", example: "I will invite my friend.", translation: "나는 내 친구를 초대할 것입니다." },
@@ -218,7 +229,7 @@ function hasPrematureGrade3MathAnswer(text) {
   const output = String(text || "");
   if (!awaitsStudentAnswer(output)) return false;
 
-  const activityMatches = [...output.matchAll(/Activity\s+\d+\s*\/\s*10\b/gi)];
+  const activityMatches = [...output.matchAll(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi)];
   const currentActivity = activityMatches.length
     ? output.slice(activityMatches[activityMatches.length - 1].index)
     : output;
@@ -235,14 +246,15 @@ function hasPrematureGrade3MathAnswer(text) {
   // "7 × 2 = ?", but it must never contain a completed result before the
   // learner answers. Catch both symbolic and spoken completed equations.
   return /\b\d{1,2}\s*(?:×|x|\*)\s*\d{1,2}\s*=\s*\d{1,3}\b/i.test(withoutAnswerSlot)
-    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,2})\s+times\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:equals|is|makes)\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,3})\b/i.test(withoutAnswerSlot);
+    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,2})\s+times\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:equals|is|makes)\s+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d{1,3})\b/i.test(withoutAnswerSlot)
+    || /\b(?:zéro|un|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d{1,2})\s+fois\s+(?:zéro|un|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d{1,2})\s+(?:font|fait|égalent?|donnent?)\s+(?:zéro|un|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|\d{1,3})\b/i.test(withoutAnswerSlot);
 }
 
 function hasTooAdvancedGrade3MathQuestion(text) {
   const output = String(text || "");
   if (!awaitsStudentAnswer(output)) return false;
 
-  const activityMatches = [...output.matchAll(/Activity\s+\d+\s*\/\s*10\b/gi)];
+  const activityMatches = [...output.matchAll(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi)];
   const currentActivity = activityMatches.length
     ? output.slice(activityMatches[activityMatches.length - 1].index)
     : output;
@@ -254,31 +266,34 @@ function hasTooAdvancedGrade3MathQuestion(text) {
     || /what\s+numbers\s+do\s+you\s+(?:say|get|reach)/i.test(currentActivity)
     || /count\s+by\s+\d+\s+(?:two|three|four|five|six|\d+)\s+times/i.test(currentActivity)
     || /(?:define|interpret|justify|generalize)\b/i.test(currentActivity)
-    || /Activity\s+\d+\s*\/\s*10\s*[—-]\s*Explain\b/i.test(currentActivity);
+    || /Activity\s+\d+\s*\/\s*10\s*[—-]\s*Explain\b/i.test(currentActivity)
+    || /(?:explique|définis|interprète|justifie|généralise)\b/i.test(currentActivity)
+    || /que\s+(?:signifie|représente)\s+(?:le\s+)?(?:premier|deuxième)\s+(?:nombre|facteur)/i.test(currentActivity);
 }
 
 function isGrade3AvatarStart(messages, courseId) {
-  if (courseId !== "g3-math-en") return false;
+  if (!isGrade3AvatarCourse(courseId)) return false;
   const lastMessage = messages[messages.length - 1];
-  return lastMessage?.role === "user" && /^(?:start|begin|시작|시작하기)$/i.test(lastMessage.content.trim());
+  return lastMessage?.role === "user" && /^(?:start|begin|commencer|commence|début|démarrer|시작|시작하기)$/i.test(lastMessage.content.trim());
 }
 
-function hasInvalidGrade3StartResponse(text) {
+function hasInvalidGrade3StartResponse(text, language) {
   const output = String(text || "");
-  const activities = output.match(/Activity\s+\d+\s*\/\s*10\b/gi) || [];
-  if (activities.length !== 1 || !/Activity\s+1\s*\/\s*10\b/i.test(output)) return true;
+  const activityWord = language === "fr" ? "Activité" : "Activity";
+  const activities = output.match(/(?:Activity|Activité)\s+\d+\s*\/\s*10\b/gi) || [];
+  if (activities.length !== 1 || !new RegExp(`${activityWord}\\s+1\\s*\\/\\s*10\\b`, "i").test(output)) return true;
 
-  const answerSlot = /Answer(?:\s*1)?\s*:\s*\([ _\u3000]{3,}\)/i.exec(output);
+  const answerSlot = /(?:Answer|Réponse)(?:\s*1)?\s*:\s*\([ _\u3000]{3,}\)/i.exec(output);
   if (!answerSlot) return true;
   const afterSlot = output.slice(answerSlot.index + answerSlot[0].length).trim();
   if (afterSlot) return true;
 
-  return /\b(?:great job|correct|well done|the answer is|equals|makes)\b/i.test(output.slice(0, answerSlot.index));
+  return /\b(?:great job|correct|well done|the answer is|equals|makes|bravo|bonne réponse|la réponse est|font|égalent?)\b/i.test(output.slice(0, answerSlot.index));
 }
 
 function hasIncompleteChoiceSet(text) {
   const output = String(text || "");
-  const activityMatches = [...output.matchAll(/(?:Activity|문제|활동)\s+\d+\s*\/\s*10\b/gi)];
+  const activityMatches = [...output.matchAll(/(?:Activity|Activité|문제|활동)\s+\d+\s*\/\s*10\b/gi)];
   const currentActivity = activityMatches.length
     ? output.slice(activityMatches[activityMatches.length - 1].index)
     : output;
@@ -303,13 +318,14 @@ function hasOrphanChoiceLabel(text) {
 }
 
 export function isAvatarHintRequest(messages, courseId) {
-  if (courseId !== "g3-math-en") return false;
+  if (!isGrade3AvatarCourse(courseId)) return false;
   const latest = [...messages].reverse().find((message) => message.role === "user");
   return /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand)\b/i.test(latest?.content || "")
+    || /(?:indice|aide(?:-moi)?|je\s+ne\s+sais\s+pas|je\s+ne\s+comprends\s+pas|répète|encore)/i.test(latest?.content || "")
     || /(?:힌트|모르겠|잘\s*모르|도와\s*주|도움)/i.test(latest?.content || "");
 }
 
-export function buildSafeGrade3Hint(messages) {
+export function buildSafeGrade3Hint(messages, language = "en") {
   const latestQuestion = [...messages]
     .reverse()
     .find((message) => message.role === "assistant")?.content || "";
@@ -321,18 +337,24 @@ export function buildSafeGrade3Hint(messages) {
   // These hints deliberately contain no operands, results, option letters, or
   // completed counting sequences. This keeps both visible text and TTS from
   // disclosing the answer before the learner responds.
-  if (/true\s+or\s+false|true-or-false/i.test(currentActivity)) {
+  const isFrench = language === "fr";
+  if (/true\s+or\s+false|true-or-false|vrai\s+ou\s+faux/i.test(currentActivity)) {
+    if (isFrench) return "Calcule d'abord la multiplication. Puis compare ton résultat au nombre de la question.";
     return "Work out the multiplication first. Then compare your result with the number in the question.";
   }
-  if (/skip\s+count|number\s+pattern|missing\s+number/i.test(currentActivity)) {
+  if (/skip\s+count|number\s+pattern|missing\s+number|suite\s+numérique|nombre\s+manquant/i.test(currentActivity)) {
+    if (isFrench) return "Observe de combien les nombres augmentent. Continue le même rythme d'une seule étape.";
     return "Look at how much the numbers increase each time. Continue the same pattern by one step.";
   }
-  if (/\b(?:A|B|C)\)|multiple[ -]?choice|choice\b/i.test(currentActivity)) {
+  if (/\b(?:A|B|C)\)|multiple[ -]?choice|choice\b|choix/i.test(currentActivity)) {
+    if (isFrench) return "Calcule d'abord. Choisis ensuite la proposition qui correspond à ton résultat.";
     return "Work out the question first. Then choose the option that matches your result.";
   }
-  if (/array|row|column|equal\s+group|basket|shelf|cup|picture/i.test(currentActivity)) {
+  if (/array|row|column|equal\s+group|basket|shelf|cup|picture|rangée|colonne|groupe|panier|image/i.test(currentActivity)) {
+    if (isFrench) return "Compte un groupe égal à la fois. Additionne les groupes sans en oublier.";
     return "Count one equal group at a time. Add the groups without skipping any.";
   }
+  if (isFrench) return "Regarde l'image, la suite ou les choix. Avance d'une petite étape, puis dis ou écris ta réponse.";
   if (/missing\s+factor|fact\s+family|how\s+many\s+groups/i.test(currentActivity)) {
     return "Use equal groups and work one small step at a time. Stop before saying the final result, then check your work.";
   }
@@ -340,7 +362,7 @@ export function buildSafeGrade3Hint(messages) {
 }
 
 export function isKoreanHintRequest(messages, course) {
-  if (!course || course.language === "en") return false;
+  if (!course || course.language === "en" || course.language === "fr") return false;
   const latest = [...messages].reverse().find((message) => message.role === "user");
   const text = String(latest?.content || "");
 
@@ -400,7 +422,7 @@ function awaitsStudentAnswer(text) {
   if (!output.trim()) return false;
   if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(output)) return false;
 
-  return /(?:문제|활동|과제|연습)\s*\d+\s*\/\s*10/i.test(output)
+  return /(?:Activity|Activité|문제|활동|과제|연습)\s*\d+\s*\/\s*10/i.test(output)
     || /(?:^|\s)\d+\s*\/\s*10(?:\s|—|-)/m.test(output)
     || /(?:답|정답).{0,24}(?:입력|말해|적어|써|고르|골라|선택|대답)/s.test(output)
     || /(?:다시|한\s*번\s*더).{0,20}(?:답해|말해|입력|적어|써)/s.test(output)
@@ -410,7 +432,7 @@ function awaitsStudentAnswer(text) {
 function ensureAnswerSlot(text, courseKind, language, suppressAnswerSlot = false) {
   let output = String(text || "").trimEnd();
   if (suppressAnswerSlot) {
-    return output.replace(/^\s*(?:Answer|답|정답)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "").trimEnd();
+    return output.replace(/^\s*(?:Answer|Réponse|답|정답)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "").trimEnd();
   }
   const isEnglishOnly = language === "en";
   const isEnglishAnswerCourse = ["english", "toefl", "toeic"].includes(courseKind);
@@ -424,6 +446,14 @@ function ensureAnswerSlot(text, courseKind, language, suppressAnswerSlot = false
       .replace(/^정답(?:\s*\d+)?\s*:\s*.*$/gm, "Answer: (________)");
     if (/Answer(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/i.test(output)) return output;
     return `${output}\n\nAnswer: (________)`;
+  }
+
+  if (language === "fr") {
+    output = output
+      .replace(/^(?:Answer|답|정답)(?:\s*\d+)?\s*:\s*.*$/gim, "Réponse : (________)")
+      .replace(/^Réponse(?:\s*\d+)?\s*:\s*.*$/gim, "Réponse : (________)");
+    if (/Réponse(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)/i.test(output)) return output;
+    return `${output}\n\nRéponse : (________)`;
   }
 
   if (isEnglishAnswerCourse) {
@@ -469,7 +499,9 @@ export default async function handler(request, response) {
       const historyRule = history.length
         ? course.language === "en"
           ? `\n\n[Previous activities — do not repeat]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\nReject any new activity that uses the same task structure with only different numbers, objects, names, or word order. Choose a different activity family.`
-          : `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
+          : course.language === "fr"
+            ? `\n\n[Activités précédentes — ne pas répéter]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\nN'utilise pas la même structure en changeant seulement les nombres, les objets ou l'ordre des mots. Choisis une autre famille d'activité.`
+            : `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
         : "";
       const signatures = new Set(history.map(normalizeProblem).filter(Boolean));
       const schoolEnglishAnswerRule = course.kind === "english"
@@ -478,7 +510,9 @@ export default async function handler(request, response) {
       const voiceRule = request.body?.inputMode === "voice"
         ? course.language === "en"
           ? `\n\n[The learner's answer came from speech recognition]\nIf it is unclear or unrelated to the current activity, do not grade it as wrong and never reveal the answer. Say only: “I couldn't understand that clearly. Please give a short answer again.” Then wait on the same activity. Use English only.`
-          : `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
+          : course.language === "fr"
+            ? `\n\n[La réponse de l'élève vient de la reconnaissance vocale]\nSi elle est peu claire ou sans rapport avec l'activité, ne la note pas comme fausse et ne révèle jamais la réponse. Dis seulement : « Je n'ai pas bien compris. Donne une réponse courte encore une fois. » Puis attends sur la même activité. Utilise uniquement le français.`
+            : `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
         : "";
       const grade3Start = isGrade3AvatarStart(messages, request.body?.courseId);
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
@@ -494,7 +528,7 @@ export default async function handler(request, response) {
       }
 
       if (grade3Hint) {
-        return sendJson(response, 200, { text: buildSafeGrade3Hint(messages) });
+        return sendJson(response, 200, { text: buildSafeGrade3Hint(messages, course.language) });
       }
       if (koreanHint) {
         return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind) });
@@ -505,7 +539,9 @@ export default async function handler(request, response) {
         if (attempt > 0) {
           formatRepairRule += course.language === "en"
             ? `\n\n[Multiple-choice format repair]\nEvery multiple-choice activity must contain three complete choices labeled A), B), and C). Write meaningful text after every label. Never output an empty label such as “C)” or “C answer”. Verify that exactly one choice is correct before responding.`
-            : `\n\n[객관식 형식 오류 재생성]\n객관식 문제에는 A), B), C) 선택지를 모두 완전하게 작성하세요. 어떤 선택지 뒤도 비워 두지 말고 “C 답”처럼 쓰지 마세요. 출력 전에 정답이 하나뿐인지 확인하세요.`;
+            : course.language === "fr"
+              ? `\n\n[Réparation du QCM]\nChaque QCM doit contenir trois choix complets A), B) et C). N'écris jamais un choix vide. Vérifie qu'une seule réponse est correcte.`
+              : `\n\n[객관식 형식 오류 재생성]\n객관식 문제에는 A), B), C) 선택지를 모두 완전하게 작성하세요. 어떤 선택지 뒤도 비워 두지 말고 “C 답”처럼 쓰지 마세요. 출력 전에 정답이 하나뿐인지 확인하세요.`;
         }
         if (course.kind === "toefl" && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\nComplete the Words 문제에는 반드시 영어 단어 앞부분 바로 뒤에 밑줄 4개 이상이 이어지는 빈칸(예: wor____)이 보여야 합니다. 완성 단어와 정답은 쓰지 마세요. 빈칸이 없는 후보는 출력하지 마세요.`;
@@ -521,7 +557,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -537,7 +573,7 @@ export default async function handler(request, response) {
         }
         const text = getOutputText(data);
         if (!text) continue;
-        if (grade3Start && hasInvalidGrade3StartResponse(text)) {
+        if (grade3Start && hasInvalidGrade3StartResponse(text, course.language)) {
           console.warn("Grade 3 start response disclosed feedback or multiple activities", attempt + 1);
           continue;
         }
@@ -561,11 +597,11 @@ export default async function handler(request, response) {
           console.warn("Grade 7-12 English premature answer disclosure rejected", attempt + 1);
           continue;
         }
-        if (request.body?.courseId === "g3-math-en" && hasPrematureGrade3MathAnswer(text)) {
+        if (isGrade3AvatarCourse(request.body?.courseId) && hasPrematureGrade3MathAnswer(text)) {
           console.warn("Grade 3 math premature answer disclosure rejected", attempt + 1);
           continue;
         }
-        if (request.body?.courseId === "g3-math-en" && hasTooAdvancedGrade3MathQuestion(text)) {
+        if (isGrade3AvatarCourse(request.body?.courseId) && hasTooAdvancedGrade3MathQuestion(text)) {
           console.warn("Grade 3 math abstract explanation question rejected", attempt + 1);
           continue;
         }
