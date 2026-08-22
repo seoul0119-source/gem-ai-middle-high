@@ -1,4 +1,5 @@
 import { getCourse } from "./courses.js";
+import { isSchoolEnglishNoAnswerRequest } from "./_no-answer-guard.js";
 import { requireStudentSession } from "../lib/student-session.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
@@ -338,6 +339,55 @@ export function buildSafeGrade3Hint(messages) {
   return "Use the picture, pattern, or choices in the question. Work one small step at a time, then say or type your answer.";
 }
 
+export function isKoreanHintRequest(messages, course) {
+  if (!course || course.language === "en") return false;
+  const latest = [...messages].reverse().find((message) => message.role === "user");
+  const text = String(latest?.content || "");
+
+  return /(?:힌트|모르겠|잘\s*모르|도와\s*주|도움|어떻게\s*(?:풀|해)|설명\s*해\s*주)/i.test(text);
+}
+
+export function buildSafeKoreanHint(messages, courseKind) {
+  const latestQuestion = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant")?.content || "";
+
+  // 힌트에는 현재 문제의 숫자·정답·선택지 번호·완성된 계산식을
+  // 재사용하지 않습니다. 화면과 음성 모두 다음 한 단계만 안내합니다.
+  if (courseKind === "math") {
+    if (/좌표|사분면|좌표평면/.test(latestQuestion)) {
+      return "x좌표와 y좌표의 부호를 각각 확인해 보세요. 두 부호의 조합이 좌표평면의 어느 위치인지 찾아보세요.";
+    }
+    if (/그래프|도표|표\s|자료/.test(latestQuestion)) {
+      return "가로축과 세로축 또는 표의 제목을 먼저 확인하세요. 그다음 질문에 필요한 행이나 점 하나만 찾아보세요.";
+    }
+    if (/방정식|부등식|미지수/.test(latestQuestion)) {
+      return "미지수가 있는 항을 한쪽에 모으기 위해 양변에 같은 연산을 한 번만 적용해 보세요.";
+    }
+    if (/분수|분모|분자/.test(latestQuestion)) {
+      return "분모를 같게 만들 필요가 있는지 먼저 확인한 뒤, 한 단계씩 계산해 보세요.";
+    }
+    if (/넓이|둘레|부피|도형|각도/.test(latestQuestion)) {
+      return "주어진 길이와 구하려는 값을 따로 표시하고, 필요한 관계식 하나를 먼저 떠올려 보세요.";
+    }
+    return "주어진 값과 구해야 하는 것을 따로 표시한 뒤, 필요한 첫 계산 한 단계만 해 보세요.";
+  }
+
+  if (courseKind === "korean") {
+    return "질문에 나온 핵심어를 지문에서 찾아 밑줄을 긋고, 바로 앞뒤 문장을 다시 읽어 보세요.";
+  }
+  if (courseKind === "social" || courseKind === "history") {
+    return "자료의 제목·시기·핵심 용어를 먼저 확인하고, 질문과 직접 연결되는 근거 하나를 찾아보세요.";
+  }
+  if (courseKind === "science") {
+    return "문제에서 바뀐 조건과 관찰해야 할 결과를 나누어 표시한 뒤, 둘의 관계를 생각해 보세요.";
+  }
+  if (courseKind === "english" || courseKind === "toefl" || courseKind === "toeic") {
+    return "정답을 넣지 말고, 빈칸 앞뒤의 핵심 단어와 문장의 시제부터 확인해 보세요.";
+  }
+  return "문제의 핵심어를 표시하고, 정답을 구하는 데 필요한 첫 단계만 생각해 보세요.";
+}
+
 function hasAnswerRevealingHint(text) {
   const output = String(text || "");
   return /\b(?:the\s+(?:correct\s+)?answer\s+is|choose\s+[A-C]|option\s+[A-C]|equals?\s+\d+|make(?:s)?\s+\d+|total\s+is\s+\d+)\b/i.test(output)
@@ -434,9 +484,20 @@ export default async function handler(request, response) {
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
       const grade3Hint = isAvatarHintRequest(messages, request.body?.courseId);
       const avatarHintRule = grade3Hint ? AVATAR_HINT_PROTECTION_RULE : "";
+      const koreanHint = isKoreanHintRequest(messages, course);
+
+      if (isSchoolEnglishNoAnswerRequest(messages)) {
+        const noAnswerText = course.language === "en"
+          ? "Understood. I will not reveal the answer. Please solve the current question yourself."
+          : "알겠습니다. 정답은 미리 말하지 않겠습니다. 현재 문제를 직접 풀어 보세요.";
+        return sendJson(response, 200, { text: noAnswerText });
+      }
 
       if (grade3Hint) {
         return sendJson(response, 200, { text: buildSafeGrade3Hint(messages) });
+      }
+      if (koreanHint) {
+        return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind) });
       }
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
