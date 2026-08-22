@@ -90,8 +90,8 @@ export default async function handler(request, response) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   const courseId = String(request.body?.courseId || "");
-  const isEnglishAvatar = courseId === "g3-math-en";
-  const isFrenchAvatar = courseId === "g3-math-fr";
+  const isEnglishAvatar = /^g[1-5]-math-en$/.test(courseId);
+  const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
   const input = cleanText(request.body?.text);
   if (!apiKey || !input) return sendJson(response, 400, { error: isEnglishAvatar
     ? "There is no text to speak."
@@ -108,9 +108,9 @@ export default async function handler(request, response) {
         voice: "marin",
         input,
         instructions: isEnglishAvatar
-          ? "Speak only in clear natural American English as a warm Grade 3 mathematics teacher. Never speak Korean. Read the multiplication sign as 'times', never as the Korean word '곱하기'. Do not read markdown symbols, visual blanks, answer boxes, or lesson counters."
+          ? "Speak only in clear natural American English as a warm elementary mathematics teacher. Never speak Korean. Read the multiplication sign as 'times', never as the Korean word '곱하기'. Do not read markdown symbols, visual blanks, answer boxes, or lesson counters."
           : isFrenchAvatar
-            ? "Parle uniquement en français naturel, clair et chaleureux, comme un professeur de mathématiques de CE2. Prononce le signe de multiplication comme « fois ». Ne parle ni coréen ni anglais. Ne lis pas les symboles Markdown, les champs de réponse, les blancs visuels ni les compteurs d'activités."
+            ? "Parle uniquement en français naturel, clair et chaleureux, comme un professeur de mathématiques de l'école élémentaire. Prononce le signe de multiplication comme « fois ». Ne parle ni coréen ni anglais. Ne lis pas les symboles Markdown, les champs de réponse, les blancs visuels ni les compteurs d'activités."
           : "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols, visual blanks, answer boxes, dummy ellipsis choices, or lesson counters. For middle/high-school English multiple-choice activities, do not speak the answer-choice text; the learner reads choices on screen and answers by number.",
         response_format: "mp3"
       })
