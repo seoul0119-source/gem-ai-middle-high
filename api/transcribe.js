@@ -32,7 +32,9 @@ export default async function handler(request, response) {
       .trim();
     const problemStart = Math.max(
       cleanContext.lastIndexOf("문제 "),
-      cleanContext.lastIndexOf("단어입니다")
+      cleanContext.lastIndexOf("단어입니다"),
+      cleanContext.lastIndexOf("Activity "),
+      cleanContext.lastIndexOf("Activité ")
     );
     const questionContext = (problemStart >= 0 ? cleanContext.slice(problemStart) : cleanContext.slice(-360))
       .slice(0, 360);
@@ -47,12 +49,15 @@ export default async function handler(request, response) {
       || courseId === "toefl"
       || courseId === "toeic"
       || courseId === "g3-math-en";
+    const isFrenchAvatar = courseId === "g3-math-fr";
     // 새 영어 과정은 한국어와 영어가 자연스럽게 섞이므로 언어를 강제로
     // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
-    const language = isEnglishWord || courseId === "g3-math-en" ? "en" : isEnglishCourse ? null : "ko";
+    const language = isFrenchAvatar ? "fr" : isEnglishWord || courseId === "g3-math-en" ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
     const lessonPrompt = courseId === "g3-math-en"
       ? "A Grade 3 learner is answering a multiplication activity in English. Transcribe only the short spoken English answer."
+      : isFrenchAvatar
+        ? "Un élève de CE2 répond en français à une activité simple de multiplication. Transcris uniquement sa réponse courte en français, y compris les nombres ou les lettres A, B ou C."
       : isMath
       ? "한국 중고등학생의 수학 문제에 대한 짧은 답변입니다."
       : isSocial
@@ -66,7 +71,9 @@ export default async function handler(request, response) {
               : isEnglishCourse
                 ? "A Korean learner is answering an English lesson. Transcribe only the spoken Korean or English answer."
                 : "A Korean student is repeating one English word or a short sentence.";
-    const courseKeywords = isMath
+    const courseKeywords = isFrenchAvatar
+      ? ["fois", "groupe", "rangée", "colonne", "vrai", "faux", "réponse", "nombre"]
+      : isMath
       ? ["음수", "분수", "제곱", "루트", "좌표", "사분면", "합집합", "교집합"]
       : isSocial
         ? ["지리", "정치", "법", "경제", "사회", "문화", "기후", "기본권"]
