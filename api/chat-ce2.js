@@ -1,4 +1,4 @@
-import { requireStudentSession } from "../lib/student-session.js";
+import { readStudentSession, requireStudentSession } from "../lib/student-session.js";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -139,12 +139,11 @@ function revealsAnswer(text) {
   return /(?:la\s+(?:bonne\s+)?r[eé]ponse\s+est|choisis\s+[A-C]|option\s+[A-C]|r[eé]sultat\s+est|[=＝]\s*\d+)/i.test(String(text || ""));
 }
 
-export default async function handler(req, res) {
+async function handleChat(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendJson(res, 405, { error: "Seules les requêtes POST sont acceptées." });
   }
-  if (!requireStudentSession(req, res)) return;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return sendJson(res, 503, { error: "Le moteur de la classe n'est pas encore disponible." });
 
@@ -196,4 +195,113 @@ export default async function handler(req, res) {
     console.error("CE2 chat error", error);
     return sendJson(res, 500, { error: "Un problème de connexion est survenu pendant la leçon." });
   }
+}
+
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6LIvJEhy9KXQbpTghGRaAXtjL03HltJF7Lb4leU6v_q0bkoBsjMkhN-Q8laeT27zDdQ/exec";
+const MAX_BASE64_LENGTH = 5_500_000;
+
+async function trackCe2(student, action) {
+  const url = new URL(APPS_SCRIPT_URL);
+  const params = action === "start"
+    ? { action:"start", session:student.session, sessionId:student.session, subject:"Mathématiques", course:"Mathématiques", level:"CE2", grade:"CE2" }
+    : { action:"end", session:student.session, sessionId:student.session };
+  Object.entries(params).forEach(([key,value]) => url.searchParams.set(key, String(value)));
+  const result = await fetch(url, { redirect:"follow", headers:{ Accept:"text/html,application/xhtml+xml" } });
+  if (!result.ok) throw new Error("Le suivi de la leçon n'est pas disponible.");
+}
+
+function cleanSpeechText(value) {
+  const numbers = {1:"un",2:"deux",3:"trois",4:"quatre",5:"cinq",6:"six",7:"sept",8:"huit",9:"neuf",10:"dix"};
+  return String(value || "")
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
+    .replace(/\*\*|__|`|#+\s?/g, "")
+    .replace(/^\s*Activit[eé]\s*(\d{1,2})\s*\/\s*10\s*(?:[—–-]\s*[^\n]*)?\s*$/gim, (_, n) => `Question ${numbers[Number(n)] || n}.`)
+    .replace(/^\s*R[eé]ponse\s*:\s*\([ _]{3,}\)\s*$/gim, "")
+    .replace(/_{4,}/g, " ")
+    .replace(/×|\*/g, " fois ")
+    .replace(/÷/g, " divisé par ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 1800);
+}
+
+async function handleSpeech(req, res) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const input = cleanSpeechText(req.body?.text);
+  if (!apiKey || !input) return sendJson(res, 400, { error: "Il n'y a aucun texte à lire." });
+  try {
+    const result = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts", voice: "marin", input,
+        instructions: "Parle uniquement en français standard, naturellement, chaleureusement et un peu lentement, comme un professeur de mathématiques de CE2. Prononce le signe de multiplication comme « fois ». Ne lis jamais le Markdown, les blancs visuels, les champs de réponse ni les compteurs de leçon.",
+        response_format: "mp3"
+      })
+    });
+    if (!result.ok) return sendJson(res, 502, { error: "La voix du professeur n'a pas pu être créée." });
+    const audio = Buffer.from(await result.arrayBuffer()).toString("base64");
+    return sendJson(res, 200, { audio, mimeType:"audio/mpeg" });
+  } catch (error) {
+    console.error("CE2 speech error", error);
+    return sendJson(res, 500, { error:"Un problème de connexion vocale est survenu." });
+  }
+}
+
+async function handleTranscribe(req, res) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const base64 = String(req.body?.audio || "");
+  if (!apiKey || !base64 || base64.length > MAX_BASE64_LENGTH) return sendJson(res, 400, { error:"Donne une réponse courte une nouvelle fois." });
+  try {
+    const mimeType = String(req.body?.mimeType || "audio/webm").split(";")[0];
+    const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
+    const context = String(req.body?.context || "").replace(/\s+/g," ").slice(-420);
+    const audioBuffer = Buffer.from(base64,"base64");
+    const keywords = [...new Set((context.match(/[A-Za-zÀ-ÿœŒæÆ]{2,}|\d+/g) || []).slice(-20))];
+    function formFor(model) {
+      const form = new FormData();
+      form.append("file", new Blob([audioBuffer], { type:mimeType }), `eleve.${extension}`);
+      form.append("model", model); form.append("response_format", "json");
+      form.append("prompt", "Un élève de CE2 répond en français à une courte question de multiplication. Transcris uniquement sa réponse parlée, sans rien ajouter.");
+      if (model === "gpt-transcribe") { form.append("languages[]","fr"); keywords.forEach(k => form.append("keywords[]",k)); }
+      else form.append("language","fr");
+      return form;
+    }
+    async function request(model) {
+      const result = await fetch("https://api.openai.com/v1/audio/transcriptions", { method:"POST", headers:{ Authorization:`Bearer ${apiKey}` }, body:formFor(model) });
+      return { result, data:await result.json() };
+    }
+    let { result, data } = await request("gpt-transcribe");
+    if (!result.ok && [400,403,404].includes(result.status)) ({ result, data } = await request("gpt-4o-transcribe"));
+    if (!result.ok || !data.text?.trim()) return sendJson(res, 502, { error:"Je n'ai pas compris ta réponse. Dis-la une nouvelle fois." });
+    const text = data.text.trim();
+    if (text.length > 220 || /Transcris uniquement|élève de CE2 répond/i.test(text)) return sendJson(res, 422, { error:"Je n'ai pas bien entendu. Donne seulement une réponse courte." });
+    return sendJson(res, 200, { text });
+  } catch (error) {
+    console.error("CE2 transcription error", error);
+    return sendJson(res, 500, { error:"Un problème de reconnaissance vocale est survenu." });
+  }
+}
+
+export default async function handler(req, res) {
+  const action = String(req.method === "GET" ? req.query?.action || "session" : req.body?.action || "chat");
+  if (req.method === "GET") {
+    if (action !== "session") return sendJson(res, 400, { error:"Action non prise en charge." });
+    const student = readStudentSession(req);
+    if (!student) return sendJson(res, 401, { error:"Connecte-toi d'abord avec un identifiant d'élève enregistré." });
+    return sendJson(res, 200, { authenticated:true, student:{ id:student.id, name:student.name } });
+  }
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return sendJson(res, 405, { error:"Requête non prise en charge." });
+  }
+  const student = requireStudentSession(req, res);
+  if (!student) return;
+  if (action === "session-start" || action === "session-end") {
+    try { await trackCe2(student, action === "session-start" ? "start" : "end"); return sendJson(res, 200, { success:true }); }
+    catch (error) { console.error("CE2 tracking error", error); return sendJson(res, 502, { error:"Le suivi de la leçon est momentanément indisponible." }); }
+  }
+  if (action === "speech") return handleSpeech(req, res);
+  if (action === "transcribe") return handleTranscribe(req, res);
+  return handleChat(req, res);
 }
