@@ -353,24 +353,57 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     message.role === "user" && isAvatarHintRequest([message], `g2-math-${isFrench ? "fr" : "en"}`)
   ).length;
 
-  const addition = currentActivity.match(/(?:what is|calculate|calcule|combien font)\s*(\d{1,3})\s*\+\s*(\d{1,3})/i);
+  // Some activities use a natural-language question ("What is 24 + 13?")
+  // while others use a short label ("Add: 247 + 136"). Detect the actual
+  // expression either way so the hint never falls back to the generic message.
+  const addition = currentActivity.match(/\b(\d{1,4})\s*\+\s*(\d{1,4})\b/);
   if (addition) {
+    const first = Number(addition[1]);
     const second = Number(addition[2]);
+    const firstOnes = first % 10;
+    const secondOnes = second % 10;
+    const firstTens = Math.floor(first / 10) % 10;
+    const secondTens = Math.floor(second / 10) % 10;
+    const firstHundreds = Math.floor(first / 100) % 10;
+    const secondHundreds = Math.floor(second / 100) % 10;
+    const englishTens = (value) => \`${value} ${value === 1 ? "ten" : "tens"}\`;
+    const englishHundreds = (value) => \`${value} ${value === 1 ? "hundred" : "hundreds"}\`;
+    const frenchTens = (value) => \`${value} ${value === 1 ? "dizaine" : "dizaines"}\`;
+    const frenchHundreds = (value) => \`${value} ${value === 1 ? "centaine" : "centaines"}\`;
     const tens = Math.floor(second / 10) * 10;
     const ones = second % 10;
-    if (hintCount > 1 && tens > 0 && ones > 0) {
-      if (isFrench) return `Décompose ${second} en ${tens} et ${ones}. Ajoute d'abord ${tens}, puis ${ones}, sans donner encore le total.`;
-      return `Break ${second} into ${tens} and ${ones}. Add ${tens} first, then ${ones}, without saying the total yet.`;
+    if (hintCount === 1) {
+      if (isFrench) return \`Commence par les unités : ${firstOnes} plus ${secondOnes}. Garde en tête une éventuelle retenue, sans donner le total.\`;
+      return \`Start with the ones place: ${firstOnes} plus ${secondOnes}. Keep any extra ten in mind, but do not say the total.\`;
+    }
+    if (hintCount === 2 && (firstTens || secondTens)) {
+      if (isFrench) return \`Passe maintenant aux dizaines : ${frenchTens(firstTens)} plus ${frenchTens(secondTens)}. Ajoute la retenue éventuelle, sans donner le total.\`;
+      return \`Now work with the tens: ${englishTens(firstTens)} plus ${englishTens(secondTens)}. Include any extra ten, but do not say the total.\`;
+    }
+    if (hintCount >= 3 && (firstHundreds || secondHundreds)) {
+      if (isFrench) return \`Passe ensuite aux centaines : ${frenchHundreds(firstHundreds)} plus ${frenchHundreds(secondHundreds)}. Réunis les valeurs de position toi-même.\`;
+      return \`Next work with the hundreds: ${englishHundreds(firstHundreds)} plus ${englishHundreds(secondHundreds)}. Combine the place values yourself.\`;
+    }
+    if (tens > 0 && ones > 0) {
+      if (isFrench) return \`Décompose ${second} en ${tens} et ${ones}. Ajoute d'abord ${tens}, puis ${ones}, sans donner encore le total.\`;
+      return \`Break ${second} into ${tens} and ${ones}. Add ${tens} first, then ${ones}, without saying the total yet.\`;
     }
     if (isFrench) return "Additionne d'abord les dizaines, puis les unités. Écris seulement le total que tu trouves.";
     return "Add the tens first, then add the ones. Write only the total you find.";
   }
 
-  const subtraction = currentActivity.match(/(?:what is|calculate|calcule|combien font)\s*(\d{1,3})\s*[-−]\s*(\d{1,3})/i);
+  const subtraction = currentActivity.match(/\b(\d{1,4})\s*[-−]\s*(\d{1,4})\b/);
   if (subtraction) {
-    const second = Number(subtraction[2]);
-    if (isFrench) return `Pars du premier nombre et recule de ${second}. Compte chaque pas une seule fois.`;
-    return `Start with the first number and count back ${second}. Count each step only once.`;
+    const start = Number(subtraction[1]);
+    const taken = Number(subtraction[2]);
+    const tens = Math.floor(taken / 10) * 10;
+    const ones = taken % 10;
+    if (hintCount > 1 && tens > 0 && ones > 0) {
+      if (isFrench) return \`Enlève d'abord ${tens} de ${start}, puis enlève encore ${ones}. Ne donne pas le nombre final.\`;
+      return \`Take away ${tens} from ${start} first, then take away ${ones}. Do not say the final number.\`;
+    }
+    if (isFrench) return \`Pars de ${start}. Enlève ${taken} en commençant par les dizaines.\`;
+    return \`Start at ${start}. Take away ${taken}, beginning with the tens.\`;
   }
 
   // Word problems often describe subtraction without writing a minus sign.
