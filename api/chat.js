@@ -461,6 +461,46 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     return buildSubtractionHint(start, taken, reason);
   }
 
+  // Equivalent-fraction questions previously fell through to the generic
+  // multiple-choice hint.  Keep the target fraction in the explanation and
+  // advance the method on every request without evaluating an option or
+  // revealing its letter.
+  const equivalentFraction = currentActivity.match(
+    /(?:which|quelle)\s+fraction[\s\S]{0,100}?(?:equal|equivalent|égale|équivalente)\s*(?:to|à)?\s*(\d+)\s*\/\s*(\d+)/i
+  );
+  if (equivalentFraction) {
+    const numerator = Number(equivalentFraction[1]);
+    const denominator = Number(equivalentFraction[2]);
+    const fractionOptions = [...currentActivity.matchAll(
+      /^\s*[A-D]\s*[).:：]\s*(\d+)\s*\/\s*(\d+)\s*$/gim
+    )].map((match) => ({ numerator: Number(match[1]), denominator: Number(match[2]) }));
+
+    if (hintCount <= 1) {
+      if (isFrench) {
+        return `Des fractions équivalentes s'obtiennent en multipliant le numérateur et le dénominateur par le même nombre. Pars de ${numerator}/${denominator} et cherche cette même transformation dans les choix.`;
+      }
+      return `Equivalent fractions are made by multiplying the numerator and denominator by the same number. Start with ${numerator}/${denominator} and look for that same change in the choices.`;
+    }
+
+    if (hintCount === 2) {
+      if (isFrench) {
+        return `Teste chaque fraction n/d avec les produits croisés : compare n fois ${denominator} et d fois ${numerator}. Les deux produits doivent être égaux. Ne calcule qu'un choix à la fois.`;
+      }
+      return `Test each fraction n/d with cross products: compare n times ${denominator} with d times ${numerator}. The two products must match. Check only one choice at a time.`;
+    }
+
+    const option = fractionOptions[Math.min(hintCount - 3, Math.max(0, fractionOptions.length - 1))];
+    if (option) {
+      if (isFrench) {
+        return `Pour le choix que tu testes, compare ${option.numerator} fois ${denominator} avec ${option.denominator} fois ${numerator}. Fais les deux petits calculs toi-même et décide s'ils sont égaux.`;
+      }
+      return `For the choice you are testing, compare ${option.numerator} times ${denominator} with ${option.denominator} times ${numerator}. Work out both small products yourself and decide whether they match.`;
+    }
+
+    if (isFrench) return "Multiplie le numérateur et le dénominateur par le même nombre, puis vérifie un choix à la fois sans demander la réponse.";
+    return "Multiply the numerator and denominator by the same number, then check one choice at a time without asking for the answer.";
+  }
+
   if (/\b(?:times|multiplication|equal\s+groups?|array|fois|multiplication|groupes?\s+égaux|rangées?)\b/i.test(currentActivity)) {
     if (isFrench) return "Dessine ou imagine des groupes égaux. Compte les objets d'un groupe, puis additionne les groupes.";
     return "Draw or imagine equal groups. Count the objects in one group, then add the groups.";
@@ -494,8 +534,16 @@ export function buildSafeGrade3Hint(messages, language = "en") {
     return "Look at how much the numbers increase each time. Continue the same pattern by one step.";
   }
   if (/\b(?:A|B|C)\)|multiple[ -]?choice|choice\b|choix/i.test(currentActivity)) {
-    if (isFrench) return "Calcule d'abord. Choisis ensuite la proposition qui correspond à ton résultat.";
-    return "Work out the question first. Then choose the option that matches your result.";
+    if (hintCount <= 1) {
+      if (isFrench) return "Repère l'opération ou la règle précise demandée dans la question. Applique-la à un seul choix, sans regarder les autres.";
+      return "Identify the exact operation or rule asked for in the question. Apply it to just one choice before looking at the others.";
+    }
+    if (hintCount === 2) {
+      if (isFrench) return "Élimine un choix en vérifiant s'il respecte cette règle. Ensuite, vérifie le choix suivant avec la même méthode.";
+      return "Eliminate one choice by checking whether it follows that rule. Then test the next choice with the same method.";
+    }
+    if (isFrench) return "Vérifie ton choix en remplaçant la valeur dans la question. Garde la lettre de la réponse pour toi jusqu'à la fin.";
+    return "Check your choice by putting its value back into the question. Keep the answer letter to yourself until the end.";
   }
   if (/\b(?:array|rows?|columns?|equal\s+groups?|baskets?|shelves|shelf|cups?|picture|rangées?|colonnes?|groupes?|paniers?|image)\b/i.test(currentActivity)) {
     if (isFrench) return "Compte un groupe égal à la fois. Additionne les groupes sans en oublier.";
