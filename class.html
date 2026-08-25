@@ -116,6 +116,32 @@ header p{
     transform:translateY(-2px);
 }
 
+.elementary-route{
+    margin-bottom:25px;
+    padding:22px;
+    border-radius:16px;
+    background:linear-gradient(135deg,#eaf5ff,#ffffff);
+    border:1px solid #c9def5;
+    box-shadow:0 5px 18px rgba(23,61,112,.08);
+}
+
+.elementary-route h2{ margin:0 0 8px; color:#173d70; }
+.elementary-route p{ margin:0 0 17px; color:#52657e; line-height:1.6; }
+.elementary-link{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+    min-height:62px;
+    border-radius:13px;
+    background:linear-gradient(135deg,#16845f,#0f6e50);
+    color:#fff;
+    text-decoration:none;
+    font-size:20px;
+    font-weight:bold;
+    box-shadow:0 7px 16px rgba(15,110,80,.22);
+}
+
 .notice{
     margin-top:28px;
     padding:20px;
@@ -153,7 +179,7 @@ footer{
 
 <header>
     <div class="logo">GEM AI LEARNING MISSION CLASS</div>
-    <h1>중·고등학생 개인 맞춤형 AI 학습</h1>
+    <h1>초·중·고 개인 맞춤형 AI 학습</h1>
     <p>AI가 가르치고, 사람 담임 선생님이 책임집니다.</p>
 </header>
 
@@ -169,6 +195,12 @@ footer{
             <span><strong id="student-name">등록 학생</strong> · <span id="student-id"></span></span>
             <button id="logout" class="logout" type="button">수업 종료·나가기</button>
         </div>
+    </section>
+
+    <section class="elementary-route" aria-labelledby="elementary-title">
+        <h2 id="elementary-title">초등학교 1~6학년</h2>
+        <p>기존 GEM AI 한국어반 학습 홈페이지로 이동합니다.</p>
+        <a class="elementary-link" href="https://sites.google.com/view/gem-ai-school/home">🏫 초1~6 한국어 CLASS 입장</a>
     </section>
 
     <section class="subjects">

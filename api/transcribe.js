@@ -32,7 +32,9 @@ export default async function handler(request, response) {
       .trim();
     const problemStart = Math.max(
       cleanContext.lastIndexOf("문제 "),
-      cleanContext.lastIndexOf("단어입니다")
+      cleanContext.lastIndexOf("단어입니다"),
+      cleanContext.lastIndexOf("Activity "),
+      cleanContext.lastIndexOf("Activité ")
     );
     const questionContext = (problemStart >= 0 ? cleanContext.slice(problemStart) : cleanContext.slice(-360))
       .slice(0, 360);
@@ -45,12 +47,18 @@ export default async function handler(request, response) {
     const isEnglishCourse = isEnglishWord
       || courseId.endsWith("-english")
       || courseId === "toefl"
-      || courseId === "toeic";
+      || courseId === "toeic"
+      || /^g[1-5]-math-en$/.test(courseId);
+    const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
     // 새 영어 과정은 한국어와 영어가 자연스럽게 섞이므로 언어를 강제로
     // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
-    const language = isEnglishWord ? "en" : isEnglishCourse ? null : "ko";
+    const language = isFrenchAvatar ? "fr" : isEnglishWord || /^g[1-5]-math-en$/.test(courseId) ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
-    const lessonPrompt = isMath
+    const lessonPrompt = /^g[1-5]-math-en$/.test(courseId)
+      ? "An elementary learner is answering a mathematics activity in English. Transcribe only the short spoken answer, including numbers or A, B, or C."
+      : isFrenchAvatar
+        ? "Un élève de l'école élémentaire répond en français à une activité de mathématiques. Transcris uniquement sa réponse courte en français, y compris les nombres ou les lettres A, B ou C."
+      : isMath
       ? "한국 중고등학생의 수학 문제에 대한 짧은 답변입니다."
       : isSocial
         ? "한국 중고등학생의 사회 문제에 대한 짧은 답변입니다."
@@ -63,7 +71,9 @@ export default async function handler(request, response) {
               : isEnglishCourse
                 ? "A Korean learner is answering an English lesson. Transcribe only the spoken Korean or English answer."
                 : "A Korean student is repeating one English word or a short sentence.";
-    const courseKeywords = isMath
+    const courseKeywords = isFrenchAvatar
+      ? ["fois", "groupe", "rangée", "colonne", "vrai", "faux", "réponse", "nombre"]
+      : isMath
       ? ["음수", "분수", "제곱", "루트", "좌표", "사분면", "합집합", "교집합"]
       : isSocial
         ? ["지리", "정치", "법", "경제", "사회", "문화", "기후", "기본권"]
@@ -121,7 +131,9 @@ export default async function handler(request, response) {
         data?.error?.param,
         data?.error?.message
       );
-      return sendJson(response, 502, { error: "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
+      return sendJson(response, 502, { error: isEnglishCourse
+        ? "I couldn't understand your answer. Please say it again."
+        : "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
     }
 
     const transcript = data.text.trim();
@@ -141,7 +153,9 @@ export default async function handler(request, response) {
       || /표현을\s*정확한\s*한국어/.test(transcript)
     );
     if (promptLeak) {
-      return sendJson(response, 422, { error: "답을 듣지 못했습니다. 준비되면 천천히 다시 말해 주세요." });
+      return sendJson(response, 422, { error: isEnglishCourse
+        ? "I couldn't hear your answer. Please say it again slowly."
+        : "답을 듣지 못했습니다. 준비되면 천천히 다시 말해 주세요." });
     }
 
     const compactTranscript = transcript.replace(/\s+/g, "");
@@ -153,7 +167,9 @@ export default async function handler(request, response) {
       || /^(감사합니다|고맙습니다|시청해\s*주셔서\s*감사합니다|자막\s*(?:제공|제작))\.?$/i.test(transcript)
       || transcript.length > 320;
     if (abnormalRepetition) {
-      return sendJson(response, 422, { error: "음성이 정확히 인식되지 않았습니다. 짧게 다시 말해 주세요." });
+      return sendJson(response, 422, { error: isEnglishCourse
+        ? "I couldn't recognize that clearly. Please give a short answer again."
+        : "음성이 정확히 인식되지 않았습니다. 짧게 다시 말해 주세요." });
     }
 
     return sendJson(response, 200, { text: transcript });

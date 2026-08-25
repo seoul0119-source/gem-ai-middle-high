@@ -4,9 +4,9 @@ export function isSchoolEnglishNoAnswerRequest(messages) {
   const text = String(latestUser?.content || "").trim();
   if (!text) return false;
 
-  return /(?:정답|답)(?:을|은|는)?\s*(?:말|알려|가르쳐|공개)(?:\s*해)?\s*(?:주지\s*)?마(?:세요|라|십시오|줘|요)?/i.test(text)
-    || /(?:정답|답)(?:을|은|는)?\s*(?:말하지|알려주지|가르쳐주지|공개하지)\s*마(?:세요|라|십시오|줘|요)?/i.test(text)
-    || /(?:정답|답)\s*(?:말하지|알려주지|공개하지)/i.test(text)
+  return /(?:정답|답)(?:을|은|는)?\s*(?:말|얘기|이야기|알려|가르쳐|공개)(?:\s*해)?\s*(?:주지\s*)?마(?:세요|라|십시오|줘|요)?/i.test(text)
+    || /(?:정답|답)(?:을|은|는)?\s*(?:말하지|얘기하지|이야기하지|알려주지|가르쳐주지|공개하지)\s*마(?:세요|라|십시오|줘|요)?/i.test(text)
+    || /(?:정답|답)\s*(?:말하지|얘기하지|이야기하지|알려주지|공개하지)/i.test(text)
     || /(?:don't|do not)\s+(?:tell|give|show)\s+(?:me\s+)?(?:the\s+)?answer/i.test(text);
 }
 

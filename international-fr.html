@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Programme français GEM AI</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#eef3fa;color:#172033;font-family:Arial,"Noto Sans",sans-serif} body.auth-pending>*{visibility:hidden} header{padding:42px 18px;text-align:center;color:#fff;background:linear-gradient(135deg,#07162d,#173d70)} .brand{color:#e7c46a;font-size:13px;font-weight:800;letter-spacing:2px} h1{margin:12px 0 8px;font-size:clamp(28px,6vw,44px)} header p{margin:0;color:#dce7f7;font-size:17px} main{width:min(900px,94%);margin:30px auto}.student{margin-bottom:18px;padding:12px;border-radius:12px;background:#fff;color:#173d70;font-weight:700}.intro{text-align:center;color:#5e6d82}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.card{padding:22px;border:1px solid #cfdaea;border-radius:20px;background:#fff;box-shadow:0 8px 22px rgba(7,22,45,.08)}.card h2{margin:0 0 8px;color:#173d70}.card p{min-height:70px;color:#5e6d82;line-height:1.6}.start{display:block;padding:14px 16px;border-radius:12px;background:#1769c2;color:#fff;font-weight:800;text-align:center;text-decoration:none}.notice{margin-top:20px;padding:15px;border:1px solid #ecd38c;border-radius:13px;background:#fff8e5}.back{display:inline-block;margin-top:16px;color:#174d8d;font-weight:700;text-decoration:none}@media(max-width:650px){.grid{grid-template-columns:1fr}.card p{min-height:0}}
+  </style>
+</head>
+<body class="auth-pending">
+  <header><div class="brand">GEM AI LEARNING MISSION CLASS INTERNATIONAL</div><h1>🇫🇷 Programme français</h1><p>CP · CE1 · CE2 · CM1 · CM2</p></header>
+  <main>
+    <div id="student" class="student">Élève inscrit</div>
+    <p class="intro">Choisis la classe de mathématiques qui correspond à l’élève.</p>
+    <section class="grid" aria-label="Classes de mathématiques élémentaires">
+      <article class="card"><h2>CP</h2><p>Nombres, petites additions et soustractions, formes, longueurs et temps.</p><a class="start" href="/learn.html?course=g1-math-fr">Commencer le CP</a></article>
+      <article class="card"><h2>CE1</h2><p>Nombres jusqu’à 1 000, opérations, monnaie, heure, mesures et tableaux.</p><a class="start" href="/learn.html?course=g2-math-fr">Commencer le CE1</a></article>
+      <article class="card"><h2>CE2</h2><p>Multiplication, division, fractions simples, mesures, géométrie et données.</p><a class="start" href="/learn.html?course=g3-math-fr">Commencer le CE2</a></article>
+      <article class="card"><h2>CM1</h2><p>Grands nombres, opérations, fractions, décimaux, aire, périmètre et angles.</p><a class="start" href="/learn.html?course=g4-math-fr">Commencer le CM1</a></article>
+      <article class="card"><h2>CM2</h2><p>Opérations, fractions, décimaux, proportionnalité, volumes et graphiques.</p><a class="start" href="/learn.html?course=g5-math-fr">Commencer le CM2</a></article>
+    </section>
+    <div class="notice"><strong>L’IA enseigne et un professeur humain reste responsable.</strong></div>
+    <a class="back" href="/">← Changer de langue ou de programme</a>
+  </main>
+  <script>
+    (async()=>{try{const r=await fetch('/api/session',{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();document.getElementById('student').textContent=`${d.student.name} · ${d.student.id}`;document.body.classList.remove('auth-pending')}catch(_){location.replace('/')}})();
+  </script>
+</body>
+</html>

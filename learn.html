@@ -128,6 +128,22 @@
       gap: 9px;
       margin-top: 10px;
     }
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: min(360px, 100%);
+      margin-top: 10px;
+      padding: 10px 13px;
+      border: 1px solid #cbd7e7;
+      border-radius: 13px;
+      background: white;
+      color: #173d70;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .volume-control input { min-width: 0; flex: 1; padding: 0; }
+    .volume-value { min-width: 40px; text-align: right; }
     .secondary {
       padding: 10px 13px;
       border: 1px solid #cbd7e7;
@@ -256,6 +272,48 @@
     .modal-text .visual-table { font-size: inherit; }
     .modal-text .toeic-scene-card { margin-top: 46px; }
     .modal-close { float: right; padding: 9px 13px; }
+    .avatar-stage {
+      position: relative;
+      display: none;
+      min-height: 330px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      border: 1px solid #c5d5e8;
+      border-radius: 18px;
+      background: radial-gradient(circle at 50% 34%, #f9fcff 0, #e8f2ff 58%, #d7e6f7 100%);
+      box-shadow: 0 8px 24px rgba(7, 22, 45, .09);
+    }
+    .avatar-stage.open { display: block; }
+    .avatar-stage.hidden-avatar { min-height: 0; height: 58px; }
+    .avatar-stage.hidden-avatar canvas,
+    .avatar-stage.hidden-avatar .avatar-loading { display: none; }
+    #avatar-canvas { display: block; width: 100%; height: 330px; touch-action: none; }
+    .avatar-loading {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      color: #274d79;
+      font-weight: 700;
+      text-align: center;
+      pointer-events: none;
+    }
+    .avatar-controls {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .avatar-toggle {
+      padding: 9px 12px;
+      border: 1px solid #aec2db;
+      background: rgba(255,255,255,.94);
+      color: #173d70;
+      font-size: 13px;
+    }
+    .avatar-error { color:#9f2d2d; }
     @media (max-width: 520px) {
       main { width: 96%; margin-top: 10px; }
       .chat { min-height: 390px; padding: 13px; }
@@ -266,6 +324,142 @@
       input { flex-basis: calc(100% - 84px); }
       .mic { order: 3; width: 100%; min-height: 48px; }
       .toeic-scene-heading { align-items: flex-start; flex-direction: column; }
+      .avatar-stage { min-height: 320px; }
+      #avatar-canvas { height: 320px; }
+      .avatar-controls { right: 8px; bottom: 8px; }
+      .avatar-toggle { min-height: 42px; padding: 9px 11px; font-size: 12px; }
+
+      /* The avatar lesson becomes a single-screen classroom on phones. */
+      html:has(body.avatar-course),
+      body.avatar-course {
+        width: 100%;
+        max-width: 100%;
+        height: 100dvh;
+        overflow: hidden;
+      }
+      body.avatar-course header,
+      body.avatar-course .status,
+      body.avatar-course .notice,
+      body.avatar-course .volume-control { display: none; }
+      body.avatar-course main {
+        display: grid;
+        grid-template-rows: 148px minmax(0, 1fr) auto auto;
+        gap: 7px;
+        width: 100%;
+        height: 100dvh;
+        margin: 0;
+        padding: 6px;
+        overflow: hidden;
+      }
+      body.avatar-course main > *,
+      body.avatar-course form > *,
+      body.avatar-course .actions > * {
+        min-width: 0;
+        max-width: 100%;
+      }
+      body.avatar-course .avatar-stage {
+        position: relative;
+        min-height: 148px;
+        height: 148px;
+        margin: 0;
+        border-radius: 14px;
+      }
+      body.avatar-course.avatar-hidden main {
+        grid-template-rows: 52px minmax(0, 1fr) auto auto;
+      }
+      body.avatar-course .avatar-stage.hidden-avatar {
+        min-height: 52px;
+        height: 52px;
+      }
+      body.avatar-course #avatar-canvas { height: 148px; }
+      body.avatar-course .avatar-loading {
+        align-items: start;
+        padding: 10px 8px;
+        font-size: 13px;
+      }
+      body.avatar-course .avatar-controls {
+        right: 6px;
+        bottom: 6px;
+        left: 6px;
+        justify-content: flex-end;
+        min-width: 0;
+      }
+      body.avatar-course .avatar-toggle {
+        min-height: 34px;
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+      body.avatar-course .chat {
+        min-height: 0;
+        max-height: none;
+        height: 100%;
+        padding: 9px;
+        border-radius: 14px;
+        overscroll-behavior: contain;
+      }
+      body.avatar-course.mobile-lesson-focus .chat .message:not(.mobile-current):not(.mobile-previous):not(.typing) {
+        display: none;
+      }
+      body.avatar-course .message {
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 8px;
+        padding: 11px 12px;
+        font-size: 16px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      body.avatar-course form {
+        width: 100%;
+        flex-wrap: nowrap;
+        gap: 7px;
+        margin: 0;
+        overflow: hidden;
+      }
+      body.avatar-course form input {
+        width: 0;
+        flex: 1 1 0;
+        flex-basis: 0;
+        padding: 11px 10px;
+        font-size: 16px;
+      }
+      body.avatar-course .mic {
+        order: initial;
+        width: auto;
+        min-width: 0;
+        max-width: 44%;
+        min-height: 44px;
+        padding: 7px 10px;
+        font-size: 13px;
+      }
+      body.avatar-course .send { flex: 0 0 58px; min-width: 0; padding: 0 7px; font-size: 14px; }
+      body.avatar-course .actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin: 0;
+        overflow: hidden;
+      }
+      body.avatar-course .actions .secondary {
+        width: 100%;
+        padding: 8px 6px;
+        font-size: 11px;
+        line-height: 1.2;
+        white-space: normal;
+      }
+      body.avatar-course.voice-conversation form input,
+      body.avatar-course.voice-conversation form .send,
+      body.avatar-course.voice-conversation .actions { display: none; }
+      body.avatar-course.voice-conversation form .mic {
+        display: block;
+        width: 100%;
+        min-height: 46px;
+        font-size: 15px;
+      }
+      vercel-live-feedback,
+      vercel-toolbar,
+      #vercel-toolbar,
+      [data-vercel-toolbar] { display: none !important; }
     }
   </style>
 </head>
@@ -283,6 +477,15 @@
       <span id="connection"><strong>상태</strong> 수업 준비</span>
     </section>
 
+    <section id="avatar-stage" class="avatar-stage" aria-label="GEM AI avatar teacher">
+      <canvas id="avatar-canvas"></canvas>
+      <div id="avatar-loading" class="avatar-loading">Preparing your avatar teacher…</div>
+      <div class="avatar-controls">
+        <button id="avatar-start" class="avatar-toggle" type="button">Start Lesson</button>
+        <button id="avatar-toggle" class="avatar-toggle" type="button">Hide avatar</button>
+      </div>
+    </section>
+
     <section id="chat" class="chat" aria-live="polite" aria-label="수업 대화">
       <div id="initial-message" class="message assistant">수업을 준비하고 있습니다.</div>
     </section>
@@ -298,7 +501,14 @@
       <button id="auto-speak" class="secondary" type="button" hidden>🔊 음성 계속</button>
       <button id="math-tools-toggle" class="secondary" type="button" hidden>⌨ 수학 입력 도구</button>
       <button id="restart" class="secondary" type="button">↻ 새 수업</button>
+      <button id="end-lesson" class="secondary" type="button">■ 수업 마치기</button>
+      <button id="back-entrance" class="secondary" type="button">← 입구로 돌아가기</button>
     </div>
+    <label class="volume-control" for="teacher-volume">
+      <span id="teacher-volume-label">🔉 선생님 음량</span>
+      <input id="teacher-volume" type="range" min="5" max="100" step="5" value="45">
+      <span id="teacher-volume-value" class="volume-value">45%</span>
+    </label>
 
     <section id="math-tools" class="math-tools" aria-label="수학 입력 도구">
       <div class="tool-grid">
@@ -315,10 +525,10 @@
         <button class="math-key" type="button" data-insert=" 합집합 ">∪</button>
         <button class="math-key" type="button" data-insert=" 교집합 ">∩</button>
       </div>
-      <p class="math-help">예: x²는 x^2 · √2는 sqrt(2) · 2/3 · x≤3은 x&lt;=3 · 집합은 {1,2,3}처럼 입력합니다.</p>
+      <p id="math-help" class="math-help">예: x²는 x^2 · √2는 sqrt(2) · 2/3 · x≤3은 x&lt;=3 · 집합은 {1,2,3}처럼 입력합니다.</p>
     </section>
 
-    <div class="notice">
+    <div id="privacy-notice" class="notice">
       이 수업은 보호자 또는 교사의 지도 아래 이용합니다. 이름·학교·주소·전화번호 등 개인정보를 입력하지 마세요.
     </div>
   </main>
@@ -331,6 +541,21 @@
   </div>
 
   <script>
+    function elementaryMathConfig(language, level, label) {
+      const french = language === "fr";
+      return {
+        title: french ? "Mathématiques " + label : "Grade " + level + " Mathematics",
+        subject: french ? "Mathématiques" : "Mathematics",
+        grade: french ? "École élémentaire · " + label : "Elementary · Grade " + level,
+        greeting: french
+          ? "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI."
+          : "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.",
+        placeholder: french ? "Dis ou écris Commencer, ta réponse ou indice" : "Say or type Start, your answer, or hint",
+        voice: false,
+        avatar: true,
+        language
+      };
+    }
     const COURSE_CONFIGS = {
       "m1-english-word": {
         title: "중1 영어 단어 Lv.7",
@@ -356,6 +581,34 @@
       "h1-english": { title: "고1 영어 Lv.10", subject: "영어", grade: "고등학교 1학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
       "h2-english": { title: "고2 영어 Lv.11", subject: "영어", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
       "h3-english": { title: "고3 영어 Lv.12", subject: "영어", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 문법·독해·수능형·내신형 새 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
+      "g1-math-en": elementaryMathConfig("en", 1, "Grade 1"),
+      "g2-math-en": elementaryMathConfig("en", 2, "Grade 2"),
+      "g3-math-en": {
+        title: "Grade 3 Mathematics",
+        subject: "Mathematics",
+        grade: "Elementary · Grade 3",
+        greeting: "Hello! Select Start Lesson, or say or type ‘Start,’ to meet your GEM AI avatar teacher.",
+        placeholder: "Say or type Start, your answer, or hint",
+        voice: false,
+        avatar: true,
+        language: "en"
+      },
+      "g4-math-en": elementaryMathConfig("en", 4, "Grade 4"),
+      "g5-math-en": elementaryMathConfig("en", 5, "Grade 5"),
+      "g1-math-fr": elementaryMathConfig("fr", 1, "CP"),
+      "g2-math-fr": elementaryMathConfig("fr", 2, "CE1"),
+      "g3-math-fr": {
+        title: "Mathématiques CE2",
+        subject: "Mathématiques",
+        grade: "École élémentaire · CE2",
+        greeting: "Bonjour ! Sélectionne Commencer la leçon, ou dis ou écris « Commencer », pour rencontrer ton professeur avatar GEM AI.",
+        placeholder: "Dis ou écris Commencer, ta réponse ou indice",
+        voice: false,
+        avatar: true,
+        language: "fr"
+      },
+      "g4-math-fr": elementaryMathConfig("fr", 4, "CM1"),
+      "g5-math-fr": elementaryMathConfig("fr", 5, "CM2"),
       "m1-math": {
         title: "중1 수학 Lv.7 시험판",
         subject: "수학",
@@ -440,15 +693,68 @@
     };
     const requestedCourse = new URLSearchParams(location.search).get("course");
     const COURSE_ID = COURSE_CONFIGS[requestedCourse] ? requestedCourse : "m1-english-word";
+    let lessonSeed = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     const COURSE = COURSE_CONFIGS[COURSE_ID];
-    const IS_MATH = COURSE_ID.endsWith("-math");
+    const IS_MATH = COURSE_ID.endsWith("-math") || COURSE_ID.includes("-math-");
     const IS_KOREAN = COURSE_ID.endsWith("-korean");
     const IS_SOCIAL = COURSE_ID.endsWith("-social");
     const IS_HISTORY = COURSE_ID.endsWith("-history");
     const IS_SCIENCE = COURSE_ID.endsWith("-science");
-    const IS_ENGLISH = COURSE_ID.endsWith("-english") || COURSE_ID === "toefl" || COURSE_ID === "toeic";
+    const IS_ENGLISH = COURSE_ID.endsWith("-english") || COURSE_ID.endsWith("-en") || COURSE_ID === "toefl" || COURSE_ID === "toeic";
     const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
     const IS_VISUAL_LESSON = IS_GENERATIVE_LESSON;
+    const IS_FRENCH = COURSE.language === "fr";
+    const AVATAR_TEXT = IS_FRENCH ? {
+      subject: "Matière", grade: "Classe", status: "État", ready: "Leçon prête",
+      send: "Envoyer", startVoice: "🎙 Commencer la conversation", stopVoice: "■ Arrêter la conversation",
+      newLesson: "↻ Nouvelle leçon", endLesson: "■ Terminer la leçon", back: "← Retour à l’entrée",
+      mathTools: "⌨ Outils de saisie mathématique", closeMathTools: "⌨ Fermer les outils",
+      volume: "🔉 Volume du professeur", responsibility: "L’IA enseigne et un professeur humain reste responsable.",
+      privacy: "Utilise cette leçon avec un parent ou un professeur. Ne saisis aucune information personnelle comme ton nom, ton école, ton adresse ou ton numéro de téléphone.",
+      examples: "Exemples : x² = x^2 · √2 = sqrt(2) · fraction = 2/3 · x≤3 = x<=3",
+      preparingListen: "Préparation de l’écoute", inProgress: "Leçon en cours", recognizing: "Reconnaissance de ta réponse",
+      listening: "Écoute", heard: "Entendu", newReady: "Nouvelle leçon prête", preparingNew: "Préparation d’une nouvelle leçon",
+      checkConnection: "Vérifie la connexion de la leçon", ended: "Leçon terminée",
+      endMessage: "La leçon est terminée. Bravo ! Sélectionne Retour à l’entrée quand tu es prêt.",
+      loadingStart: "Ton professeur avatar prépare une nouvelle activité de mathématiques…",
+      loadingNext: "Vérification de ta réponse et préparation de l’étape suivante…",
+      preparing: "Le professeur se prépare", serverUnavailable: "Le serveur du professeur est momentanément indisponible. Réessaie bientôt.",
+      connectionFailed: "La connexion à la leçon a échoué.", newReadyMessage: "Une nouvelle leçon est prête.",
+      newFailed: "La nouvelle leçon n’a pas pu être préparée.",
+      voiceUnavailable: "La voix du professeur est temporairement indisponible.",
+      recognitionUnavailable: "La reconnaissance vocale est temporairement indisponible. Réessaie.",
+      notUnderstood: "Je n’ai pas compris ta réponse. Dis-la encore une fois.",
+      notHeard: "Je n’ai pas entendu ta réponse. Parle encore une fois près du microphone.",
+      restartVoice: "Redémarre la conversation vocale.", allowMic: "Autorise le microphone, puis réessaie.",
+      voiceUnsupported: "La saisie vocale n’est pas prise en charge dans ce navigateur. Utilise la dernière version de Chrome ou Edge.",
+      startLesson: "Commencer la leçon", hideAvatar: "Masquer l’avatar", showAvatar: "Afficher l’avatar",
+      avatarLoading: "Préparation de ton professeur avatar…"
+    } : {
+      subject: "Subject", grade: "Grade", status: "Status", ready: "Lesson ready",
+      send: "Send", startVoice: "🎙 Start voice conversation", stopVoice: "■ Stop voice conversation",
+      newLesson: "↻ New lesson", endLesson: "■ End Lesson", back: "← Back to Entrance",
+      mathTools: "⌨ Math input tools", closeMathTools: "⌨ Close math tools",
+      volume: "🔉 Teacher volume", responsibility: "AI teaches, and a human teacher remains responsible.",
+      privacy: "Use this lesson with a parent or teacher. Do not enter personal information such as your name, school, address, or phone number.",
+      examples: "Examples: x² = x^2 · √2 = sqrt(2) · fraction = 2/3 · x≤3 = x<=3",
+      preparingListen: "Preparing to listen", inProgress: "Lesson in progress", recognizing: "Recognizing your answer",
+      listening: "Listening", heard: "Heard", newReady: "New lesson ready", preparingNew: "Preparing a new lesson",
+      checkConnection: "Check the lesson connection", ended: "Lesson ended",
+      endMessage: "The lesson has ended. Great work today! Select Back to Entrance when you are ready.",
+      loadingStart: "Your avatar teacher is preparing a new math activity…",
+      loadingNext: "Checking your answer and preparing the next step…",
+      preparing: "Teacher is preparing", serverUnavailable: "The teacher server is temporarily unavailable. Please try again soon.",
+      connectionFailed: "The lesson connection failed.", newReadyMessage: "A new lesson is ready.",
+      newFailed: "The new lesson could not be prepared.",
+      voiceUnavailable: "The teacher voice is temporarily unavailable.",
+      recognitionUnavailable: "Voice recognition is temporarily unavailable. Please try again.",
+      notUnderstood: "I couldn't understand your answer. Please say it again.",
+      notHeard: "I couldn't hear your answer. Please speak again near the microphone.",
+      restartVoice: "Please restart the voice conversation.", allowMic: "Please allow microphone access, then try again.",
+      voiceUnsupported: "Voice input is not supported in this browser. Please use the latest Chrome or Edge.",
+      startLesson: "Start Lesson", hideAvatar: "Hide avatar", showAvatar: "Show avatar",
+      avatarLoading: "Preparing your avatar teacher…"
+    };
     const messages = [];
     const chat = document.getElementById("chat");
     const form = document.getElementById("chat-form");
@@ -461,9 +767,15 @@
     const mathTools = document.getElementById("math-tools");
     const largeModal = document.getElementById("large-modal");
     const modalText = document.getElementById("modal-text");
+    const teacherVolumeInput = document.getElementById("teacher-volume");
+    const teacherVolumeValue = document.getElementById("teacher-volume-value");
+    const endLessonButton = document.getElementById("end-lesson");
+    const backEntranceButton = document.getElementById("back-entrance");
     const HISTORY_KEY = `gem-course-history:${COURSE_ID}`;
+    const VOLUME_KEY = "gem-teacher-volume";
     let sessionEnded = false;
     let sessionEnding = false;
+    let lessonManuallyEnded = false;
 
     async function readJsonResponse(response, fallbackMessage) {
       const raw = await response.text();
@@ -493,10 +805,40 @@
     let heardSpeech = false;
     let speechFrameCount = 0;
     let currentAudio = null;
+    let currentSpeechResolve = null;
+    const savedTeacherVolume = Number(localStorage.getItem(VOLUME_KEY));
+    let teacherVolume = Number.isFinite(savedTeacherVolume) && savedTeacherVolume >= 0.05 && savedTeacherVolume <= 1
+      ? savedTeacherVolume
+      : 0.45;
     let autoSpeak = false;
     let conversationMode = false;
     let discardRecording = false;
     let voiceFailureNoticeShown = false;
+    const mobileLessonMedia = window.matchMedia("(max-width: 520px)");
+
+    function isMobileAvatarLesson() {
+      return Boolean(COURSE.avatar && mobileLessonMedia.matches);
+    }
+
+    function settleMobileLessonView() {
+      if (!isMobileAvatarLesson()) return;
+      input.blur();
+      requestAnimationFrame(() => {
+        chat.scrollTop = chat.scrollHeight;
+        window.scrollTo(0, 0);
+      });
+    }
+
+    function removePreviewToolbar() {
+      if (!isMobileAvatarLesson()) return;
+      document.querySelectorAll("vercel-live-feedback, vercel-toolbar, #vercel-toolbar, [data-vercel-toolbar]")
+        .forEach((element) => element.remove());
+    }
+
+    if (COURSE.avatar) {
+      removePreviewToolbar();
+      new MutationObserver(removePreviewToolbar).observe(document.documentElement, { childList: true, subtree: true });
+    }
 
     document.title = `GEM AI ${COURSE.title}`;
     document.getElementById("course-title").textContent = COURSE.title;
@@ -505,11 +847,36 @@
     document.getElementById("initial-message").textContent = COURSE.greeting;
     input.placeholder = COURSE.placeholder;
     autoSpeakButton.hidden = true;
-    micButton.textContent = "🎙 음성 대화 시작";
+    micButton.textContent = COURSE.avatar
+      ? AVATAR_TEXT.startVoice
+      : "🎙 음성 대화 시작";
+    teacherVolumeInput.value = String(Math.round(teacherVolume * 100));
+    teacherVolumeValue.textContent = `${Math.round(teacherVolume * 100)}%`;
     if (!COURSE.voice) {
       micButton.hidden = false;
       document.getElementById("speak").hidden = true;
       mathToolsToggle.hidden = !IS_MATH;
+    }
+    if (COURSE.avatar) {
+      document.body.classList.add("avatar-course");
+      document.documentElement.lang = COURSE.language || "en";
+      document.getElementById("avatar-stage").classList.add("open");
+      document.querySelector("header > p").textContent = AVATAR_TEXT.responsibility;
+      document.querySelector(".status span:nth-child(1) strong").textContent = AVATAR_TEXT.subject;
+      document.querySelector(".status span:nth-child(2) strong").textContent = AVATAR_TEXT.grade;
+      connection.innerHTML = `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.ready}`;
+      document.getElementById("send").textContent = AVATAR_TEXT.send;
+      document.getElementById("mic").textContent = AVATAR_TEXT.startVoice;
+      document.getElementById("restart").textContent = AVATAR_TEXT.newLesson;
+      endLessonButton.textContent = AVATAR_TEXT.endLesson;
+      backEntranceButton.textContent = AVATAR_TEXT.back;
+      document.getElementById("math-tools-toggle").textContent = AVATAR_TEXT.mathTools;
+      document.getElementById("teacher-volume-label").textContent = AVATAR_TEXT.volume;
+      document.getElementById("math-help").textContent = AVATAR_TEXT.examples;
+      document.getElementById("privacy-notice").textContent = AVATAR_TEXT.privacy;
+      document.getElementById("avatar-start").textContent = AVATAR_TEXT.startLesson;
+      document.getElementById("avatar-toggle").textContent = AVATAR_TEXT.hideAvatar;
+      document.getElementById("avatar-loading").textContent = AVATAR_TEXT.avatarLoading;
     }
     input.disabled = true;
     sendButton.disabled = true;
@@ -541,7 +908,8 @@
         sendButton.disabled = false;
         micButton.disabled = false;
         connection.innerHTML = `<strong>학생</strong> ${session.student.name} · 수업 기록 중`;
-        input.focus();
+        if (isMobileAvatarLesson()) settleMobileLessonView();
+        else input.focus();
         return true;
       } catch (error) {
         if (error.status === 401) {
@@ -586,7 +954,7 @@
     window.addEventListener("pagehide", finishTrackingOnExit);
 
     function cleanForDisplay(text) {
-      return String(text || "")
+      let output = String(text || "")
         .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
         // Remove Markdown emphasis without deleting TOEFL word blanks such as
         // recycl____. The old generic `__` removal erased every visible blank.
@@ -597,6 +965,12 @@
         .replace(/_{4,}/g, "________")
         .replace(/^\s*[-*]\s+/gm, "• ")
         .trim();
+      if (COURSE.avatar) {
+        output = output
+          .replace(/^답(?:\s*\d+)?\s*:/gm, "Answer:")
+          .replace(/^정답(?:\s*\d+)?\s*:/gm, "Answer:");
+      }
+      return output;
     }
 
     function ensureVisibleAnswerSlot(text) {
@@ -620,9 +994,68 @@
       return `${output}\n\n답: (________)`;
     }
 
+    function keepOnlyFirstAvatarQuestion(text) {
+      const output = String(text || "").trimEnd();
+      const activityStart = output.search(/(?:Activity|Activité)\s+1\s*\/\s*10\b/i);
+      if (activityStart < 0) return output;
+
+      const answerSlot = /(?:Answer|Réponse)(?:\s*1)?\s*:\s*\([ _\u3000]{3,}\)/i;
+      const match = answerSlot.exec(output.slice(activityStart));
+      if (!match) return output;
+
+      const answerEnd = activityStart + match.index + match[0].length;
+      return output.slice(0, answerEnd).trimEnd();
+    }
+
+    function cleanAvatarReply(text, userText = "") {
+      let output = String(text || "");
+      const isHint = /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand|indice|aide|je\s+ne\s+sais\s+pas|je\s+ne\s+comprends\s+pas)\b/i.test(String(userText || ""));
+      if (isHint) {
+        output = output.replace(
+          /^\s*(?:Answer|Réponse|답|정답)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim,
+          ""
+        );
+      }
+
+      const lines = output.split(/\r?\n/);
+      output = lines.filter((line, index) => {
+        if (!/^\s*[A-Da-d](?:[).:：])?\s*$/.test(line)) return true;
+        const nearby = lines.slice(Math.max(0, index - 3), index + 4).join("\n");
+        return /^\s*[A-Da-d]\s*[).:：]\s*\S+/m.test(nearby);
+      }).join("\n");
+
+      return output.replace(/\n{3,}/g, "\n\n").trim();
+    }
+
     function cleanMathForSpeech(text) {
-      return cleanForDisplay(text)
+      const output = cleanForDisplay(text)
         .replace(/\[도표 시작\]|\[도표 끝\]/g, "")
+      if (COURSE.language === "fr") {
+        return output
+          .replace(/sqrt\(([^)]+)\)/gi, "la racine carrée de $1")
+          .replace(/([A-Za-z0-9])\^2/g, "$1 au carré")
+          .replace(/([A-Za-z0-9])\^3/g, "$1 au cube")
+          .replace(/≤|<=/g, " est inférieur ou égal à ")
+          .replace(/≥|>=/g, " est supérieur ou égal à ")
+          .replace(/≠|!=/g, " n'est pas égal à ")
+          .replace(/×|\*/g, " fois ")
+          .replace(/÷/g, " divisé par ");
+      }
+      if (COURSE.language === "en" || COURSE.avatar) {
+        return output
+          .replace(/sqrt\(([^)]+)\)/gi, "the square root of $1")
+          .replace(/([A-Za-z0-9])\^2/g, "$1 squared")
+          .replace(/([A-Za-z0-9])\^3/g, "$1 cubed")
+          .replace(/≤|<=/g, " is less than or equal to ")
+          .replace(/≥|>=/g, " is greater than or equal to ")
+          .replace(/≠|!=/g, " is not equal to ")
+          .replace(/×|\*/g, " times ")
+          .replace(/÷/g, " divided by ")
+          .replace(/π/g, " pi ")
+          .replace(/∪/g, " union ")
+          .replace(/∩/g, " intersection ");
+      }
+      return output
         .replace(/sqrt\(([^)]+)\)/gi, "$1의 제곱근")
         .replace(/([A-Za-z0-9가-힣)])\^2/g, "$1의 제곱")
         .replace(/([A-Za-z0-9가-힣)])\^3/g, "$1의 세제곱")
@@ -636,6 +1069,15 @@
         .replace(/∩/g, " 교집합 ");
     }
 
+    function cleanLessonForSpeech(text) {
+      return cleanForDisplay(text)
+        .replace(/^\s*(?:활동|문제|Activity|Activité)\s*\d+\s*\/\s*10[^\n]*$/gim, "")
+        .replace(/^\s*(?:답|Answer|Réponse)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "")
+        .replace(/_{4,}/g, COURSE.language === "fr" ? " blanc " : (COURSE.avatar ? " blank " : " 빈칸 "))
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+
     function getVoice(language) {
       const voices = window.speechSynthesis.getVoices();
       const prefix = language.toLowerCase().split("-")[0];
@@ -646,7 +1088,7 @@
 
     function browserSpeak(text) {
       if (!("speechSynthesis" in window)) return;
-      const clean = cleanForDisplay(text);
+      const clean = cleanLessonForSpeech(text);
       if (!clean) return;
       window.speechSynthesis.cancel();
 
@@ -654,12 +1096,13 @@
       parts.forEach((part) => {
         const latinCount = (part.match(/[A-Za-z]/g) || []).length;
         const koreanCount = (part.match(/[가-힣]/g) || []).length;
-        const language = latinCount > koreanCount ? "en-US" : "ko-KR";
+        const language = COURSE.language === "fr" ? "fr-FR" : (latinCount > koreanCount ? "en-US" : "ko-KR");
         const utterance = new SpeechSynthesisUtterance(part);
         utterance.lang = language;
         utterance.voice = getVoice(language);
-        utterance.rate = language === "en-US" ? 0.78 : 0.9;
+        utterance.rate = language === "ko-KR" ? 0.9 : 0.78;
         utterance.pitch = 1;
+        utterance.volume = teacherVolume;
         window.speechSynthesis.speak(utterance);
       });
     }
@@ -668,28 +1111,38 @@
       const withoutRawVisual = String(text || "")
         .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
         .replace(/\[TOEIC 그림 시작\][\s\S]*?\[TOEIC 그림 끝\]/g, "");
-      const clean = IS_MATH ? cleanMathForSpeech(withoutRawVisual) : cleanForDisplay(withoutRawVisual);
+      const clean = IS_MATH ? cleanMathForSpeech(withoutRawVisual) : cleanLessonForSpeech(withoutRawVisual);
       if (!clean) return;
       if (currentAudio) currentAudio.pause();
       window.speechSynthesis?.cancel();
+      window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: true } }));
 
       try {
         const response = await fetch("/api/speech", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: clean })
+          body: JSON.stringify({ text: clean, courseId: COURSE_ID })
         });
-        const data = await readJsonResponse(response, "AI 음성 서버가 잠시 응답하지 않습니다.");
-        if (!response.ok || !data.audio) throw new Error(data.error || "음성 생성 실패");
+        const data = await readJsonResponse(response, COURSE.avatar
+          ? AVATAR_TEXT.voiceUnavailable
+          : "AI 음성 서버가 잠시 응답하지 않습니다.");
+        if (!response.ok || !data.audio) throw new Error(data.error || (COURSE.avatar
+          ? AVATAR_TEXT.voiceUnavailable
+          : "음성 생성 실패"));
         currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
+        currentAudio.volume = teacherVolume;
         await currentAudio.play();
         await new Promise((resolve) => {
+          currentSpeechResolve = resolve;
           currentAudio.addEventListener("ended", resolve, { once: true });
           currentAudio.addEventListener("error", resolve, { once: true });
         });
       } catch (error) {
         console.warn("Natural voice fallback", error);
         browserSpeak(clean);
+      } finally {
+        currentSpeechResolve = null;
+        window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: false } }));
       }
     }
 
@@ -965,6 +1418,15 @@
     function addMessage(role, text, extraClass = "") {
       const element = document.createElement("div");
       element.className = `message ${role} ${extraClass}`.trim();
+      if (COURSE.avatar && role === "assistant" && extraClass !== "typing") {
+        chat.querySelectorAll(".mobile-previous").forEach((message) => message.classList.remove("mobile-previous"));
+        chat.querySelectorAll(".mobile-current").forEach((message) => {
+          message.classList.remove("mobile-current");
+          message.classList.add("mobile-previous");
+        });
+        element.classList.add("mobile-current");
+        document.body.classList.add("mobile-lesson-focus");
+      }
       const parts = extractVisual(text);
       const hasToeicScene = Boolean(parts.toeicScene);
       if (role === "assistant" && hasToeicScene) {
@@ -1002,21 +1464,31 @@
       }
       chat.appendChild(element);
       chat.scrollTop = chat.scrollHeight;
+      if (isMobileAvatarLesson()) requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
       return element;
     }
 
     function setLoading(loading) {
-      input.disabled = loading;
-      sendButton.disabled = loading;
-      connection.innerHTML = loading
-        ? "<strong>상태</strong> AI 선생님 응답 중"
-        : "<strong>상태</strong> 수업 진행 중";
+      input.disabled = loading || lessonManuallyEnded;
+      sendButton.disabled = loading || lessonManuallyEnded;
+      micButton.disabled = loading || lessonManuallyEnded;
+      if (lessonManuallyEnded) {
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.ended}`
+          : "<strong>상태</strong> 수업 종료";
+        return;
+      }
+      connection.innerHTML = COURSE.avatar
+        ? `<strong>${AVATAR_TEXT.status}</strong> ${loading ? AVATAR_TEXT.preparing : AVATAR_TEXT.inProgress}`
+        : loading
+          ? "<strong>상태</strong> AI 선생님 응답 중"
+          : "<strong>상태</strong> 수업 진행 중";
     }
 
     function rememberGeneratedProblem(text) {
       if (!IS_GENERATIVE_LESSON) return;
       const clean = cleanForDisplay(text);
-      const match = clean.match(/문제\s*\d+\s*\/\s*10[\s\S]*/i);
+      const match = clean.match(/(?:(?:문제|활동)|(?:problem|activity))\s*\d+\s*\/\s*10[\s\S]*/i);
       if (!match) return;
       const problem = match[0].slice(0, 700).trim();
       if (!problem || courseHistory.includes(problem)) return;
@@ -1026,12 +1498,15 @@
     }
 
     async function sendMessage(text, inputMode = "text") {
+      if (lessonManuallyEnded) return;
       if (!await sessionReady) return;
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       setLoading(true);
-      const isStarting = /^(시작|시작하기|start)$/i.test(text.trim());
-      const loadingText = IS_MATH
+      const isStarting = /^(시작|시작하기|start|commencer|commence)$/i.test(text.trim());
+      const loadingText = COURSE.avatar
+        ? (isStarting ? AVATAR_TEXT.loadingStart : AVATAR_TEXT.loadingNext)
+        : IS_MATH
         ? (isStarting ? "새 수학 문제를 만들고 검산하고 있습니다…" : "답을 확인하고 다음 단계를 준비하고 있습니다…")
         : IS_KOREAN
           ? (isStarting ? "새 국어 지문과 문제를 만들고 검토하고 있습니다…" : "답의 근거를 확인하고 다음 문제를 준비하고 있습니다…")
@@ -1054,30 +1529,41 @@
             courseId: COURSE_ID,
             messages,
             history: IS_GENERATIVE_LESSON ? courseHistory : [],
+            lessonSeed,
             inputMode
           })
         });
-        const data = await readJsonResponse(response, "AI 선생님 서버가 잠시 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
-        if (!response.ok) throw new Error(data.error || "수업 연결에 실패했습니다.");
+        const data = await readJsonResponse(response, COURSE.avatar ? AVATAR_TEXT.serverUnavailable : "AI 선생님 서버가 잠시 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
+        if (!response.ok) throw new Error(data.error || (COURSE.avatar ? AVATAR_TEXT.connectionFailed : "수업 연결에 실패했습니다."));
 
         typing.remove();
-        const answerReadyText = ensureVisibleAnswerSlot(data.text);
+        const protectedText = COURSE.avatar && isStarting
+          ? keepOnlyFirstAvatarQuestion(data.text)
+          : data.text;
+        const cleanedAvatarText = COURSE.avatar
+          ? cleanAvatarReply(protectedText, text)
+          : protectedText;
+        const answerReadyText = COURSE.avatar && /\b(?:hint|help|i\s+don'?t\s+know|i\s+don'?t\s+understand|indice|aide|je\s+ne\s+sais\s+pas|je\s+ne\s+comprends\s+pas)\b/i.test(text)
+          ? cleanedAvatarText
+          : ensureVisibleAnswerSlot(cleanedAvatarText);
         lastAssistantText = cleanForDisplay(answerReadyText);
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText });
         rememberGeneratedProblem(answerReadyText);
         if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
-        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤/.test(lastAssistantText)) {
-          await endCourseTracking();
-          connection.innerHTML = "<strong>상태</strong> 수업 완료·기록 저장";
+        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|lesson (?:is )?(?:complete|completed|finished)|you (?:have |'ve )?completed (?:today's |this )?lesson/i.test(lastAssistantText)) {
+          await finishLesson(false);
         }
       } catch (error) {
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
-        connection.innerHTML = "<strong>상태</strong> 연결 확인 필요";
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.checkConnection}`
+          : "<strong>상태</strong> 연결 확인 필요";
       } finally {
         setLoading(false);
-        input.focus();
+        if (isMobileAvatarLesson()) settleMobileLessonView();
+        else input.focus();
         scheduleRecording(450);
       }
     }
@@ -1093,20 +1579,33 @@
     document.getElementById("restart").addEventListener("click", async () => {
       const restartButton = document.getElementById("restart");
       restartButton.disabled = true;
-      connection.innerHTML = "<strong>상태</strong> 새 수업 기록 준비 중";
+      connection.innerHTML = COURSE.avatar
+        ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.preparingNew}`
+        : "<strong>상태</strong> 새 수업 기록 준비 중";
       try {
         await sessionRequest({ action: "restart", courseId: COURSE_ID });
+        lessonManuallyEnded = false;
         sessionEnded = false;
         sessionEnding = false;
         messages.length = 0;
+        lessonSeed = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
         chat.replaceChildren();
         lastAssistantText = COURSE.greeting;
-        addMessage("assistant", `새 수업을 준비했습니다. ${COURSE.greeting}`);
-        connection.innerHTML = "<strong>상태</strong> 새 수업 기록 중";
-        input.focus();
+        addMessage("assistant", COURSE.avatar ? `${AVATAR_TEXT.newReadyMessage} ${COURSE.greeting}` : `새 수업을 준비했습니다. ${COURSE.greeting}`);
+        connection.innerHTML = COURSE.avatar ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.newReady}` : "<strong>상태</strong> 새 수업 기록 중";
+        input.disabled = false;
+        sendButton.disabled = false;
+        micButton.disabled = false;
+        endLessonButton.disabled = false;
+        if (isMobileAvatarLesson()) settleMobileLessonView();
+        else input.focus();
       } catch (error) {
-        addMessage("assistant", error.message || "새 수업 기록을 준비하지 못했습니다.");
-        connection.innerHTML = "<strong>상태</strong> 학생관리 연결 확인 필요";
+        addMessage("assistant", error.message || (COURSE.avatar
+          ? AVATAR_TEXT.newFailed
+          : "새 수업 기록을 준비하지 못했습니다."));
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.checkConnection}`
+          : "<strong>상태</strong> 학생관리 연결 확인 필요";
       } finally {
         restartButton.disabled = false;
       }
@@ -1116,17 +1615,31 @@
       if (COURSE.voice) speakText(lastAssistantText);
     });
 
+    teacherVolumeInput.addEventListener("input", () => {
+      teacherVolume = Math.min(1, Math.max(0.05, Number(teacherVolumeInput.value) / 100));
+      teacherVolumeValue.textContent = `${Math.round(teacherVolume * 100)}%`;
+      localStorage.setItem(VOLUME_KEY, String(teacherVolume));
+      if (currentAudio) currentAudio.volume = teacherVolume;
+    });
+
     async function toggleConversation() {
       conversationMode = !conversationMode;
       autoSpeak = conversationMode;
-      micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+      document.body.classList.toggle("voice-conversation", conversationMode && COURSE.avatar);
+      micButton.textContent = conversationMode
+        ? (COURSE.avatar ? AVATAR_TEXT.stopVoice : "■ 음성 대화 멈춤")
+        : (COURSE.avatar ? AVATAR_TEXT.startVoice : "🎙 음성 대화 시작");
       if (conversationMode) {
+        settleMobileLessonView();
         discardRecording = false;
-        connection.innerHTML = "<strong>상태</strong> 학생 음성 준비 중";
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.preparingListen}`
+          : "<strong>상태</strong> 학생 음성 준비 중";
         // The question has already been spoken. Start listening immediately so
         // an answer given right after the button click is never missed.
         startRecording();
       } else {
+        settleMobileLessonView();
         clearTimeout(nextRecordingTimer);
         nextRecordingTimer = null;
         discardRecording = true;
@@ -1138,13 +1651,17 @@
         }
         currentAudio?.pause();
         window.speechSynthesis?.cancel();
-        connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.inProgress}`
+          : "<strong>상태</strong> 수업 진행 중";
       }
     }
 
     mathToolsToggle.addEventListener("click", () => {
       const open = mathTools.classList.toggle("open");
-      mathToolsToggle.textContent = open ? "⌨ 입력 도구 닫기" : "⌨ 수학 입력 도구";
+      mathToolsToggle.textContent = COURSE.avatar
+        ? (open ? AVATAR_TEXT.closeMathTools : AVATAR_TEXT.mathTools)
+        : (open ? "⌨ 입력 도구 닫기" : "⌨ 수학 입력 도구");
     });
 
     document.querySelectorAll(".math-key").forEach((button) => {
@@ -1180,13 +1697,56 @@
       recorder = null;
       recordingStarting = false;
       micButton.classList.remove("listening");
-      micButton.textContent = conversationMode ? "■ 음성 대화 멈춤" : "🎙 음성 대화 시작";
+      micButton.textContent = conversationMode
+        ? (COURSE.avatar ? AVATAR_TEXT.stopVoice : "■ 음성 대화 멈춤")
+        : (COURSE.avatar ? AVATAR_TEXT.startVoice : "🎙 음성 대화 시작");
+    }
+
+    function stopLessonMedia() {
+      lessonManuallyEnded = true;
+      conversationMode = false;
+      autoSpeak = false;
+      discardRecording = true;
+      clearTimeout(nextRecordingTimer);
+      nextRecordingTimer = null;
+      clearTimeout(recordingTimer);
+      clearInterval(recordingCountdownTimer);
+      clearInterval(audioLevelTimer);
+      if (recorder?.state === "recording") recorder.stop();
+      recordingStream?.getTracks().forEach((track) => track.stop());
+      recordingStream = null;
+      currentAudio?.pause();
+      currentAudio = null;
+      currentSpeechResolve?.();
+      currentSpeechResolve = null;
+      window.speechSynthesis?.cancel();
+      window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: false } }));
+      resetMic(true);
+      input.disabled = true;
+      sendButton.disabled = true;
+      micButton.disabled = true;
+    }
+
+    async function finishLesson(returnToEntrance = false) {
+      stopLessonMedia();
+      endLessonButton.disabled = true;
+      connection.innerHTML = COURSE.avatar
+        ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.ended}`
+        : "<strong>상태</strong> 수업 종료·기록 저장";
+      await endCourseTracking();
+      if (returnToEntrance) {
+        location.href = "/";
+        return;
+      }
+      addMessage("assistant", COURSE.avatar
+        ? AVATAR_TEXT.endMessage
+        : "오늘 수업을 마쳤습니다. 수고하셨습니다! 준비되면 ‘입구로 돌아가기’를 선택해 주세요.");
     }
 
     function scheduleRecording(delay = 500) {
       clearTimeout(nextRecordingTimer);
       nextRecordingTimer = null;
-      if (!conversationMode || input.disabled) return;
+      if (lessonManuallyEnded || !conversationMode || input.disabled) return;
       nextRecordingTimer = setTimeout(() => {
         nextRecordingTimer = null;
         startRecording();
@@ -1194,7 +1754,9 @@
     }
 
     async function transcribeRecording(blob) {
-      connection.innerHTML = "<strong>상태</strong> 학생 음성 인식 중";
+      connection.innerHTML = COURSE.avatar
+        ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.recognizing}`
+        : "<strong>상태</strong> 학생 음성 인식 중";
       micButton.disabled = true;
       let sentToTeacher = false;
       try {
@@ -1214,11 +1776,15 @@
             context: lastAssistantText
           })
         });
-        const data = await readJsonResponse(response, "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
+        const data = await readJsonResponse(response, COURSE.avatar
+          ? AVATAR_TEXT.recognitionUnavailable
+          : "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
         voiceFailureNoticeShown = false;
         input.value = data.text;
-        connection.innerHTML = `<strong>인식</strong> ${data.text}`;
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.heard}</strong> ${data.text}`
+          : `<strong>인식</strong> ${data.text}`;
         // The recognized answer is already rendered as a user message. Clear
         // the input so the previous answer never remains under the next problem.
         input.value = "";
@@ -1226,12 +1792,16 @@
         await sendMessage(data.text, "voice");
       } catch (error) {
         if (!voiceFailureNoticeShown) {
-          addMessage("assistant", error.message || "목소리를 알아듣지 못했습니다. 다시 말해 주세요.");
+          addMessage("assistant", error.message || (COURSE.avatar
+            ? AVATAR_TEXT.notUnderstood
+            : "목소리를 알아듣지 못했습니다. 다시 말해 주세요."));
           voiceFailureNoticeShown = true;
         }
       } finally {
         micButton.disabled = false;
-        if (!input.disabled) connection.innerHTML = "<strong>상태</strong> 수업 진행 중";
+        if (!input.disabled) connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.inProgress}`
+          : "<strong>상태</strong> 수업 진행 중";
         // A successful answer is restarted by sendMessage after the teacher has
         // finished speaking. Only transcription failures restart from here.
         if (!sentToTeacher) scheduleRecording(700);
@@ -1242,7 +1812,9 @@
       if (!COURSE.voice && !conversationMode && !IS_MATH) return;
       if (input.disabled || recordingStarting || recorder?.state === "recording") return;
       if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
-        addMessage("assistant", "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
+        addMessage("assistant", COURSE.avatar
+          ? AVATAR_TEXT.voiceUnsupported
+          : "이 브라우저에서는 음성 입력을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 이용해 주세요.");
         return;
       }
       recordingStarting = true;
@@ -1321,7 +1893,9 @@
             transcribeRecording(blob);
           } else {
             if (!voiceFailureNoticeShown) {
-              addMessage("assistant", "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
+              addMessage("assistant", COURSE.avatar
+                ? AVATAR_TEXT.notHeard
+                : "목소리가 녹음되지 않았습니다. 마이크 가까이에서 다시 말해 주세요.");
               voiceFailureNoticeShown = true;
             }
             scheduleRecording(700);
@@ -1330,7 +1904,9 @@
         activeRecorder.addEventListener("error", (event) => {
           console.error("MediaRecorder error", event.error || event);
           resetMic(true);
-          addMessage("assistant", "음성 녹음 연결을 다시 시작해 주세요.");
+          addMessage("assistant", COURSE.avatar
+            ? AVATAR_TEXT.restartVoice
+            : "음성 녹음 연결을 다시 시작해 주세요.");
           scheduleRecording(1200);
         });
         // One complete container per answer is more reliable than concatenating
@@ -1338,13 +1914,17 @@
         activeRecorder.start();
         recordingStarting = false;
         micButton.classList.add("listening");
-        micButton.textContent = "■ 음성 대화 멈춤";
+        micButton.textContent = COURSE.avatar ? AVATAR_TEXT.stopVoice : "■ 음성 대화 멈춤";
         let remaining = conversationMode ? 10 : 8;
-        connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.listening} (${remaining}s)`
+          : `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
         recordingCountdownTimer = setInterval(() => {
           remaining -= 1;
           if (remaining > 0 && recorder?.state === "recording") {
-            connection.innerHTML = `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
+            connection.innerHTML = COURSE.avatar
+              ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.listening} (${remaining}s)`
+              : `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
           }
         }, 1000);
         recordingTimer = setTimeout(() => {
@@ -1353,11 +1933,187 @@
       } catch (error) {
         recordingStarting = false;
         resetMic(true);
-        addMessage("assistant", "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
+        addMessage("assistant", COURSE.avatar
+          ? AVATAR_TEXT.allowMic
+          : "마이크 사용을 허용한 뒤 다시 눌러 주세요.");
       }
     }
 
     micButton.addEventListener("click", toggleConversation);
+    endLessonButton.addEventListener("click", () => finishLesson(false));
+    backEntranceButton.addEventListener("click", () => finishLesson(true));
+    document.getElementById("avatar-start").addEventListener("click", () => {
+      if (!lessonManuallyEnded) sendMessage(IS_FRENCH ? "Commencer" : "Start");
+    });
+  </script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { VRMLoaderPlugin, VRMUtils } from "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.3.0/lib/three-vrm.module.min.js";
+
+    const avatarCourseId = new URLSearchParams(location.search).get("course");
+    const avatarCourse = /^g[1-5]-math-(?:en|fr)$/.test(avatarCourseId || "");
+    const avatarLanguage = /-fr$/.test(avatarCourseId || "") ? "fr" : "en";
+    if (avatarCourse) {
+      const stage = document.getElementById("avatar-stage");
+      const canvas = document.getElementById("avatar-canvas");
+      const loading = document.getElementById("avatar-loading");
+      const toggle = document.getElementById("avatar-toggle");
+      const visibleKey = "gem-avatar-visible";
+      let avatarVisible = localStorage.getItem(visibleKey) !== "false";
+
+      function applyVisibility() {
+        stage.classList.toggle("hidden-avatar", !avatarVisible);
+        document.body.classList.toggle("avatar-hidden", !avatarVisible);
+        toggle.setAttribute("aria-pressed", String(!avatarVisible));
+        toggle.textContent = avatarLanguage === "fr"
+          ? (avatarVisible ? "Masquer l’avatar" : "Afficher l’avatar")
+          : (avatarVisible ? "Hide avatar" : "Show avatar");
+        localStorage.setItem(visibleKey, String(avatarVisible));
+        requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+      }
+      toggle.addEventListener("click", () => {
+        avatarVisible = !avatarVisible;
+        applyVisibility();
+      });
+      applyVisibility();
+
+      try {
+        const isSmallScreen = window.matchMedia("(max-width: 520px)").matches;
+        const renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: !isSmallScreen,
+          alpha: true,
+          powerPreference: "high-performance"
+        });
+        renderer.setPixelRatio(Math.min(devicePixelRatio, isSmallScreen ? 1.35 : 2));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+        camera.position.set(0, 1.35, 3.1);
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x7890aa, 2.2));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+        keyLight.position.set(1.5, 2.4, 2.5);
+        scene.add(keyLight);
+
+        const loader = new GLTFLoader();
+        loader.register((parser) => new VRMLoaderPlugin(parser));
+        const gltf = await loader.loadAsync("/assets/avatar-sample-z.vrm");
+        const vrm = gltf.userData.vrm;
+        VRMUtils.removeUnnecessaryVertices(gltf.scene);
+        VRMUtils.combineSkeletons(gltf.scene);
+        VRMUtils.rotateVRM0(vrm);
+        scene.add(vrm.scene);
+
+        const box = new THREE.Box3().setFromObject(vrm.scene);
+        const center = box.getCenter(new THREE.Vector3());
+        const height = Math.max(box.getSize(new THREE.Vector3()).y, 1);
+        vrm.scene.position.x -= center.x;
+        vrm.scene.position.y -= box.min.y;
+        const targetHeight = height * 0.54;
+        camera.position.set(0, targetHeight, height * 1.42);
+        camera.lookAt(0, targetHeight, 0);
+        loading.hidden = true;
+
+        const clock = new THREE.Clock();
+        let elapsed = 0;
+        let nextBlink = 2.2;
+        let avatarSpeaking = false;
+        window.addEventListener("gem-avatar-speaking", (event) => {
+          avatarSpeaking = Boolean(event.detail?.speaking);
+        });
+
+        const hips = vrm.humanoid?.getNormalizedBoneNode("hips");
+        const chest = vrm.humanoid?.getNormalizedBoneNode("chest");
+        const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode("leftUpperArm");
+        const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode("rightUpperArm");
+        const leftLowerArm = vrm.humanoid?.getNormalizedBoneNode("leftLowerArm");
+        const rightLowerArm = vrm.humanoid?.getNormalizedBoneNode("rightLowerArm");
+        const leftHand = vrm.humanoid?.getNormalizedBoneNode("leftHand");
+        const rightHand = vrm.humanoid?.getNormalizedBoneNode("rightHand");
+
+        // VRM models load in a T-pose. These rotations form a relaxed teacher
+        // stance before the first frame so the avatar never flashes a T-pose.
+        if (leftUpperArm) leftUpperArm.rotation.z = -1.18;
+        if (rightUpperArm) rightUpperArm.rotation.z = 1.18;
+        if (leftLowerArm) leftLowerArm.rotation.y = -0.12;
+        if (rightLowerArm) rightLowerArm.rotation.y = 0.12;
+        if (leftHand) leftHand.rotation.z = -0.08;
+        if (rightHand) rightHand.rotation.z = 0.08;
+
+        function resize() {
+          const width = Math.max(canvas.clientWidth, 1);
+          const heightPx = Math.max(canvas.clientHeight, 1);
+          renderer.setSize(width, heightPx, false);
+          camera.aspect = width / heightPx;
+          // A narrow phone canvas needs a little more distance to keep the
+          // teacher's complete body and gestures inside the frame.
+          const narrowScreenFactor = camera.aspect < 0.9 ? 1.18 : 1;
+          camera.position.z = height * 1.42 * narrowScreenFactor;
+          camera.updateProjectionMatrix();
+        }
+        new ResizeObserver(resize).observe(stage);
+        resize();
+
+        function animate() {
+          requestAnimationFrame(animate);
+          const delta = Math.min(clock.getDelta(), 0.05);
+          elapsed += delta;
+          const head = vrm.humanoid?.getNormalizedBoneNode("head");
+          if (head) {
+            head.rotation.y = Math.sin(elapsed * 0.55) * 0.035;
+            head.rotation.z = Math.sin(elapsed * 0.8) * 0.012;
+          }
+          const breath = Math.sin(elapsed * 1.7);
+          if (hips) hips.position.y = breath * 0.0025;
+          if (chest) {
+            chest.rotation.x = breath * 0.012;
+            chest.rotation.y = avatarSpeaking ? Math.sin(elapsed * 1.8) * 0.018 : 0;
+          }
+
+          // Keep both arms relaxed. While speaking, the right arm makes a
+          // small classroom gesture rather than swinging continuously.
+          if (leftUpperArm) leftUpperArm.rotation.z = -1.18 + breath * 0.012;
+          if (rightUpperArm) {
+            const gesture = avatarSpeaking ? (Math.sin(elapsed * 2.2) + 1) * 0.10 : 0;
+            rightUpperArm.rotation.z = 1.18 - gesture;
+            rightUpperArm.rotation.x = avatarSpeaking ? Math.sin(elapsed * 1.35) * 0.08 : 0;
+          }
+          if (leftLowerArm) leftLowerArm.rotation.y = -0.12;
+          if (rightLowerArm) rightLowerArm.rotation.y = avatarSpeaking ? 0.30 : 0.12;
+
+          // Simple audio-synchronised mouth movement. The expression is kept
+          // deliberately subtle so it looks natural on a classroom TV.
+          const mouthOpen = avatarSpeaking
+            ? 0.18 + Math.abs(Math.sin(elapsed * 9.2)) * 0.42
+            : 0;
+          vrm.expressionManager?.setValue("aa", mouthOpen);
+          if (elapsed > nextBlink) {
+            const phase = elapsed - nextBlink;
+            const blink = phase < 0.11 ? phase / 0.11 : phase < 0.22 ? 1 - (phase - 0.11) / 0.11 : 0;
+            vrm.expressionManager?.setValue("blink", Math.max(0, blink));
+            if (phase >= 0.22) nextBlink = elapsed + 2.4 + Math.random() * 2.8;
+          }
+          vrm.scene.rotation.y = Math.sin(elapsed * 0.32) * 0.018;
+          vrm.update(delta);
+          if (avatarVisible) renderer.render(scene, camera);
+        }
+        animate();
+      } catch (error) {
+        console.error("Avatar loading failed", error);
+        loading.classList.add("avatar-error");
+        loading.textContent = "The avatar could not load, but the lesson is still available.";
+      }
+    }
   </script>
 </body>
 </html>
