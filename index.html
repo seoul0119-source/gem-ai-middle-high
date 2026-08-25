@@ -100,6 +100,25 @@
       box-shadow: 0 0 0 3px rgba(30, 103, 198, .12);
     }
 
+    .language-option.coming-soon,
+    .language-option.coming-soon:disabled {
+      position: relative;
+      cursor: not-allowed;
+      opacity: .72;
+      background: #f4f6f9;
+    }
+
+    .program-status {
+      display: inline-block;
+      margin-top: 7px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #fff3cd;
+      color: #7a5700;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     label {
       display: block;
       margin-bottom: 9px;
@@ -219,15 +238,17 @@
           <strong>한국 교육과정</strong>
           Korean Program
         </button>
-        <button class="language-option" type="button" data-language="en" aria-pressed="false">
+        <button class="language-option coming-soon" type="button" data-language="en" aria-pressed="false" disabled aria-disabled="true">
           <span aria-hidden="true">🇺🇸</span>
           <strong>English Program</strong>
-          Grades 1–12
+          Grades 1–5 · 3D Avatar Pilot
+          <span class="program-status">Coming soon</span>
         </button>
-        <button class="language-option" type="button" data-language="fr" aria-pressed="false">
+        <button class="language-option coming-soon" type="button" data-language="fr" aria-pressed="false" disabled aria-disabled="true">
           <span aria-hidden="true">🇫🇷</span>
           <strong>Programme français</strong>
-          CP–Terminale
+          CP–CM2 · Pilote avatar 3D
+          <span class="program-status">Bientôt</span>
         </button>
       </div>
 
@@ -271,8 +292,8 @@
       en: "/international-en.html",
       fr: "/international-fr.html"
     };
-    let selectedLanguage = localStorage.getItem("gem-program-language") || "ko";
-    if (!languageRoutes[selectedLanguage]) selectedLanguage = "ko";
+    let selectedLanguage = "ko";
+    localStorage.setItem("gem-program-language", selectedLanguage);
 
     function selectLanguage(language) {
       selectedLanguage = language;
@@ -289,7 +310,9 @@
     }
 
     languageOptions.forEach((option) => {
-      option.addEventListener("click", () => selectLanguage(option.dataset.language));
+      if (!option.disabled) {
+        option.addEventListener("click", () => selectLanguage(option.dataset.language));
+      }
     });
     selectLanguage(selectedLanguage);
 
