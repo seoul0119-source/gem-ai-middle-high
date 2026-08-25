@@ -859,6 +859,15 @@ function ensureAnswerSlot(text, courseKind, language, suppressAnswerSlot = false
   return `${output}\n\n답: (________)`;
 }
 
+function normalizeHistorySequenceLabels(text, courseId) {
+  if (courseId !== "h3-history") return text;
+  return String(text || "")
+    .replace(/ㄱ/g, "1")
+    .replace(/ㄴ/g, "2")
+    .replace(/ㄷ/g, "3")
+    .replace(/ㄹ/g, "4");
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -1017,7 +1026,10 @@ export default async function handler(request, response) {
           console.warn("Orphan multiple-choice label rejected", attempt + 1);
           continue;
         }
-        const answerReadyText = ensureAnswerSlot(text, course.kind, course.language, grade3Hint);
+        const answerReadyText = normalizeHistorySequenceLabels(
+          ensureAnswerSlot(text, course.kind, course.language, grade3Hint),
+          request.body?.courseId
+        );
         const signature = normalizeProblem(answerReadyText);
         if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text: answerReadyText });
         console.warn("Duplicate lesson problem rejected", attempt + 1);
