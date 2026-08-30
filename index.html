@@ -100,6 +100,57 @@
       box-shadow: 0 0 0 3px rgba(30, 103, 198, .12);
     }
 
+    .school-level-section {
+      display: none;
+      margin: -4px 0 28px;
+      padding: 18px;
+      border: 1px solid #d7e2f0;
+      border-radius: 14px;
+      background: #f7faff;
+    }
+
+    .school-level-section.is-visible {
+      display: block;
+    }
+
+    .school-level-title {
+      display: block;
+      margin-bottom: 12px;
+      color: #173d70;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .school-level-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .school-level-option {
+      width: 100%;
+      margin: 0;
+      padding: 13px 9px;
+      border: 2px solid #d4deec;
+      border-radius: 11px;
+      background: white;
+      color: #173d70;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .school-level-option strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .school-level-option[aria-pressed="true"] {
+      border-color: #1e67c6;
+      background: #eaf3ff;
+      box-shadow: 0 0 0 3px rgba(30, 103, 198, .1);
+    }
+
     label {
       display: block;
       margin-bottom: 9px;
@@ -222,13 +273,27 @@
         <button class="language-option" type="button" data-language="en" aria-pressed="false">
           <span aria-hidden="true">🇺🇸</span>
           <strong>English Program</strong>
-          Grades 1–5 · Live Interactive Class
+          Elementary &amp; Middle School
         </button>
         <button class="language-option" type="button" data-language="fr" aria-pressed="false">
           <span aria-hidden="true">🇫🇷</span>
           <strong>Programme français</strong>
-          CP–CM2 · Cours interactif en direct
+          École primaire &amp; Collège
         </button>
+      </div>
+
+      <div id="school-level-section" class="school-level-section" aria-live="polite">
+        <span id="school-level-title" class="school-level-title">학교급 선택</span>
+        <div class="school-level-grid" role="group" aria-labelledby="school-level-title">
+          <button class="school-level-option" type="button" data-level="elementary" aria-pressed="true">
+            <strong id="elementary-label">Elementary</strong>
+            <span id="elementary-grades">Grades 1–5</span>
+          </button>
+          <button class="school-level-option" type="button" data-level="middle" aria-pressed="false">
+            <strong id="middle-label">Middle School</strong>
+            <span id="middle-grades">Grades 6–8</span>
+          </button>
+        </div>
       </div>
 
       <form id="student-login">
@@ -266,12 +331,26 @@
     const loginButton = document.getElementById("login-button");
     const loginError = document.getElementById("login-error");
     const languageOptions = [...document.querySelectorAll(".language-option")];
+    const schoolLevelSection = document.getElementById("school-level-section");
+    const schoolLevelTitle = document.getElementById("school-level-title");
+    const schoolLevelOptions = [...document.querySelectorAll(".school-level-option")];
+    const elementaryLabel = document.getElementById("elementary-label");
+    const elementaryGrades = document.getElementById("elementary-grades");
+    const middleLabel = document.getElementById("middle-label");
+    const middleGrades = document.getElementById("middle-grades");
     const languageRoutes = {
       ko: "/class.html",
-      en: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
-      fr: "https://gem-french-ce2-math.seoul0119.chatgpt.site"
+      en: {
+        elementary: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
+        middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site"
+      },
+      fr: {
+        elementary: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
+        middle: "https://gem-french-middle-school-math.seoul0119.chatgpt.site"
+      }
     };
     let selectedLanguage = "ko";
+    let selectedSchoolLevel = "elementary";
     localStorage.setItem("gem-program-language", selectedLanguage);
 
     function selectLanguage(language) {
@@ -280,6 +359,21 @@
       languageOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.language === language));
       });
+      const hasSchoolLevels = language === "en" || language === "fr";
+      schoolLevelSection.classList.toggle("is-visible", hasSchoolLevels);
+      if (language === "fr") {
+        schoolLevelTitle.textContent = "Choisir le niveau scolaire";
+        elementaryLabel.textContent = "École primaire";
+        elementaryGrades.textContent = "CP–CM2";
+        middleLabel.textContent = "Collège";
+        middleGrades.textContent = "6e–3e";
+      } else {
+        schoolLevelTitle.textContent = "Choose school level";
+        elementaryLabel.textContent = "Elementary";
+        elementaryGrades.textContent = "Grades 1–5";
+        middleLabel.textContent = "Middle School";
+        middleGrades.textContent = "Grades 6–8";
+      }
       const labels = {
         ko: "💎 GEM AI CLASS 입장",
         en: "💎 Enter English Program",
@@ -288,11 +382,23 @@
       loginButton.textContent = labels[language];
     }
 
+    function selectSchoolLevel(level) {
+      selectedSchoolLevel = level;
+      localStorage.setItem("gem-school-level", level);
+      schoolLevelOptions.forEach((option) => {
+        option.setAttribute("aria-pressed", String(option.dataset.level === level));
+      });
+    }
+
     languageOptions.forEach((option) => {
       if (!option.disabled) {
         option.addEventListener("click", () => selectLanguage(option.dataset.language));
       }
     });
+    schoolLevelOptions.forEach((option) => {
+      option.addEventListener("click", () => selectSchoolLevel(option.dataset.level));
+    });
+    selectSchoolLevel(selectedSchoolLevel);
     selectLanguage(selectedLanguage);
 
     loginForm.addEventListener("submit", async (event) => {
@@ -310,7 +416,10 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "학생 ID를 확인하지 못했습니다.");
-        location.replace(languageRoutes[selectedLanguage] || data.redirect || "/class.html");
+        const selectedRoute = selectedLanguage === "ko"
+          ? languageRoutes.ko
+          : languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
+        location.replace(selectedRoute || data.redirect || "/class.html");
       } catch (error) {
         loginError.textContent = error.message || "입장 연결 중 문제가 발생했습니다.";
         loginButton.disabled = false;
