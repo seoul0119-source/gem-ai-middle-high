@@ -124,7 +124,7 @@
 
     .school-level-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
     }
 
@@ -242,6 +242,10 @@
       .language-option {
         min-height: 0;
       }
+
+      .school-level-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -273,12 +277,12 @@
         <button class="language-option" type="button" data-language="en" aria-pressed="false">
           <span aria-hidden="true">🇺🇸</span>
           <strong>English Program</strong>
-          Elementary &amp; Middle School
+          Elementary, Middle &amp; High School
         </button>
         <button class="language-option" type="button" data-language="fr" aria-pressed="false">
           <span aria-hidden="true">🇫🇷</span>
           <strong>Programme français</strong>
-          École primaire &amp; Collège
+          École primaire, Collège &amp; Lycée
         </button>
       </div>
 
@@ -292,6 +296,10 @@
           <button class="school-level-option" type="button" data-level="middle" aria-pressed="false">
             <strong id="middle-label">Middle School</strong>
             <span id="middle-grades">Grades 6–8</span>
+          </button>
+          <button class="school-level-option" type="button" data-level="high" aria-pressed="false">
+            <strong id="high-label">High School</strong>
+            <span id="high-grades">Grades 9–12</span>
           </button>
         </div>
       </div>
@@ -338,15 +346,19 @@
     const elementaryGrades = document.getElementById("elementary-grades");
     const middleLabel = document.getElementById("middle-label");
     const middleGrades = document.getElementById("middle-grades");
+    const highLabel = document.getElementById("high-label");
+    const highGrades = document.getElementById("high-grades");
     const languageRoutes = {
       ko: "/class.html",
       en: {
         elementary: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
-        middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site"
+        middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
+        high: "https://gem-english-high-school-math.seoul0119.chatgpt.site"
       },
       fr: {
         elementary: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
-        middle: "https://gem-french-middle-school-math.seoul0119.chatgpt.site"
+        middle: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
+        high: "https://gem-french-high-school-math.seoul0119.chatgpt.site"
       }
     };
     let selectedLanguage = "ko";
@@ -367,12 +379,16 @@
         elementaryGrades.textContent = "CP–CM2";
         middleLabel.textContent = "Collège";
         middleGrades.textContent = "6e–3e";
+        highLabel.textContent = "Lycée";
+        highGrades.textContent = "Seconde–Terminale";
       } else {
         schoolLevelTitle.textContent = "Choose school level";
         elementaryLabel.textContent = "Elementary";
         elementaryGrades.textContent = "Grades 1–5";
         middleLabel.textContent = "Middle School";
         middleGrades.textContent = "Grades 6–8";
+        highLabel.textContent = "High School";
+        highGrades.textContent = "Grades 9–12";
       }
       const labels = {
         ko: "💎 GEM AI CLASS 입장",
