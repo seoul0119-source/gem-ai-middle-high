@@ -160,6 +160,52 @@
       background: linear-gradient(135deg, #fffaf0, #f7faff);
     }
 
+    .subject-section {
+      display: none;
+      margin: -14px 0 28px;
+      padding: 18px;
+      border: 1px solid #bfe1d8;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #f1fffb, #f7faff);
+    }
+
+    .subject-section.is-visible { display: block; }
+
+    .subject-title {
+      display: block;
+      margin-bottom: 12px;
+      color: #173d70;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .subject-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .subject-option {
+      width: 100%;
+      min-height: 76px;
+      margin: 0;
+      padding: 13px 9px;
+      border: 2px solid #d4deec;
+      border-radius: 11px;
+      background: white;
+      color: #173d70;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .subject-option strong { display: block; margin-bottom: 4px; font-size: 15px; }
+    .subject-option[aria-pressed="true"] {
+      border-color: #16866f;
+      background: #edfff9;
+      box-shadow: 0 0 0 3px rgba(22, 134, 111, .12);
+    }
+
     .high-school-pathway-section.is-visible {
       display: block;
     }
@@ -303,6 +349,8 @@
       .high-school-pathway-grid {
         grid-template-columns: 1fr;
       }
+
+      .subject-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -357,6 +405,20 @@
           <button class="school-level-option" type="button" data-level="high" aria-pressed="false">
             <strong id="high-label">High School</strong>
             <span id="high-grades">Grades 9–12</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="subject-section" class="subject-section" aria-live="polite">
+        <span id="subject-title" class="subject-title">Choose a subject</span>
+        <div class="subject-grid" role="group" aria-labelledby="subject-title">
+          <button class="subject-option" type="button" data-subject="math" aria-pressed="true">
+            <strong>🧮 Mathematics</strong>
+            <span>Grades 1–5</span>
+          </button>
+          <button class="subject-option" type="button" data-subject="science" aria-pressed="false">
+            <strong>🔬 Science</strong>
+            <span>Grades 1–5</span>
           </button>
         </div>
       </div>
@@ -432,6 +494,8 @@
     const highSchoolPathwaySection = document.getElementById("high-school-pathway-section");
     const highSchoolPathwayTitle = document.getElementById("high-school-pathway-title");
     const highSchoolPathwayOptions = [...document.querySelectorAll(".high-school-pathway-option")];
+    const subjectSection = document.getElementById("subject-section");
+    const subjectOptions = [...document.querySelectorAll(".subject-option")];
     const generalPathwayLabel = document.getElementById("general-pathway-label");
     const generalPathwayGrades = document.getElementById("general-pathway-grades");
     const advancedPathwayLabels = [1, 2, 3].map((number) => document.getElementById(`advanced${number}-pathway-label`));
@@ -439,7 +503,10 @@
     const languageRoutes = {
       ko: "/class.html",
       en: {
-        elementary: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
+        elementary: {
+          math: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
+          science: "https://gem-english-elementary-science.seoul0119.chatgpt.site"
+        },
         middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
         high: {
           general: "https://gem-english-high-school-math.seoul0119.chatgpt.site",
@@ -462,9 +529,14 @@
     let selectedLanguage = "ko";
     let selectedSchoolLevel = "elementary";
     let selectedHighSchoolPathway = "general";
+    let selectedSubject = "math";
     localStorage.setItem("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
+      if (selectedLanguage === "en" && selectedSchoolLevel === "elementary" && selectedSubject === "science") {
+        loginButton.textContent = "🔬 Enter Elementary Science";
+        return;
+      }
       if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSchoolLevel === "high" && selectedHighSchoolPathway !== "general") {
         const label = document.querySelector(`[data-pathway="${selectedHighSchoolPathway}"] strong`)?.textContent || "Advanced Mathematics";
         loginButton.textContent = `🚀 ${selectedLanguage === "fr" ? "Entrer en" : "Enter"} ${label.replace(/^🇺🇸 |^🇫🇷 /, "")}`;
@@ -499,6 +571,12 @@
       updateLoginButtonLabel();
     }
 
+    function updateSubjectSection() {
+      const isVisible = selectedLanguage === "en" && selectedSchoolLevel === "elementary";
+      subjectSection.classList.toggle("is-visible", isVisible);
+      updateLoginButtonLabel();
+    }
+
     function selectLanguage(language) {
       selectedLanguage = language;
       localStorage.setItem("gem-program-language", language);
@@ -525,6 +603,7 @@
         highGrades.textContent = "Grades 9–12";
       }
       updateHighSchoolPathway();
+      updateSubjectSection();
     }
 
     function selectSchoolLevel(level) {
@@ -534,6 +613,16 @@
         option.setAttribute("aria-pressed", String(option.dataset.level === level));
       });
       updateHighSchoolPathway();
+      updateSubjectSection();
+    }
+
+    function selectSubject(subject) {
+      selectedSubject = subject;
+      localStorage.setItem("gem-subject", subject);
+      subjectOptions.forEach((option) => {
+        option.setAttribute("aria-pressed", String(option.dataset.subject === subject));
+      });
+      updateLoginButtonLabel();
     }
 
     function selectHighSchoolPathway(pathway) {
@@ -556,6 +645,10 @@
     highSchoolPathwayOptions.forEach((option) => {
       option.addEventListener("click", () => selectHighSchoolPathway(option.dataset.pathway));
     });
+    subjectOptions.forEach((option) => {
+      option.addEventListener("click", () => selectSubject(option.dataset.subject));
+    });
+    selectSubject(selectedSubject);
     selectHighSchoolPathway(selectedHighSchoolPathway);
     selectSchoolLevel(selectedSchoolLevel);
     selectLanguage(selectedLanguage);
@@ -578,6 +671,8 @@
         const schoolLevelRoute = languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
         const selectedRoute = selectedLanguage === "ko"
           ? languageRoutes.ko
+          : selectedLanguage === "en" && selectedSchoolLevel === "elementary"
+            ? schoolLevelRoute?.[selectedSubject]
           : selectedSchoolLevel === "high"
             ? schoolLevelRoute?.[selectedHighSchoolPathway]
             : schoolLevelRoute;
