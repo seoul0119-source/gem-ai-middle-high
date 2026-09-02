@@ -370,9 +370,17 @@
             <strong id="general-pathway-label">High School Math</strong>
             <span id="general-pathway-grades">Grades 9–12</span>
           </button>
-          <button class="high-school-pathway-option" type="button" data-pathway="advanced" aria-pressed="false">
-            <strong id="advanced-pathway-label">🇺🇸 AP Calculus AB</strong>
-            <span id="advanced-pathway-grades">Grades 11–12</span>
+          <button class="high-school-pathway-option" type="button" data-pathway="advanced1" aria-pressed="false">
+            <strong id="advanced1-pathway-label">🇺🇸 AP Calculus AB</strong>
+            <span id="advanced1-pathway-grades">Grades 11–12</span>
+          </button>
+          <button class="high-school-pathway-option" type="button" data-pathway="advanced2" aria-pressed="false">
+            <strong id="advanced2-pathway-label">🇺🇸 AP Calculus BC</strong>
+            <span id="advanced2-pathway-grades">Grades 11–12</span>
+          </button>
+          <button class="high-school-pathway-option" type="button" data-pathway="advanced3" aria-pressed="false">
+            <strong id="advanced3-pathway-label">🇺🇸 AP Statistics</strong>
+            <span id="advanced3-pathway-grades">Grades 11–12</span>
           </button>
         </div>
       </div>
@@ -426,8 +434,8 @@
     const highSchoolPathwayOptions = [...document.querySelectorAll(".high-school-pathway-option")];
     const generalPathwayLabel = document.getElementById("general-pathway-label");
     const generalPathwayGrades = document.getElementById("general-pathway-grades");
-    const advancedPathwayLabel = document.getElementById("advanced-pathway-label");
-    const advancedPathwayGrades = document.getElementById("advanced-pathway-grades");
+    const advancedPathwayLabels = [1, 2, 3].map((number) => document.getElementById(`advanced${number}-pathway-label`));
+    const advancedPathwayGrades = [1, 2, 3].map((number) => document.getElementById(`advanced${number}-pathway-grades`));
     const languageRoutes = {
       ko: "/class.html",
       en: {
@@ -435,7 +443,9 @@
         middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
         high: {
           general: "https://gem-english-high-school-math.seoul0119.chatgpt.site",
-          advanced: "https://gem-ap-calculus-ab.seoul0119.chatgpt.site"
+          advanced1: "https://gem-ap-calculus-ab.seoul0119.chatgpt.site",
+          advanced2: "https://gem-ap-calculus-bc.seoul0119.chatgpt.site",
+          advanced3: "https://gem-ap-statistics.seoul0119.chatgpt.site"
         }
       },
       fr: {
@@ -443,7 +453,9 @@
         middle: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
         high: {
           general: "https://gem-french-high-school-math.seoul0119.chatgpt.site",
-          advanced: "https://gem-specialite-mathematiques-premiere.seoul0119.chatgpt.site"
+          advanced1: "https://gem-specialite-mathematiques-premiere.seoul0119.chatgpt.site",
+          advanced2: "https://gem-specialite-mathematiques-terminale.seoul0119.chatgpt.site",
+          advanced3: "https://gem-mathematiques-expertes.seoul0119.chatgpt.site"
         }
       }
     };
@@ -453,12 +465,9 @@
     localStorage.setItem("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
-      if (selectedLanguage === "en" && selectedSchoolLevel === "high" && selectedHighSchoolPathway === "advanced") {
-        loginButton.textContent = "🚀 Enter AP Calculus AB";
-        return;
-      }
-      if (selectedLanguage === "fr" && selectedSchoolLevel === "high" && selectedHighSchoolPathway === "advanced") {
-        loginButton.textContent = "🚀 Entrer en Spécialité Mathématiques";
+      if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSchoolLevel === "high" && selectedHighSchoolPathway !== "general") {
+        const label = document.querySelector(`[data-pathway="${selectedHighSchoolPathway}"] strong`)?.textContent || "Advanced Mathematics";
+        loginButton.textContent = `🚀 ${selectedLanguage === "fr" ? "Entrer en" : "Enter"} ${label.replace(/^🇺🇸 |^🇫🇷 /, "")}`;
         return;
       }
       const labels = {
@@ -478,14 +487,14 @@
         highSchoolPathwayTitle.textContent = "Choisir le parcours de mathématiques au lycée";
         generalPathwayLabel.textContent = "Mathématiques au lycée";
         generalPathwayGrades.textContent = "Seconde–Terminale";
-        advancedPathwayLabel.textContent = "🇫🇷 Spécialité Mathématiques";
-        advancedPathwayGrades.textContent = "Première";
+        ["🇫🇷 Spécialité Première", "🇫🇷 Spécialité Terminale", "🇫🇷 Mathématiques expertes"].forEach((label, index) => advancedPathwayLabels[index].textContent = label);
+        ["Première", "Terminale", "Terminale · option"].forEach((label, index) => advancedPathwayGrades[index].textContent = label);
       } else {
         highSchoolPathwayTitle.textContent = "Choose a high-school mathematics pathway";
         generalPathwayLabel.textContent = "High School Math";
         generalPathwayGrades.textContent = "Grades 9–12";
-        advancedPathwayLabel.textContent = "🇺🇸 AP Calculus AB";
-        advancedPathwayGrades.textContent = "Grades 11–12";
+        ["🇺🇸 AP Calculus AB", "🇺🇸 AP Calculus BC", "🇺🇸 AP Statistics"].forEach((label, index) => advancedPathwayLabels[index].textContent = label);
+        advancedPathwayGrades.forEach((element) => element.textContent = "Grades 11–12");
       }
       updateLoginButtonLabel();
     }
