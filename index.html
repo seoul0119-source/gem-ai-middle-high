@@ -151,6 +151,59 @@
       box-shadow: 0 0 0 3px rgba(30, 103, 198, .1);
     }
 
+    .high-school-pathway-section {
+      display: none;
+      margin: -14px 0 28px;
+      padding: 18px;
+      border: 1px solid #ead7a2;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #fffaf0, #f7faff);
+    }
+
+    .high-school-pathway-section.is-visible {
+      display: block;
+    }
+
+    .high-school-pathway-title {
+      display: block;
+      margin-bottom: 12px;
+      color: #173d70;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .high-school-pathway-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .high-school-pathway-option {
+      width: 100%;
+      min-height: 84px;
+      margin: 0;
+      padding: 13px 9px;
+      border: 2px solid #d4deec;
+      border-radius: 11px;
+      background: white;
+      color: #173d70;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .high-school-pathway-option strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .high-school-pathway-option[aria-pressed="true"] {
+      border-color: #d49a22;
+      background: #fff5d9;
+      box-shadow: 0 0 0 3px rgba(212, 154, 34, .12);
+    }
+
     label {
       display: block;
       margin-bottom: 9px;
@@ -246,6 +299,10 @@
       .school-level-grid {
         grid-template-columns: 1fr;
       }
+
+      .high-school-pathway-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -304,6 +361,22 @@
         </div>
       </div>
 
+      <div id="high-school-pathway-section" class="high-school-pathway-section" aria-live="polite">
+        <span id="high-school-pathway-title" class="high-school-pathway-title">
+          Choose a high-school mathematics pathway
+        </span>
+        <div class="high-school-pathway-grid" role="group" aria-labelledby="high-school-pathway-title">
+          <button class="high-school-pathway-option" type="button" data-pathway="general" aria-pressed="true">
+            <strong id="general-pathway-label">High School Math</strong>
+            <span id="general-pathway-grades">Grades 9–12</span>
+          </button>
+          <button class="high-school-pathway-option" type="button" data-pathway="advanced" aria-pressed="false">
+            <strong id="advanced-pathway-label">🇺🇸 AP Calculus AB</strong>
+            <span id="advanced-pathway-grades">Grades 11–12</span>
+          </button>
+        </div>
+      </div>
+
       <form id="student-login">
         <label for="studentId">학생 ID</label>
 
@@ -348,22 +421,74 @@
     const middleGrades = document.getElementById("middle-grades");
     const highLabel = document.getElementById("high-label");
     const highGrades = document.getElementById("high-grades");
+    const highSchoolPathwaySection = document.getElementById("high-school-pathway-section");
+    const highSchoolPathwayTitle = document.getElementById("high-school-pathway-title");
+    const highSchoolPathwayOptions = [...document.querySelectorAll(".high-school-pathway-option")];
+    const generalPathwayLabel = document.getElementById("general-pathway-label");
+    const generalPathwayGrades = document.getElementById("general-pathway-grades");
+    const advancedPathwayLabel = document.getElementById("advanced-pathway-label");
+    const advancedPathwayGrades = document.getElementById("advanced-pathway-grades");
     const languageRoutes = {
       ko: "/class.html",
       en: {
         elementary: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
         middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
-        high: "https://gem-english-high-school-math.seoul0119.chatgpt.site"
+        high: {
+          general: "https://gem-english-high-school-math.seoul0119.chatgpt.site",
+          advanced: "https://gem-ap-calculus-ab.seoul0119.chatgpt.site"
+        }
       },
       fr: {
         elementary: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
         middle: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
-        high: "https://gem-french-high-school-math.seoul0119.chatgpt.site"
+        high: {
+          general: "https://gem-french-high-school-math.seoul0119.chatgpt.site",
+          advanced: "https://gem-specialite-mathematiques-premiere.seoul0119.chatgpt.site"
+        }
       }
     };
     let selectedLanguage = "ko";
     let selectedSchoolLevel = "elementary";
+    let selectedHighSchoolPathway = "general";
     localStorage.setItem("gem-program-language", selectedLanguage);
+
+    function updateLoginButtonLabel() {
+      if (selectedLanguage === "en" && selectedSchoolLevel === "high" && selectedHighSchoolPathway === "advanced") {
+        loginButton.textContent = "🚀 Enter AP Calculus AB";
+        return;
+      }
+      if (selectedLanguage === "fr" && selectedSchoolLevel === "high" && selectedHighSchoolPathway === "advanced") {
+        loginButton.textContent = "🚀 Entrer en Spécialité Mathématiques";
+        return;
+      }
+      const labels = {
+        ko: "💎 GEM AI CLASS 입장",
+        en: "💎 Enter English Program",
+        fr: "💎 Entrer dans le programme français"
+      };
+      loginButton.textContent = labels[selectedLanguage];
+    }
+
+    function updateHighSchoolPathway() {
+      const isVisible = (selectedLanguage === "en" || selectedLanguage === "fr")
+        && selectedSchoolLevel === "high";
+      highSchoolPathwaySection.classList.toggle("is-visible", isVisible);
+
+      if (selectedLanguage === "fr") {
+        highSchoolPathwayTitle.textContent = "Choisir le parcours de mathématiques au lycée";
+        generalPathwayLabel.textContent = "Mathématiques au lycée";
+        generalPathwayGrades.textContent = "Seconde–Terminale";
+        advancedPathwayLabel.textContent = "🇫🇷 Spécialité Mathématiques";
+        advancedPathwayGrades.textContent = "Première";
+      } else {
+        highSchoolPathwayTitle.textContent = "Choose a high-school mathematics pathway";
+        generalPathwayLabel.textContent = "High School Math";
+        generalPathwayGrades.textContent = "Grades 9–12";
+        advancedPathwayLabel.textContent = "🇺🇸 AP Calculus AB";
+        advancedPathwayGrades.textContent = "Grades 11–12";
+      }
+      updateLoginButtonLabel();
+    }
 
     function selectLanguage(language) {
       selectedLanguage = language;
@@ -390,12 +515,7 @@
         highLabel.textContent = "High School";
         highGrades.textContent = "Grades 9–12";
       }
-      const labels = {
-        ko: "💎 GEM AI CLASS 입장",
-        en: "💎 Enter English Program",
-        fr: "💎 Entrer dans le programme français"
-      };
-      loginButton.textContent = labels[language];
+      updateHighSchoolPathway();
     }
 
     function selectSchoolLevel(level) {
@@ -404,6 +524,16 @@
       schoolLevelOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.level === level));
       });
+      updateHighSchoolPathway();
+    }
+
+    function selectHighSchoolPathway(pathway) {
+      selectedHighSchoolPathway = pathway;
+      localStorage.setItem("gem-high-school-pathway", pathway);
+      highSchoolPathwayOptions.forEach((option) => {
+        option.setAttribute("aria-pressed", String(option.dataset.pathway === pathway));
+      });
+      updateLoginButtonLabel();
     }
 
     languageOptions.forEach((option) => {
@@ -414,6 +544,10 @@
     schoolLevelOptions.forEach((option) => {
       option.addEventListener("click", () => selectSchoolLevel(option.dataset.level));
     });
+    highSchoolPathwayOptions.forEach((option) => {
+      option.addEventListener("click", () => selectHighSchoolPathway(option.dataset.pathway));
+    });
+    selectHighSchoolPathway(selectedHighSchoolPathway);
     selectSchoolLevel(selectedSchoolLevel);
     selectLanguage(selectedLanguage);
 
@@ -432,9 +566,12 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "학생 ID를 확인하지 못했습니다.");
+        const schoolLevelRoute = languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
         const selectedRoute = selectedLanguage === "ko"
           ? languageRoutes.ko
-          : languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
+          : selectedSchoolLevel === "high"
+            ? schoolLevelRoute?.[selectedHighSchoolPathway]
+            : schoolLevelRoute;
         location.replace(selectedRoute || data.redirect || "/class.html");
       } catch (error) {
         loginError.textContent = error.message || "입장 연결 중 문제가 발생했습니다.";
