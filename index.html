@@ -413,12 +413,12 @@
         <span id="subject-title" class="subject-title">Choose a subject</span>
         <div class="subject-grid" role="group" aria-labelledby="subject-title">
           <button class="subject-option" type="button" data-subject="math" aria-pressed="true">
-            <strong>🧮 Mathematics</strong>
-            <span>Grades 1–5</span>
+            <strong id="math-subject-label">🧮 Mathematics</strong>
+            <span id="math-subject-grades">Grades 1–5</span>
           </button>
           <button class="subject-option" type="button" data-subject="science" aria-pressed="false">
-            <strong>🔬 Science</strong>
-            <span>Grades 1–5</span>
+            <strong id="science-subject-label">🔬 Science</strong>
+            <span id="science-subject-grades">Grades 1–5</span>
           </button>
         </div>
       </div>
@@ -427,24 +427,7 @@
         <span id="high-school-pathway-title" class="high-school-pathway-title">
           Choose a high-school mathematics pathway
         </span>
-        <div class="high-school-pathway-grid" role="group" aria-labelledby="high-school-pathway-title">
-          <button class="high-school-pathway-option" type="button" data-pathway="general" aria-pressed="true">
-            <strong id="general-pathway-label">High School Math</strong>
-            <span id="general-pathway-grades">Grades 9–12</span>
-          </button>
-          <button class="high-school-pathway-option" type="button" data-pathway="advanced1" aria-pressed="false">
-            <strong id="advanced1-pathway-label">🇺🇸 AP Calculus AB</strong>
-            <span id="advanced1-pathway-grades">Grades 11–12</span>
-          </button>
-          <button class="high-school-pathway-option" type="button" data-pathway="advanced2" aria-pressed="false">
-            <strong id="advanced2-pathway-label">🇺🇸 AP Calculus BC</strong>
-            <span id="advanced2-pathway-grades">Grades 11–12</span>
-          </button>
-          <button class="high-school-pathway-option" type="button" data-pathway="advanced3" aria-pressed="false">
-            <strong id="advanced3-pathway-label">🇺🇸 AP Statistics</strong>
-            <span id="advanced3-pathway-grades">Grades 11–12</span>
-          </button>
-        </div>
+        <div id="high-school-pathway-grid" class="high-school-pathway-grid" role="group" aria-labelledby="high-school-pathway-title"></div>
       </div>
 
       <form id="student-login">
@@ -493,37 +476,91 @@
     const highGrades = document.getElementById("high-grades");
     const highSchoolPathwaySection = document.getElementById("high-school-pathway-section");
     const highSchoolPathwayTitle = document.getElementById("high-school-pathway-title");
-    const highSchoolPathwayOptions = [...document.querySelectorAll(".high-school-pathway-option")];
+    const highSchoolPathwayGrid = document.getElementById("high-school-pathway-grid");
     const subjectSection = document.getElementById("subject-section");
+    const subjectTitle = document.getElementById("subject-title");
     const subjectOptions = [...document.querySelectorAll(".subject-option")];
-    const generalPathwayLabel = document.getElementById("general-pathway-label");
-    const generalPathwayGrades = document.getElementById("general-pathway-grades");
-    const advancedPathwayLabels = [1, 2, 3].map((number) => document.getElementById(`advanced${number}-pathway-label`));
-    const advancedPathwayGrades = [1, 2, 3].map((number) => document.getElementById(`advanced${number}-pathway-grades`));
+    const mathSubjectLabel = document.getElementById("math-subject-label");
+    const mathSubjectGrades = document.getElementById("math-subject-grades");
+    const scienceSubjectLabel = document.getElementById("science-subject-label");
+    const scienceSubjectGrades = document.getElementById("science-subject-grades");
+    const usScience = "https://gem-english-elementary-science.seoul0119.chatgpt.site";
+    const frScience = "https://gem-french-elementary-science.seoul0119.chatgpt.site";
     const languageRoutes = {
       ko: "/class.html",
       en: {
         elementary: {
           math: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
-          science: "https://gem-english-elementary-science.seoul0119.chatgpt.site"
+          science: usScience
         },
-        middle: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
+        middle: {
+          math: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
+          science: usScience
+        },
         high: {
-          general: "https://gem-english-high-school-math.seoul0119.chatgpt.site",
-          advanced1: "https://gem-ap-calculus-ab.seoul0119.chatgpt.site",
-          advanced2: "https://gem-ap-calculus-bc.seoul0119.chatgpt.site",
-          advanced3: "https://gem-ap-statistics.seoul0119.chatgpt.site"
+          math: {
+            general: "https://gem-english-high-school-math.seoul0119.chatgpt.site",
+            advanced1: "https://gem-ap-calculus-ab.seoul0119.chatgpt.site",
+            advanced2: "https://gem-ap-calculus-bc.seoul0119.chatgpt.site",
+            advanced3: "https://gem-ap-statistics.seoul0119.chatgpt.site"
+          },
+          science: { general: usScience, advanced1: usScience, advanced2: usScience, advanced3: usScience, advanced4: usScience, advanced5: usScience, advanced6: usScience, advanced7: usScience, advanced8: usScience }
         }
       },
       fr: {
-        elementary: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
-        middle: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
+        elementary: {
+          math: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
+          science: frScience
+        },
+        middle: {
+          math: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
+          science: frScience
+        },
         high: {
-          general: "https://gem-french-high-school-math.seoul0119.chatgpt.site",
-          advanced1: "https://gem-specialite-mathematiques-premiere.seoul0119.chatgpt.site",
-          advanced2: "https://gem-specialite-mathematiques-terminale.seoul0119.chatgpt.site",
-          advanced3: "https://gem-mathematiques-expertes.seoul0119.chatgpt.site"
+          math: {
+            general: "https://gem-french-high-school-math.seoul0119.chatgpt.site",
+            advanced1: "https://gem-specialite-mathematiques-premiere.seoul0119.chatgpt.site",
+            advanced2: "https://gem-specialite-mathematiques-terminale.seoul0119.chatgpt.site",
+            advanced3: "https://gem-mathematiques-expertes.seoul0119.chatgpt.site"
+          },
+          science: { general: frScience, advanced1: frScience, advanced2: frScience, advanced3: frScience, advanced4: frScience }
         }
+      }
+    };
+    const pathwayCatalog = {
+      en: {
+        math: [
+          ["general", "High School Math", "Grades 9–12"],
+          ["advanced1", "🇺🇸 AP Calculus AB", "Grades 11–12"],
+          ["advanced2", "🇺🇸 AP Calculus BC", "Grades 11–12"],
+          ["advanced3", "🇺🇸 AP Statistics", "Grades 11–12"]
+        ],
+        science: [
+          ["general", "🔬 G9–G12 Science", "Grades 9–12"],
+          ["advanced1", "🧬 Cells, Genetics & Physiology", "Advanced Biology"],
+          ["advanced2", "🌍 AP Environmental Science", "AP"],
+          ["advanced3", "🚀 AP Physics 1", "AP"],
+          ["advanced4", "⚗️ AP Chemistry", "AP"],
+          ["advanced5", "🛰️ AP Physics 2", "AP"],
+          ["advanced6", "∫ AP Physics C: Mechanics", "AP"],
+          ["advanced7", "⚡ AP Physics C: Electricity & Magnetism", "AP"],
+          ["advanced8", "🔭 All U.S. Science Programs", "G1–G12 & AP"]
+        ]
+      },
+      fr: {
+        math: [
+          ["general", "Mathématiques au lycée", "Seconde–Terminale"],
+          ["advanced1", "🇫🇷 Spécialité Première", "Première"],
+          ["advanced2", "🇫🇷 Spécialité Terminale", "Terminale"],
+          ["advanced3", "🇫🇷 Mathématiques expertes", "Terminale · option"]
+        ],
+        science: [
+          ["general", "🔬 Sciences au lycée", "Seconde–Terminale"],
+          ["advanced1", "⚗️ Physique-Chimie", "Approfondissement"],
+          ["advanced2", "🧬 Biologie, Terre & santé", "Approfondissement"],
+          ["advanced3", "💻 Numérique & informatique", "Approfondissement"],
+          ["advanced4", "⚙️ Sciences de l’ingénieur", "Approfondissement"]
+        ]
       }
     };
     let selectedLanguage = "ko";
@@ -533,8 +570,16 @@
     localStorage.setItem("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
-      if (selectedLanguage === "en" && selectedSchoolLevel === "elementary" && selectedSubject === "science") {
-        loginButton.textContent = "🔬 Enter Elementary Science";
+      if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSubject === "science") {
+        if (selectedSchoolLevel === "high") {
+          const label = highSchoolPathwayGrid.querySelector(`[data-pathway="${selectedHighSchoolPathway}"] strong`)?.textContent || "Science";
+          loginButton.textContent = `🔬 ${selectedLanguage === "fr" ? "Entrer en" : "Enter"} ${label.replace(/^\S+\s/, "")}`;
+        } else {
+          const level = selectedLanguage === "fr"
+            ? (selectedSchoolLevel === "elementary" ? "Sciences CP–CM2" : "Sciences 6e–3e")
+            : (selectedSchoolLevel === "elementary" ? "G1–G5 Science" : "G6–G8 Science");
+          loginButton.textContent = `🔬 ${selectedLanguage === "fr" ? "Entrer en" : "Enter"} ${level}`;
+        }
         return;
       }
       if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSchoolLevel === "high" && selectedHighSchoolPathway !== "general") {
@@ -555,25 +600,39 @@
         && selectedSchoolLevel === "high";
       highSchoolPathwaySection.classList.toggle("is-visible", isVisible);
 
-      if (selectedLanguage === "fr") {
-        highSchoolPathwayTitle.textContent = "Choisir le parcours de mathématiques au lycée";
-        generalPathwayLabel.textContent = "Mathématiques au lycée";
-        generalPathwayGrades.textContent = "Seconde–Terminale";
-        ["🇫🇷 Spécialité Première", "🇫🇷 Spécialité Terminale", "🇫🇷 Mathématiques expertes"].forEach((label, index) => advancedPathwayLabels[index].textContent = label);
-        ["Première", "Terminale", "Terminale · option"].forEach((label, index) => advancedPathwayGrades[index].textContent = label);
-      } else {
-        highSchoolPathwayTitle.textContent = "Choose a high-school mathematics pathway";
-        generalPathwayLabel.textContent = "High School Math";
-        generalPathwayGrades.textContent = "Grades 9–12";
-        ["🇺🇸 AP Calculus AB", "🇺🇸 AP Calculus BC", "🇺🇸 AP Statistics"].forEach((label, index) => advancedPathwayLabels[index].textContent = label);
-        advancedPathwayGrades.forEach((element) => element.textContent = "Grades 11–12");
-      }
+      if (!isVisible) return updateLoginButtonLabel();
+      highSchoolPathwayTitle.textContent = selectedLanguage === "fr"
+        ? `Choisir le parcours de ${selectedSubject === "science" ? "sciences" : "mathématiques"} au lycée`
+        : `Choose a high-school ${selectedSubject} pathway`;
+      const entries = pathwayCatalog[selectedLanguage][selectedSubject];
+      if (!entries.some(([key]) => key === selectedHighSchoolPathway)) selectedHighSchoolPathway = "general";
+      highSchoolPathwayGrid.innerHTML = entries.map(([key, label, grades]) => `
+        <button class="high-school-pathway-option" type="button" data-pathway="${key}" aria-pressed="${key === selectedHighSchoolPathway}">
+          <strong>${label}</strong><span>${grades}</span>
+        </button>`).join("");
+      highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => {
+        option.addEventListener("click", () => selectHighSchoolPathway(option.dataset.pathway));
+      });
       updateLoginButtonLabel();
     }
 
     function updateSubjectSection() {
-      const isVisible = selectedLanguage === "en" && selectedSchoolLevel === "elementary";
+      const isVisible = selectedLanguage === "en" || selectedLanguage === "fr";
       subjectSection.classList.toggle("is-visible", isVisible);
+      if (isVisible) {
+        const isFrench = selectedLanguage === "fr";
+        const gradeText = isFrench
+          ? { elementary: "CP–CM2", middle: "6e–3e", high: "Seconde–Terminale" }[selectedSchoolLevel]
+          : { elementary: "Grades 1–5", middle: "Grades 6–8", high: "Grades 9–12" }[selectedSchoolLevel];
+        subjectTitle.textContent = isFrench ? "Choisir une matière" : "Choose a subject";
+        mathSubjectLabel.textContent = isFrench ? "🧮 Mathématiques" : "🧮 Mathematics";
+        scienceSubjectLabel.textContent = isFrench ? "🔬 Sciences" : "🔬 Science";
+        mathSubjectGrades.textContent = gradeText;
+        scienceSubjectGrades.textContent = selectedSchoolLevel === "high"
+          ? (isFrench ? "Lycée & approfondissement" : "G9–G12 & AP")
+          : gradeText;
+      }
+      updateHighSchoolPathway();
       updateLoginButtonLabel();
     }
 
@@ -622,15 +681,14 @@
       subjectOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.subject === subject));
       });
-      updateLoginButtonLabel();
+      selectedHighSchoolPathway = "general";
+      updateHighSchoolPathway();
     }
 
     function selectHighSchoolPathway(pathway) {
       selectedHighSchoolPathway = pathway;
       localStorage.setItem("gem-high-school-pathway", pathway);
-      highSchoolPathwayOptions.forEach((option) => {
-        option.setAttribute("aria-pressed", String(option.dataset.pathway === pathway));
-      });
+      highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => option.setAttribute("aria-pressed", String(option.dataset.pathway === pathway)));
       updateLoginButtonLabel();
     }
 
@@ -641,9 +699,6 @@
     });
     schoolLevelOptions.forEach((option) => {
       option.addEventListener("click", () => selectSchoolLevel(option.dataset.level));
-    });
-    highSchoolPathwayOptions.forEach((option) => {
-      option.addEventListener("click", () => selectHighSchoolPathway(option.dataset.pathway));
     });
     subjectOptions.forEach((option) => {
       option.addEventListener("click", () => selectSubject(option.dataset.subject));
@@ -671,10 +726,10 @@
         const schoolLevelRoute = languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
         const selectedRoute = selectedLanguage === "ko"
           ? languageRoutes.ko
-          : selectedLanguage === "en" && selectedSchoolLevel === "elementary"
+          : selectedSchoolLevel !== "high"
             ? schoolLevelRoute?.[selectedSubject]
           : selectedSchoolLevel === "high"
-            ? schoolLevelRoute?.[selectedHighSchoolPathway]
+            ? schoolLevelRoute?.[selectedSubject]?.[selectedHighSchoolPathway]
             : schoolLevelRoute;
         location.replace(selectedRoute || data.redirect || "/class.html");
       } catch (error) {
