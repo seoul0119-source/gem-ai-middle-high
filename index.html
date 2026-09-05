@@ -182,7 +182,7 @@
 
     .subject-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -420,6 +420,10 @@
             <strong id="science-subject-label">🔬 Science</strong>
             <span id="science-subject-grades">Grades 1–5</span>
           </button>
+          <button class="subject-option" type="button" data-subject="language" aria-pressed="false">
+            <strong id="language-subject-label">📚 English Language Arts</strong>
+            <span id="language-subject-grades">Grades 1–5</span>
+          </button>
         </div>
       </div>
 
@@ -484,18 +488,26 @@
     const mathSubjectGrades = document.getElementById("math-subject-grades");
     const scienceSubjectLabel = document.getElementById("science-subject-label");
     const scienceSubjectGrades = document.getElementById("science-subject-grades");
+    const languageSubjectLabel = document.getElementById("language-subject-label");
+    const languageSubjectGrades = document.getElementById("language-subject-grades");
     const usScience = "https://gem-english-elementary-science.seoul0119.chatgpt.site";
     const frScience = "https://gem-french-elementary-science.seoul0119.chatgpt.site";
+    const usElementaryEla = "https://gem-english-elementary-ela.seoul0119.chatgpt.site";
+    const usSecondaryEla = "https://gem-english-secondary-ela.seoul0119.chatgpt.site";
+    const frElementaryLanguage = "https://gem-francais-elementaire.seoul0119.chatgpt.site";
+    const frSecondaryLanguage = "https://gem-francais-secondaire.seoul0119.chatgpt.site";
     const languageRoutes = {
       ko: "/class.html",
       en: {
         elementary: {
           math: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
-          science: usScience
+          science: usScience,
+          language: usElementaryEla
         },
         middle: {
           math: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
-          science: usScience
+          science: usScience,
+          language: usSecondaryEla
         },
         high: {
           math: {
@@ -504,17 +516,24 @@
             advanced2: "https://gem-ap-calculus-bc.seoul0119.chatgpt.site",
             advanced3: "https://gem-ap-statistics.seoul0119.chatgpt.site"
           },
-          science: { general: usScience, advanced1: usScience, advanced2: usScience, advanced3: usScience, advanced4: usScience, advanced5: usScience, advanced6: usScience, advanced7: usScience, advanced8: usScience }
+          science: { general: usScience, advanced1: usScience, advanced2: usScience, advanced3: usScience, advanced4: usScience, advanced5: usScience, advanced6: usScience, advanced7: usScience, advanced8: usScience },
+          language: {
+            general: usSecondaryEla,
+            advanced1: "https://gem-ap-english-language.seoul0119.chatgpt.site",
+            advanced2: "https://gem-ap-english-literature.seoul0119.chatgpt.site"
+          }
         }
       },
       fr: {
         elementary: {
           math: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
-          science: frScience
+          science: frScience,
+          language: frElementaryLanguage
         },
         middle: {
           math: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
-          science: frScience
+          science: frScience,
+          language: frSecondaryLanguage
         },
         high: {
           math: {
@@ -523,7 +542,8 @@
             advanced2: "https://gem-specialite-mathematiques-terminale.seoul0119.chatgpt.site",
             advanced3: "https://gem-mathematiques-expertes.seoul0119.chatgpt.site"
           },
-          science: { general: frScience, advanced1: frScience, advanced2: frScience, advanced3: frScience, advanced4: frScience }
+          science: { general: frScience, advanced1: frScience, advanced2: frScience, advanced3: frScience, advanced4: frScience },
+          language: { general: frSecondaryLanguage }
         }
       }
     };
@@ -545,6 +565,11 @@
           ["advanced6", "∫ AP Physics C: Mechanics", "AP"],
           ["advanced7", "⚡ AP Physics C: Electricity & Magnetism", "AP"],
           ["advanced8", "🔭 All U.S. Science Programs", "G1–G12 & AP"]
+        ],
+        language: [
+          ["general", "English Language Arts", "Grades 9–12"],
+          ["advanced1", "🇺🇸 AP English Language and Composition", "Grades 11–12"],
+          ["advanced2", "🇺🇸 AP English Literature and Composition", "Grades 11–12"]
         ]
       },
       fr: {
@@ -560,6 +585,9 @@
           ["advanced2", "🧬 Biologie, Terre & santé", "Approfondissement"],
           ["advanced3", "💻 Numérique & informatique", "Approfondissement"],
           ["advanced4", "⚙️ Sciences de l’ingénieur", "Approfondissement"]
+        ],
+        language: [
+          ["general", "Français, langue et littérature", "Seconde–Terminale"]
         ]
       }
     };
@@ -570,6 +598,16 @@
     localStorage.setItem("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
+      if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSubject === "language") {
+        const isFrench = selectedLanguage === "fr";
+        const label = selectedSchoolLevel === "high"
+          ? highSchoolPathwayGrid.querySelector(`[data-pathway="${selectedHighSchoolPathway}"] strong`)?.textContent
+          : isFrench
+            ? (selectedSchoolLevel === "elementary" ? "Français CP–CM2" : "Français 6e–3e")
+            : (selectedSchoolLevel === "elementary" ? "G1–G5 English Language Arts" : "G6–G8 English Language Arts");
+        loginButton.textContent = `📚 ${isFrench ? "Entrer en" : "Enter"} ${(label || (isFrench ? "français" : "English Language Arts")).replace(/^🇺🇸 |^🇫🇷 /, "")}`;
+        return;
+      }
       if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSubject === "science") {
         if (selectedSchoolLevel === "high") {
           const label = highSchoolPathwayGrid.querySelector(`[data-pathway="${selectedHighSchoolPathway}"] strong`)?.textContent || "Science";
@@ -601,9 +639,12 @@
       highSchoolPathwaySection.classList.toggle("is-visible", isVisible);
 
       if (!isVisible) return updateLoginButtonLabel();
+      const pathwaySubject = selectedLanguage === "fr"
+        ? { math: "mathématiques", science: "sciences", language: "français et littérature" }[selectedSubject]
+        : { math: "mathematics", science: "science", language: "English Language Arts" }[selectedSubject];
       highSchoolPathwayTitle.textContent = selectedLanguage === "fr"
-        ? `Choisir le parcours de ${selectedSubject === "science" ? "sciences" : "mathématiques"} au lycée`
-        : `Choose a high-school ${selectedSubject} pathway`;
+        ? `Choisir le parcours de ${pathwaySubject} au lycée`
+        : `Choose a high-school ${pathwaySubject} pathway`;
       const entries = pathwayCatalog[selectedLanguage][selectedSubject];
       if (!entries.some(([key]) => key === selectedHighSchoolPathway)) selectedHighSchoolPathway = "general";
       highSchoolPathwayGrid.innerHTML = entries.map(([key, label, grades]) => `
@@ -627,9 +668,13 @@
         subjectTitle.textContent = isFrench ? "Choisir une matière" : "Choose a subject";
         mathSubjectLabel.textContent = isFrench ? "🧮 Mathématiques" : "🧮 Mathematics";
         scienceSubjectLabel.textContent = isFrench ? "🔬 Sciences" : "🔬 Science";
+        languageSubjectLabel.textContent = isFrench ? "📚 Français & littérature" : "📚 English Language Arts";
         mathSubjectGrades.textContent = gradeText;
         scienceSubjectGrades.textContent = selectedSchoolLevel === "high"
           ? (isFrench ? "Lycée & approfondissement" : "G9–G12 & AP")
+          : gradeText;
+        languageSubjectGrades.textContent = selectedSchoolLevel === "high"
+          ? (isFrench ? "Lycée · général, spécialités & options" : "G9–G12 & AP")
           : gradeText;
       }
       updateHighSchoolPathway();
