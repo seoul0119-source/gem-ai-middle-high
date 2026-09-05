@@ -352,6 +352,78 @@
 
       .subject-grid { grid-template-columns: 1fr; }
     }
+
+    .parent-registration-dialog {
+      width: min(92vw, 460px);
+      padding: 0;
+      border: 0;
+      border-radius: 22px;
+      background: white;
+      color: #172033;
+      box-shadow: 0 24px 70px rgba(7, 22, 45, .28);
+      text-align: center;
+    }
+
+    .parent-registration-dialog::backdrop {
+      background: rgba(7, 22, 45, .62);
+      backdrop-filter: blur(3px);
+    }
+
+    .parent-registration-card {
+      padding: 34px 28px 28px;
+    }
+
+    .parent-registration-icon {
+      display: grid;
+      width: 68px;
+      height: 68px;
+      margin: 0 auto 18px;
+      place-items: center;
+      border-radius: 50%;
+      background: #eaf3ff;
+      font-size: 34px;
+    }
+
+    .parent-registration-card h2 {
+      margin: 0 0 14px;
+      color: #173d70;
+      font-size: 26px;
+      line-height: 1.3;
+    }
+
+    .parent-registration-card p {
+      margin: 0 0 12px;
+      color: #4f5e72;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .parent-registration-no-chatgpt {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #edf9f4;
+      color: #176348 !important;
+      font-weight: 700;
+    }
+
+    .parent-registration-continue {
+      width: 100%;
+      margin-top: 12px;
+      padding: 15px 18px;
+      border: 0;
+      border-radius: 12px;
+      background: #1e67c6;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .parent-registration-continue:focus-visible {
+      outline: 3px solid #f1cf7a;
+      outline-offset: 3px;
+    }
+
   </style>
 </head>
 
@@ -453,7 +525,9 @@
       </form>
 
       <div class="notice">
-        학생 ID는 담당 선생님에게 확인해 주세요.<br>
+        첫 체험은 GEM 학생 ID만으로 바로 시작됩니다.<br>
+        ChatGPT 가입이나 로그인은 필요하지 않습니다.<br>
+        첫 체험 24시간 후에는 GEM 보호자 등록 안내가 표시됩니다.<br>
         입장 시간은 수업 관리표에 자동으로 기록됩니다.
       </div>
     </section>
@@ -463,11 +537,42 @@
     © GEM AI Learning Mission Class<br>
     AI가 가르치고, 사람 담임 선생님이 책임집니다.
   </footer>
+
+  <dialog
+    id="parent-registration-dialog"
+    class="parent-registration-dialog"
+    aria-labelledby="parent-registration-title"
+    aria-describedby="parent-registration-detail"
+  >
+    <div class="parent-registration-card">
+      <div class="parent-registration-icon" aria-hidden="true">👨‍👩‍👧</div>
+      <h2 id="parent-registration-title">GEM 보호자 등록 안내</h2>
+      <p id="parent-registration-intro">첫 체험 시작 후 24시간이 지났습니다.</p>
+      <p id="parent-registration-detail">
+        수업을 계속 이용하시려면 GEM 담당 선생님에게 보호자 등록을 요청해 주세요.
+      </p>
+      <p id="parent-registration-no-chatgpt" class="parent-registration-no-chatgpt">
+        ChatGPT 가입이나 로그인은 필요하지 않습니다.
+      </p>
+      <button id="parent-registration-continue" class="parent-registration-continue" type="button">
+        안내 확인 후 수업 계속하기
+      </button>
+    </div>
+  </dialog>
   <script>
     const loginForm = document.getElementById("student-login");
     const studentIdInput = document.getElementById("studentId");
     const loginButton = document.getElementById("login-button");
     const loginError = document.getElementById("login-error");
+    const parentRegistrationDialog = document.getElementById("parent-registration-dialog");
+    const parentRegistrationTitle = document.getElementById("parent-registration-title");
+    const parentRegistrationIntro = document.getElementById("parent-registration-intro");
+    const parentRegistrationDetail = document.getElementById("parent-registration-detail");
+    const parentRegistrationNoChatgpt = document.getElementById("parent-registration-no-chatgpt");
+    const parentRegistrationContinue = document.getElementById("parent-registration-continue");
+    const TRIAL_PERIOD_MS = 24 * 60 * 60 * 1000;
+    let pendingClassDestination = "";
+    let pendingNoticeStorageKey = "";
     const languageOptions = [...document.querySelectorAll(".language-option")];
     const schoolLevelSection = document.getElementById("school-level-section");
     const schoolLevelTitle = document.getElementById("school-level-title");
@@ -737,6 +842,109 @@
       updateLoginButtonLabel();
     }
 
+
+    const parentRegistrationCopy = {
+      ko: {
+        title: "GEM 보호자 등록 안내",
+        intro: "첫 체험 시작 후 24시간이 지났습니다.",
+        detail: "수업을 계속 이용하시려면 GEM 담당 선생님에게 보호자 등록을 요청해 주세요.",
+        noChatgpt: "ChatGPT 가입이나 로그인은 필요하지 않습니다.",
+        continueLabel: "안내 확인 후 수업 계속하기"
+      },
+      en: {
+        title: "GEM Parent Registration",
+        intro: "24 hours have passed since the first trial lesson.",
+        detail: "Please ask your GEM teacher to complete parent or guardian registration.",
+        noChatgpt: "No ChatGPT account or sign-in is required.",
+        continueLabel: "Continue to class"
+      },
+      fr: {
+        title: "Inscription du responsable légal GEM",
+        intro: "24 heures se sont écoulées depuis le premier cours d’essai.",
+        detail: "Veuillez demander à votre enseignant GEM d’effectuer l’inscription du parent ou responsable légal.",
+        noChatgpt: "Aucun compte ni connexion ChatGPT n’est nécessaire.",
+        continueLabel: "Continuer vers le cours"
+      }
+    };
+
+    function trialStorageKey(studentId) {
+      return `gem-first-trial-v1:${studentId}`;
+    }
+
+    function noticeStorageKey(studentId) {
+      return `gem-parent-notice-v1:${studentId}`;
+    }
+
+    function readStoredTimestamp(key) {
+      try {
+        const value = Number(localStorage.getItem(key));
+        return Number.isFinite(value) && value > 0 ? value : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function writeStoredTimestamp(key, value) {
+      try {
+        localStorage.setItem(key, String(value));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function applyParentRegistrationCopy() {
+      const copy = parentRegistrationCopy[selectedLanguage] || parentRegistrationCopy.ko;
+      parentRegistrationTitle.textContent = copy.title;
+      parentRegistrationIntro.textContent = copy.intro;
+      parentRegistrationDetail.textContent = copy.detail;
+      parentRegistrationNoChatgpt.textContent = copy.noChatgpt;
+      parentRegistrationContinue.textContent = copy.continueLabel;
+    }
+
+    function prepareParentRegistrationNotice(studentId, destination) {
+      const now = Date.now();
+      const firstTrialKey = trialStorageKey(studentId);
+      let firstTrialAt = readStoredTimestamp(firstTrialKey);
+
+      if (!firstTrialAt || firstTrialAt > now + 5 * 60 * 1000) {
+        writeStoredTimestamp(firstTrialKey, now);
+        return false;
+      }
+
+      if (now - firstTrialAt < TRIAL_PERIOD_MS) return false;
+      const registrationNoticeKey = noticeStorageKey(studentId);
+      if (readStoredTimestamp(registrationNoticeKey)) return false;
+
+      pendingClassDestination = destination;
+      pendingNoticeStorageKey = registrationNoticeKey;
+      applyParentRegistrationCopy();
+
+      if (typeof parentRegistrationDialog.showModal === "function") {
+        parentRegistrationDialog.showModal();
+      } else {
+        const copy = parentRegistrationCopy[selectedLanguage] || parentRegistrationCopy.ko;
+        window.alert(`${copy.title}\n\n${copy.intro}\n${copy.detail}\n\n${copy.noChatgpt}`);
+        writeStoredTimestamp(registrationNoticeKey, now);
+        location.replace(destination);
+      }
+      return true;
+    }
+
+    parentRegistrationContinue.addEventListener("click", () => {
+      if (pendingNoticeStorageKey) writeStoredTimestamp(pendingNoticeStorageKey, Date.now());
+      const destination = pendingClassDestination || "/class.html";
+      pendingClassDestination = "";
+      pendingNoticeStorageKey = "";
+      parentRegistrationDialog.close();
+      location.replace(destination);
+    });
+
+    parentRegistrationDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      parentRegistrationContinue.focus();
+    });
+
     languageOptions.forEach((option) => {
       if (!option.disabled) {
         option.addEventListener("click", () => selectLanguage(option.dataset.language));
@@ -776,7 +984,10 @@
           : selectedSchoolLevel === "high"
             ? schoolLevelRoute?.[selectedSubject]?.[selectedHighSchoolPathway]
             : schoolLevelRoute;
-        location.replace(selectedRoute || data.redirect || "/class.html");
+        const destination = selectedRoute || data.redirect || "/class.html";
+        const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
+        if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
+        location.replace(destination);
       } catch (error) {
         loginError.textContent = error.message || "입장 연결 중 문제가 발생했습니다.";
         loginButton.disabled = false;
