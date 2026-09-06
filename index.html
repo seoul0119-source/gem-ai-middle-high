@@ -182,7 +182,7 @@
 
     .subject-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -248,6 +248,57 @@
       border-color: #d49a22;
       background: #fff5d9;
       box-shadow: 0 0 0 3px rgba(212, 154, 34, .12);
+    }
+
+    .support-section {
+      margin: -14px 0 28px;
+      padding: 18px;
+      border: 1px solid #d9cbea;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #fbf7ff, #f7faff);
+    }
+
+    .support-title {
+      display: block;
+      margin-bottom: 4px;
+      color: #173d70;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .support-subtitle {
+      display: block;
+      margin-bottom: 12px;
+      color: #667085;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .support-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .support-option {
+      width: 100%;
+      min-height: 84px;
+      margin: 0;
+      padding: 13px 9px;
+      border: 2px solid #d4deec;
+      border-radius: 11px;
+      background: white;
+      color: #173d70;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .support-option strong { display: block; margin-bottom: 4px; font-size: 15px; }
+    .support-option[aria-pressed="true"] {
+      border-color: #7654b3;
+      background: #f4edff;
+      box-shadow: 0 0 0 3px rgba(118, 84, 179, .12);
     }
 
     label {
@@ -350,7 +401,7 @@
         grid-template-columns: 1fr;
       }
 
-      .subject-grid { grid-template-columns: 1fr; }
+      .subject-grid, .support-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     .parent-registration-dialog {
@@ -496,6 +547,10 @@
             <strong id="language-subject-label">📚 English Language Arts</strong>
             <span id="language-subject-grades">Grades 1–5</span>
           </button>
+          <button class="subject-option" type="button" data-subject="social" aria-pressed="false">
+            <strong id="social-subject-label">🌎 Social Studies</strong>
+            <span id="social-subject-grades">Grades 1–5</span>
+          </button>
         </div>
       </div>
 
@@ -504,6 +559,25 @@
           Choose a high-school mathematics pathway
         </span>
         <div id="high-school-pathway-grid" class="high-school-pathway-grid" role="group" aria-labelledby="high-school-pathway-title"></div>
+      </div>
+
+      <div class="support-section" aria-live="polite">
+        <span class="support-title">시험·연구·글쓰기 선택과목</span>
+        <span class="support-subtitle">Exam &amp; Academic Support · 학생 ID로 입장합니다.</span>
+        <div class="support-grid" role="group" aria-label="시험 및 학술 선택과목">
+          <button class="support-option" type="button" data-support="sat" aria-pressed="false">
+            <strong>📝 SAT Prep</strong><span>Reading &amp; Writing · Math</span>
+          </button>
+          <button class="support-option" type="button" data-support="act" aria-pressed="false">
+            <strong>✅ ACT Prep</strong><span>English · Math · Reading · Science · Writing</span>
+          </button>
+          <button class="support-option" type="button" data-support="ib" aria-pressed="false">
+            <strong>🎓 IB Diploma</strong><span>TOK · EE · Academic Writing</span>
+          </button>
+          <button class="support-option" type="button" data-support="bac" aria-pressed="false">
+            <strong>🇫🇷 Bac Méthodologie</strong><span>Écrit · Oral · Recherche</span>
+          </button>
+        </div>
       </div>
 
       <form id="student-login">
@@ -595,24 +669,35 @@
     const scienceSubjectGrades = document.getElementById("science-subject-grades");
     const languageSubjectLabel = document.getElementById("language-subject-label");
     const languageSubjectGrades = document.getElementById("language-subject-grades");
+    const socialSubjectLabel = document.getElementById("social-subject-label");
+    const socialSubjectGrades = document.getElementById("social-subject-grades");
+    const supportOptions = [...document.querySelectorAll(".support-option")];
     const usScience = "https://gem-english-elementary-science.seoul0119.chatgpt.site";
     const frScience = "https://gem-french-elementary-science.seoul0119.chatgpt.site";
     const usElementaryEla = "https://gem-english-elementary-ela.seoul0119.chatgpt.site";
     const usSecondaryEla = "https://gem-english-secondary-ela.seoul0119.chatgpt.site";
     const frElementaryLanguage = "https://gem-francais-elementaire.seoul0119.chatgpt.site";
     const frSecondaryLanguage = "https://gem-francais-secondaire.seoul0119.chatgpt.site";
+    const supportRoutes = {
+      sat: "https://gem-sat-prep-support.seoul0119.chatgpt.site",
+      act: "https://gem-act-prep-support.seoul0119.chatgpt.site",
+      ib: "https://gem-ib-diploma-support.seoul0119.chatgpt.site",
+      bac: "https://gem-baccalaureat-methodologie.seoul0119.chatgpt.site"
+    };
     const languageRoutes = {
       ko: "/class.html",
       en: {
         elementary: {
           math: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
           science: usScience,
-          language: usElementaryEla
+          language: usElementaryEla,
+          social: "https://gem-english-elementary-social-studies.seoul0119.chatgpt.site"
         },
         middle: {
           math: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
           science: usScience,
-          language: usSecondaryEla
+          language: usSecondaryEla,
+          social: "https://gem-english-middle-school-social-studies.seoul0119.chatgpt.site"
         },
         high: {
           math: {
@@ -626,6 +711,10 @@
             general: usSecondaryEla,
             advanced1: "https://gem-ap-english-language.seoul0119.chatgpt.site",
             advanced2: "https://gem-ap-english-literature.seoul0119.chatgpt.site"
+          },
+          social: {
+            general: "https://gem-english-high-school-social-studies.seoul0119.chatgpt.site",
+            advanced1: "https://gem-ap-social-studies-humanities.seoul0119.chatgpt.site"
           }
         }
       },
@@ -633,12 +722,14 @@
         elementary: {
           math: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
           science: frScience,
-          language: frElementaryLanguage
+          language: frElementaryLanguage,
+          social: "https://gem-histoire-geographie-emc-primaire.seoul0119.chatgpt.site"
         },
         middle: {
           math: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
           science: frScience,
-          language: frSecondaryLanguage
+          language: frSecondaryLanguage,
+          social: "https://gem-histoire-geographie-emc-college.seoul0119.chatgpt.site"
         },
         high: {
           math: {
@@ -648,7 +739,11 @@
             advanced3: "https://gem-mathematiques-expertes.seoul0119.chatgpt.site"
           },
           science: { general: frScience, advanced1: frScience, advanced2: frScience, advanced3: frScience, advanced4: frScience },
-          language: { general: frSecondaryLanguage }
+          language: { general: frSecondaryLanguage },
+          social: {
+            general: "https://gem-histoire-geographie-emc-lycee.seoul0119.chatgpt.site",
+            advanced1: "https://gem-hggsp-histoire-des-arts.seoul0119.chatgpt.site"
+          }
         }
       }
     };
@@ -675,6 +770,10 @@
           ["general", "English Language Arts", "Grades 9–12"],
           ["advanced1", "🇺🇸 AP English Language and Composition", "Grades 11–12"],
           ["advanced2", "🇺🇸 AP English Literature and Composition", "Grades 11–12"]
+        ],
+        social: [
+          ["general", "🏛 Social Studies & History", "Grades 9–12"],
+          ["advanced1", "📜 AP Social Studies & Humanities", "10 AP Courses"]
         ]
       },
       fr: {
@@ -693,6 +792,10 @@
         ],
         language: [
           ["general", "Français, langue et littérature", "Seconde–Terminale"]
+        ],
+        social: [
+          ["general", "🗺️ Histoire–Géographie–EMC", "Seconde–Terminale"],
+          ["advanced1", "🎨 HGGSP & Histoire des arts", "Spécialités"]
         ]
       }
     };
@@ -700,9 +803,25 @@
     let selectedSchoolLevel = "elementary";
     let selectedHighSchoolPathway = "general";
     let selectedSubject = "math";
+    let selectedSupportCourse = "";
     localStorage.setItem("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
+      if (selectedSupportCourse) {
+        const label = document.querySelector(`[data-support="${selectedSupportCourse}"] strong`)?.textContent || "Academic Support";
+        loginButton.textContent = `🚀 Enter ${label.replace(/^\S+\s/, "")}`;
+        return;
+      }
+      if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSubject === "social") {
+        const isFrench = selectedLanguage === "fr";
+        const label = selectedSchoolLevel === "high"
+          ? highSchoolPathwayGrid.querySelector(`[data-pathway="${selectedHighSchoolPathway}"] strong`)?.textContent
+          : isFrench
+            ? (selectedSchoolLevel === "elementary" ? "Histoire–Géo–EMC CP–CM2" : "Histoire–Géo–EMC 6e–3e")
+            : (selectedSchoolLevel === "elementary" ? "G1–G5 Social Studies" : "G6–G8 Social Studies");
+        loginButton.textContent = `🌍 ${isFrench ? "Entrer en" : "Enter"} ${(label || "Social Studies").replace(/^\S+\s/, "")}`;
+        return;
+      }
       if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSubject === "language") {
         const isFrench = selectedLanguage === "fr";
         const label = selectedSchoolLevel === "high"
@@ -745,8 +864,8 @@
 
       if (!isVisible) return updateLoginButtonLabel();
       const pathwaySubject = selectedLanguage === "fr"
-        ? { math: "mathématiques", science: "sciences", language: "français et littérature" }[selectedSubject]
-        : { math: "mathematics", science: "science", language: "English Language Arts" }[selectedSubject];
+        ? { math: "mathématiques", science: "sciences", language: "français et littérature", social: "l’histoire-géographie et l’EMC" }[selectedSubject]
+        : { math: "mathematics", science: "science", language: "English Language Arts", social: "social studies and history" }[selectedSubject];
       highSchoolPathwayTitle.textContent = selectedLanguage === "fr"
         ? `Choisir le parcours de ${pathwaySubject} au lycée`
         : `Choose a high-school ${pathwaySubject} pathway`;
@@ -774,12 +893,16 @@
         mathSubjectLabel.textContent = isFrench ? "🧮 Mathématiques" : "🧮 Mathematics";
         scienceSubjectLabel.textContent = isFrench ? "🔬 Sciences" : "🔬 Science";
         languageSubjectLabel.textContent = isFrench ? "📚 Français & littérature" : "📚 English Language Arts";
+        socialSubjectLabel.textContent = isFrench ? "🗺️ Histoire–Géo–EMC" : (selectedSchoolLevel === "high" ? "🏛 Social Studies & History" : "🌎 Social Studies");
         mathSubjectGrades.textContent = gradeText;
         scienceSubjectGrades.textContent = selectedSchoolLevel === "high"
           ? (isFrench ? "Lycée & approfondissement" : "G9–G12 & AP")
           : gradeText;
         languageSubjectGrades.textContent = selectedSchoolLevel === "high"
           ? (isFrench ? "Lycée · général, spécialités & options" : "G9–G12 & AP")
+          : gradeText;
+        socialSubjectGrades.textContent = selectedSchoolLevel === "high"
+          ? (isFrench ? "Lycée & spécialités" : "G9–G12 & AP")
           : gradeText;
       }
       updateHighSchoolPathway();
@@ -788,6 +911,8 @@
 
     function selectLanguage(language) {
       selectedLanguage = language;
+      selectedSupportCourse = "";
+      supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
       localStorage.setItem("gem-program-language", language);
       languageOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.language === language));
@@ -817,6 +942,8 @@
 
     function selectSchoolLevel(level) {
       selectedSchoolLevel = level;
+      selectedSupportCourse = "";
+      supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
       localStorage.setItem("gem-school-level", level);
       schoolLevelOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.level === level));
@@ -827,6 +954,8 @@
 
     function selectSubject(subject) {
       selectedSubject = subject;
+      selectedSupportCourse = "";
+      supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
       localStorage.setItem("gem-subject", subject);
       subjectOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.subject === subject));
@@ -837,11 +966,12 @@
 
     function selectHighSchoolPathway(pathway) {
       selectedHighSchoolPathway = pathway;
+      selectedSupportCourse = "";
+      supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
       localStorage.setItem("gem-high-school-pathway", pathway);
       highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => option.setAttribute("aria-pressed", String(option.dataset.pathway === pathway)));
       updateLoginButtonLabel();
     }
-
 
     const parentRegistrationCopy = {
       ko: {
@@ -945,6 +1075,15 @@
       parentRegistrationContinue.focus();
     });
 
+    function selectSupportCourse(course) {
+      selectedSupportCourse = course;
+      localStorage.setItem("gem-support-course", course);
+      supportOptions.forEach((option) => option.setAttribute("aria-pressed", String(option.dataset.support === course)));
+      subjectOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
+      highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => option.setAttribute("aria-pressed", "false"));
+      updateLoginButtonLabel();
+    }
+
     languageOptions.forEach((option) => {
       if (!option.disabled) {
         option.addEventListener("click", () => selectLanguage(option.dataset.language));
@@ -955,6 +1094,9 @@
     });
     subjectOptions.forEach((option) => {
       option.addEventListener("click", () => selectSubject(option.dataset.subject));
+    });
+    supportOptions.forEach((option) => {
+      option.addEventListener("click", () => selectSupportCourse(option.dataset.support));
     });
     selectSubject(selectedSubject);
     selectHighSchoolPathway(selectedHighSchoolPathway);
@@ -977,7 +1119,9 @@
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "학생 ID를 확인하지 못했습니다.");
         const schoolLevelRoute = languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
-        const selectedRoute = selectedLanguage === "ko"
+        const selectedRoute = selectedSupportCourse
+          ? supportRoutes[selectedSupportCourse]
+          : selectedLanguage === "ko"
           ? languageRoutes.ko
           : selectedSchoolLevel !== "high"
             ? schoolLevelRoute?.[selectedSubject]
@@ -991,7 +1135,7 @@
       } catch (error) {
         loginError.textContent = error.message || "입장 연결 중 문제가 발생했습니다.";
         loginButton.disabled = false;
-        selectLanguage(selectedLanguage);
+        updateLoginButtonLabel();
         studentIdInput.focus();
       }
     });
