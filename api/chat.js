@@ -914,6 +914,13 @@ export default async function handler(request, response) {
             ? `\n\n[La réponse de l'élève vient de la reconnaissance vocale]\nSi elle est peu claire ou sans rapport avec l'activité, ne la note pas comme fausse et ne révèle jamais la réponse. Dis seulement : « Je n'ai pas bien compris. Donne une réponse courte encore une fois. » Puis attends sur la même activité. Utilise uniquement le français.`
             : `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
         : "";
+      const latestUserMessage = messages[messages.length - 1];
+      const koreanLessonStart = course.language !== "en" && course.language !== "fr"
+        && latestUserMessage?.role === "user"
+        && /^(?:시작|시작하기|수학\s*시작하기|국어\s*시작하기|사회\s*시작하기|한국사\s*시작하기|과학\s*시작하기|영어\s*시작|start|처음부터|새\s*수업)[.!?。]?$/i.test(String(latestUserMessage.content || "").trim());
+      const koreanStartRule = koreanLessonStart
+        ? `\n\n[한국어 수업 첫 시작 — 최우선 규칙]\n인사말, 과정명, 학년, 레벨, 수업 방법, 문제 수, 버튼 안내와 “수업을 시작합니다”를 출력하지 마세요. 응답의 첫 글자부터 바로 “문제 1/10” 또는 해당 과정의 “활동 1/10”으로 시작하고 첫 문제 하나만 제시한 뒤 학생의 답을 기다리세요.`
+        : "";
       const grade3Start = isGrade3AvatarStart(messages, request.body?.courseId);
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
       const grade3Hint = isAvatarHintRequest(messages, request.body?.courseId);
@@ -962,7 +969,7 @@ export default async function handler(request, response) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
+            instructions: course.prompt + historyRule + voiceRule + koreanStartRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
