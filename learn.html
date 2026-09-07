@@ -1108,10 +1108,14 @@
       });
     }
 
-    async function speakText(text) {
-      const withoutRawVisual = String(text || "")
+    async function speakText(text, skipLessonIntro = false) {
+      let withoutRawVisual = String(text || "")
         .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, "")
         .replace(/\[TOEIC 그림 시작\][\s\S]*?\[TOEIC 그림 끝\]/g, "");
+      if (skipLessonIntro && !COURSE.avatar) {
+        const firstProblem = withoutRawVisual.search(/(?:문제|활동)\s*1\s*\/\s*10\b/i);
+        if (firstProblem >= 0) withoutRawVisual = withoutRawVisual.slice(firstProblem);
+      }
       const clean = IS_MATH ? cleanMathForSpeech(withoutRawVisual) : cleanLessonForSpeech(withoutRawVisual);
       if (!clean) return;
       if (currentAudio) currentAudio.pause();
@@ -1551,7 +1555,7 @@
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText });
         rememberGeneratedProblem(answerReadyText);
-        if (COURSE.voice || autoSpeak) await speakText(lastAssistantText);
+        if (COURSE.voice || autoSpeak) await speakText(lastAssistantText, isStarting);
         if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|lesson (?:is )?(?:complete|completed|finished)|you (?:have |'ve )?completed (?:today's |this )?lesson/i.test(lastAssistantText)) {
           await finishLesson(false);
         }
