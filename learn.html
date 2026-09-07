@@ -1088,29 +1088,23 @@
     }
 
     function browserSpeak(text) {
-      if (!("speechSynthesis" in window)) return Promise.resolve(false);
+      if (!("speechSynthesis" in window)) return;
       const clean = cleanLessonForSpeech(text);
-      if (!clean) return Promise.resolve(false);
+      if (!clean) return;
       window.speechSynthesis.cancel();
 
       const parts = clean.split(/\n+/).map((part) => part.trim()).filter(Boolean);
-      return new Promise((resolve) => {
-        parts.forEach((part, index) => {
-          const latinCount = (part.match(/[A-Za-z]/g) || []).length;
-          const koreanCount = (part.match(/[가-힣]/g) || []).length;
-          const language = COURSE.language === "fr" ? "fr-FR" : (latinCount > koreanCount ? "en-US" : "ko-KR");
-          const utterance = new SpeechSynthesisUtterance(part);
-          utterance.lang = language;
-          utterance.voice = getVoice(language);
-          utterance.rate = language === "ko-KR" ? 0.9 : 0.78;
-          utterance.pitch = 1;
-          utterance.volume = teacherVolume;
-          if (index === parts.length - 1) {
-            utterance.addEventListener("end", () => resolve(true), { once: true });
-            utterance.addEventListener("error", () => resolve(false), { once: true });
-          }
-          window.speechSynthesis.speak(utterance);
-        });
+      parts.forEach((part) => {
+        const latinCount = (part.match(/[A-Za-z]/g) || []).length;
+        const koreanCount = (part.match(/[가-힣]/g) || []).length;
+        const language = COURSE.language === "fr" ? "fr-FR" : (latinCount > koreanCount ? "en-US" : "ko-KR");
+        const utterance = new SpeechSynthesisUtterance(part);
+        utterance.lang = language;
+        utterance.voice = getVoice(language);
+        utterance.rate = language === "ko-KR" ? 0.9 : 0.78;
+        utterance.pitch = 1;
+        utterance.volume = teacherVolume;
+        window.speechSynthesis.speak(utterance);
       });
     }
 
@@ -1125,12 +1119,6 @@
       window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: true } }));
 
       try {
-        // Korean classes use the device speech engine so playback can begin
-        // immediately instead of waiting for a complete MP3 to be generated.
-        if (!COURSE.avatar && "speechSynthesis" in window) {
-          await browserSpeak(clean);
-          return;
-        }
         const response = await fetch("/api/speech", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
