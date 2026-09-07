@@ -804,6 +804,7 @@
     let audioLevelTimer = null;
     let heardSpeech = false;
     let speechFrameCount = 0;
+    let lastSpeechAt = 0;
     let currentAudio = null;
     let currentSpeechResolve = null;
     const savedTeacherVolume = Number(localStorage.getItem(VOLUME_KEY));
@@ -821,11 +822,11 @@
     }
 
     function settleMobileLessonView() {
-      if (!isMobileAvatarLesson()) return;
+      if (!mobileLessonMedia.matches) return;
       input.blur();
       requestAnimationFrame(() => {
         chat.scrollTop = chat.scrollHeight;
-        window.scrollTo(0, 0);
+        if (isMobileAvatarLesson()) window.scrollTo(0, 0);
       });
     }
 
@@ -908,7 +909,7 @@
         sendButton.disabled = false;
         micButton.disabled = false;
         connection.innerHTML = `<strong>학생</strong> ${session.student.name} · 수업 기록 중`;
-        if (isMobileAvatarLesson()) settleMobileLessonView();
+        if (mobileLessonMedia.matches) settleMobileLessonView();
         else input.focus();
         return true;
       } catch (error) {
@@ -1087,23 +1088,29 @@
     }
 
     function browserSpeak(text) {
-      if (!("speechSynthesis" in window)) return;
+      if (!("speechSynthesis" in window)) return Promise.resolve(false);
       const clean = cleanLessonForSpeech(text);
-      if (!clean) return;
+      if (!clean) return Promise.resolve(false);
       window.speechSynthesis.cancel();
 
       const parts = clean.split(/\n+/).map((part) => part.trim()).filter(Boolean);
-      parts.forEach((part) => {
-        const latinCount = (part.match(/[A-Za-z]/g) || []).length;
-        const koreanCount = (part.match(/[가-힣]/g) || []).length;
-        const language = COURSE.language === "fr" ? "fr-FR" : (latinCount > koreanCount ? "en-US" : "ko-KR");
-        const utterance = new SpeechSynthesisUtterance(part);
-        utterance.lang = language;
-        utterance.voice = getVoice(language);
-        utterance.rate = language === "ko-KR" ? 0.9 : 0.78;
-        utterance.pitch = 1;
-        utterance.volume = teacherVolume;
-        window.speechSynthesis.speak(utterance);
+      return new Promise((resolve) => {
+        parts.forEach((part, index) => {
+          const latinCount = (part.match(/[A-Za-z]/g) || []).length;
+          const koreanCount = (part.match(/[가-힣]/g) || []).length;
+          const language = COURSE.language === "fr" ? "fr-FR" : (latinCount > koreanCount ? "en-US" : "ko-KR");
+          const utterance = new SpeechSynthesisUtterance(part);
+          utterance.lang = language;
+          utterance.voice = getVoice(language);
+          utterance.rate = language === "ko-KR" ? 0.9 : 0.78;
+          utterance.pitch = 1;
+          utterance.volume = teacherVolume;
+          if (index === parts.length - 1) {
+            utterance.addEventListener("end", () => resolve(true), { once: true });
+            utterance.addEventListener("error", () => resolve(false), { once: true });
+          }
+          window.speechSynthesis.speak(utterance);
+        });
       });
     }
 
@@ -1118,6 +1125,12 @@
       window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: true } }));
 
       try {
+        // Korean classes use the device speech engine so playback can begin
+        // immediately instead of waiting for a complete MP3 to be generated.
+        if (!COURSE.avatar && "speechSynthesis" in window) {
+          await browserSpeak(clean);
+          return;
+        }
         const response = await fetch("/api/speech", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1562,7 +1575,7 @@
           : "<strong>상태</strong> 연결 확인 필요";
       } finally {
         setLoading(false);
-        if (isMobileAvatarLesson()) settleMobileLessonView();
+        if (mobileLessonMedia.matches) settleMobileLessonView();
         else input.focus();
         scheduleRecording(450);
       }
@@ -1597,7 +1610,7 @@
         sendButton.disabled = false;
         micButton.disabled = false;
         endLessonButton.disabled = false;
-        if (isMobileAvatarLesson()) settleMobileLessonView();
+        if (mobileLessonMedia.matches) settleMobileLessonView();
         else input.focus();
       } catch (error) {
         addMessage("assistant", error.message || (COURSE.avatar
@@ -1845,6 +1858,7 @@
         }
         heardSpeech = false;
         speechFrameCount = 0;
+        lastSpeechAt = 0;
         try {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
           const source = audioContext.createMediaStreamSource(recordingStream);
@@ -1859,9 +1873,17 @@
               const sample = (level - 128) / 128;
               energy += sample * sample;
             }
+            const now = Date.now();
             if (Math.sqrt(energy / levels.length) > 0.012) {
               speechFrameCount += 1;
-              if (speechFrameCount >= 2) heardSpeech = true;
+              if (speechFrameCount >= 2) {
+                heardSpeech = true;
+                lastSpeechAt = now;
+              }
+            } else if (heardSpeech && lastSpeechAt && now - lastSpeechAt >= 1000) {
+              // Wait as long as the learner needs before speaking. Once speech
+              // has begun, one second of silence marks the end of the answer.
+              if (recorder?.state === "recording") recorder.stop();
             }
           }, 100);
         } catch (error) {
@@ -1915,21 +1937,9 @@
         recordingStarting = false;
         micButton.classList.add("listening");
         micButton.textContent = COURSE.avatar ? AVATAR_TEXT.stopVoice : "■ 음성 대화 멈춤";
-        let remaining = conversationMode ? 10 : 8;
         connection.innerHTML = COURSE.avatar
-          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.listening} (${remaining}s)`
-          : `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
-        recordingCountdownTimer = setInterval(() => {
-          remaining -= 1;
-          if (remaining > 0 && recorder?.state === "recording") {
-            connection.innerHTML = COURSE.avatar
-              ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.listening} (${remaining}s)`
-              : `<strong>상태</strong> 학생 음성 듣는 중 (${remaining}초)`;
-          }
-        }, 1000);
-        recordingTimer = setTimeout(() => {
-          if (recorder?.state === "recording") recorder.stop();
-        }, conversationMode ? 10000 : 8000);
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.listening}`
+          : "<strong>상태</strong> 학생 음성 듣는 중 · 시간제한 없음";
       } catch (error) {
         recordingStarting = false;
         resetMic(true);
