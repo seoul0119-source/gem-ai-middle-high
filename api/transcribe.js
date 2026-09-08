@@ -96,10 +96,10 @@ export default async function handler(request, response) {
       form.append("file", new Blob([audioBuffer], { type: mimeType }), `student.${extension}`);
       form.append("model", model);
       form.append("response_format", "json");
-      form.append("prompt", lessonPrompt);
+      if (courseId !== "toeic") form.append("prompt", lessonPrompt);
       if (model === "gpt-transcribe") {
         if (language) form.append("languages[]", language);
-        keywords.forEach((keyword) => form.append("keywords[]", keyword));
+        if (courseId !== "toeic") keywords.forEach((keyword) => form.append("keywords[]", keyword));
       } else if (language) {
         form.append("language", language);
       }
@@ -139,6 +139,9 @@ export default async function handler(request, response) {
     const transcript = data.text.trim();
     console.info("GEM transcription success", transcriptionModel, transcript.length);
     const promptLeak = (
+      /Reading[\s.,]*Listening[\s.,]*Speaking[\s.,]*Writing/i.test(transcript)
+      || /grammar[\s.,]*vocabulary[\s.,]*TOEFL[\s.,]*TOEIC/i.test(transcript)
+      ||
       /한국\s*중고등학생이\s*(?:수학|사회|국어|한국사|과학)\s*(?:수업\s*문제의\s*)?답을/.test(transcript)
       || /한국\s*중고등학생의\s*(?:수학|사회|국어|한국사|과학)\s*문제에\s*대한\s*짧은\s*답변/.test(transcript)
       || /숫자.*음수.*분수.*제곱.*루트/.test(transcript)
