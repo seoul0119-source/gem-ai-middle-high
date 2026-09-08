@@ -37,7 +37,7 @@ function cleanText(value) {
 
   // Bracketed TOEIC/TOEFL counters are useful visually, but sound unnatural
   // when Korean and English labels are read together.
-  output = output.replace(/^\s*\[\s*\d+\s*\/\s*10\s*\][^\n]*$/gim, "");
+  output = output.replace(/^\s*\[\s*(?:(?:문제|활동|Activity|Question)\s*)?\d+\s*\/\s*10\s*\][^\n]*$/gim, "");
 
   // Counters such as "Activity 2/10" are useful on screen, but a speech
   // engine often reads 2/10 as a fraction or produces an unnatural suffix.
