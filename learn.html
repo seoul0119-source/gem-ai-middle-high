@@ -1072,6 +1072,9 @@
 
     function cleanLessonForSpeech(text) {
       return cleanForDisplay(text)
+        // TOEIC/TOEFL headings such as "[2/10] Listening Part 2 — ..."
+        // remain visible on screen but are never spoken.
+        .replace(/^\s*\[\s*\d+\s*\/\s*10\s*\][^\n]*$/gim, "")
         .replace(/^\s*(?:활동|문제|Activity|Activité)\s*\d+\s*\/\s*10[^\n]*$/gim, "")
         .replace(/^\s*(?:답|Answer|Réponse)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "")
         .replace(/_{4,}/g, COURSE.language === "fr" ? " blanc " : (COURSE.avatar ? " blank " : " 빈칸 "))
