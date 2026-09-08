@@ -1126,25 +1126,45 @@
       window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: true } }));
 
       try {
-        const response = await fetch("/api/speech", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: clean, courseId: COURSE_ID })
-        });
-        const data = await readJsonResponse(response, COURSE.avatar
-          ? AVATAR_TEXT.voiceUnavailable
-          : "AI 음성 서버가 잠시 응답하지 않습니다.");
-        if (!response.ok || !data.audio) throw new Error(data.error || (COURSE.avatar
-          ? AVATAR_TEXT.voiceUnavailable
-          : "음성 생성 실패"));
-        currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
-        currentAudio.volume = teacherVolume;
-        await currentAudio.play();
-        await new Promise((resolve) => {
-          currentSpeechResolve = resolve;
-          currentAudio.addEventListener("ended", resolve, { once: true });
-          currentAudio.addEventListener("error", resolve, { once: true });
-        });
+        let speechParts = [clean];
+        if (COURSE_ID === "toeic") {
+          const lines = clean.split(/\r?\n/);
+          const dIndex = lines.findIndex((line) => /^\s*D\s*[).:：]\s*\S+/i.test(line));
+          if (dIndex > 0) {
+            const beforeD = lines.slice(0, dIndex).join("\n").trim();
+            const choiceD = lines.slice(dIndex).join("\n").trim();
+            speechParts = [beforeD, choiceD].filter(Boolean);
+          }
+        }
+
+        // Fetch TOEIC choice D separately. The two audio files are prepared
+        // together and played consecutively, so the final choice cannot be
+        // skipped by a long mixed-language TTS request.
+        const audioParts = await Promise.all(speechParts.map(async (part) => {
+          const response = await fetch("/api/speech", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: part, courseId: COURSE_ID })
+          });
+          const data = await readJsonResponse(response, COURSE.avatar
+            ? AVATAR_TEXT.voiceUnavailable
+            : "AI 음성 서버가 잠시 응답하지 않습니다.");
+          if (!response.ok || !data.audio) throw new Error(data.error || (COURSE.avatar
+            ? AVATAR_TEXT.voiceUnavailable
+            : "음성 생성 실패"));
+          return data;
+        }));
+
+        for (const data of audioParts) {
+          currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
+          currentAudio.volume = teacherVolume;
+          await currentAudio.play();
+          await new Promise((resolve) => {
+            currentSpeechResolve = resolve;
+            currentAudio.addEventListener("ended", resolve, { once: true });
+            currentAudio.addEventListener("error", resolve, { once: true });
+          });
+        }
       } catch (error) {
         console.warn("Natural voice fallback", error);
         browserSpeak(clean);
