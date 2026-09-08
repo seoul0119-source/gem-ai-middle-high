@@ -1074,7 +1074,7 @@
       return cleanForDisplay(text)
         // TOEIC/TOEFL headings such as "[2/10] Listening Part 2 — ..."
         // remain visible on screen but are never spoken.
-        .replace(/^\s*\[\s*\d+\s*\/\s*10\s*\][^\n]*$/gim, "")
+        .replace(/^\s*\[\s*(?:(?:문제|활동|Activity|Question)\s*)?\d+\s*\/\s*10\s*\][^\n]*$/gim, "")
         .replace(/^\s*(?:활동|문제|Activity|Activité)\s*\d+\s*\/\s*10[^\n]*$/gim, "")
         .replace(/^\s*(?:답|Answer|Réponse)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim, "")
         .replace(/_{4,}/g, COURSE.language === "fr" ? " blanc " : (COURSE.avatar ? " blank " : " 빈칸 "))
@@ -1128,18 +1128,11 @@
       try {
         let speechParts = [clean];
         if (COURSE_ID === "toeic") {
-          const lines = clean.split(/\r?\n/);
-          const dIndex = lines.findIndex((line) => /^\s*D\s*[).:：]\s*\S+/i.test(line));
-          if (dIndex > 0) {
-            const beforeD = lines.slice(0, dIndex).join("\n").trim();
-            const choiceD = lines.slice(dIndex).join("\n").trim();
-            speechParts = [beforeD, choiceD].filter(Boolean);
-          }
+          speechParts = clean.split(/(?=^[ \t]*(?:[A-D][).:：]|\([A-D]\))[ \t]+)/gim)
+            .map((part) => part.trim()).filter(Boolean);
         }
 
-        // Fetch TOEIC choice D separately. The two audio files are prepared
-        // together and played consecutively, so the final choice cannot be
-        // skipped by a long mixed-language TTS request.
+        // Each visible choice has its own audio; never synthesize missing choices.
         const audioParts = await Promise.all(speechParts.map(async (part) => {
           const response = await fetch("/api/speech", {
             method: "POST",
@@ -1158,16 +1151,18 @@
         for (const data of audioParts) {
           currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
           currentAudio.volume = teacherVolume;
-          await currentAudio.play();
-          await new Promise((resolve) => {
+          await new Promise((resolve, reject) => {
             currentSpeechResolve = resolve;
             currentAudio.addEventListener("ended", resolve, { once: true });
-            currentAudio.addEventListener("error", resolve, { once: true });
+            currentAudio.addEventListener("error", reject, { once: true });
+            currentAudio.play().catch(reject);
           });
         }
       } catch (error) {
         console.warn("Natural voice fallback", error);
-        browserSpeak(clean);
+        if (COURSE_ID === "toeic") {
+          addMessage("assistant", "음성 재생에 실패했습니다. 음성 대화를 다시 시작해 주세요.");
+        } else browserSpeak(clean);
       } finally {
         currentSpeechResolve = null;
         window.dispatchEvent(new CustomEvent("gem-avatar-speaking", { detail: { speaking: false } }));
