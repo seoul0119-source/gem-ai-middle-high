@@ -41,6 +41,27 @@ test("keeps every existing classroom destination", () => {
   assert.equal(classHtml.split(elementaryEntrance).length - 1, 1, "Elementary entrance must remain exactly once");
 });
 
+test("offers 2027 and 2028 exam-year choices before the subjects", () => {
+  const yearSectionIndex = suneungHtml.indexOf('id="exam-year-title"');
+  const subjectSectionIndex = suneungHtml.indexOf('id="subject-title"');
+
+  assert.ok(yearSectionIndex >= 0, "exam-year selector must exist");
+  assert.ok(subjectSectionIndex > yearSectionIndex, "exam year must be selected before a subject");
+  assert.equal(suneungHtml.split('class="year-choice"').length - 1, 2);
+  assert.equal(suneungHtml.split('data-year="2027"').length - 1, 1);
+  assert.equal(suneungHtml.split('data-year="2028"').length - 1, 1);
+  assert.match(suneungHtml, /<strong>2027년<\/strong>/);
+  assert.match(suneungHtml, /<strong>2028년<\/strong>/);
+  assert.match(suneungHtml, /yearButtons\.forEach\(\(item\) => item\.setAttribute\("aria-pressed", String\(item === button\)\)\)/);
+  assert.match(suneungHtml, /subjectButtons\.forEach\(\(item\) => \{ item\.disabled = false; \}\)/);
+  assert.match(suneungHtml, /new URLSearchParams\(location\.hash\.slice\(1\)\)/);
+  assert.match(suneungHtml, /selection\.set\("year", selectedYear\)/);
+  assert.match(suneungHtml, /selection\.set\("subject", selectedSubjectButton\.dataset\.key\)/);
+  assert.match(suneungHtml, /savedYearButton[\s\S]*?selectYear\(savedYearButton, false\)[\s\S]*?savedSubjectButton[\s\S]*?selectSubject\(savedSubjectButton, false\)/);
+  assert.match(suneungHtml, /\.year-choice:focus-visible[\s\S]*?outline:3px solid var\(--navy-light\)/);
+  assert.match(suneungHtml, /@media \(max-width:420px\)[\s\S]*?\.year-options \{ grid-template-columns:1fr; \}/);
+});
+
 test("offers the seven requested Suneung subject groups behind the student session gate", () => {
   for (const label of [
     "수능 국어",
@@ -56,7 +77,7 @@ test("offers the seven requested Suneung subject groups behind the student sessi
 
   assert.equal(suneungHtml.split('class="exam-subject"').length - 1, 7);
   assert.equal(suneungHtml.split('type="button" data-subject=').length - 1, 7);
-  assert.equal(suneungHtml.split('aria-pressed="false"').length - 1, 7);
+  assert.equal(suneungHtml.split('aria-pressed="false" disabled').length - 1, 7);
   assert.doesNotMatch(suneungHtml, /learn\.html\?course=(?:csat|suneung)-/);
   assert.match(suneungHtml, /<body class="auth-pending">/);
   assert.match(suneungHtml, /fetch\("\/api\/session"/);
@@ -68,6 +89,7 @@ test("offers the seven requested Suneung subject groups behind the student sessi
   assert.match(suneungHtml, /href="\/class\.html"/);
   assert.match(suneungHtml, /role="status" aria-live="polite"/);
   assert.match(suneungHtml, /subjectButtons\.forEach\(\(item\) => item\.setAttribute\("aria-pressed", String\(item === button\)\)\)/);
+  assert.match(suneungHtml, /if \(!selectedYear\) return;/);
   assert.match(suneungHtml, /@media \(max-width:680px\)[\s\S]*?\.subjects \{ grid-template-columns:1fr; \}/);
   assert.match(suneungHtml, /\.exam-subject:focus-visible[\s\S]*?outline:3px solid var\(--navy-light\)/);
 });

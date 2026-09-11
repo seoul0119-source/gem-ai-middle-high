@@ -110,6 +110,73 @@
       cursor:pointer;
     }
 
+    .selection-panel {
+      margin-bottom:22px;
+      padding:22px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:#fff;
+      box-shadow:0 7px 20px rgba(18,48,85,.06);
+    }
+
+    .selection-panel h2 {
+      margin:0;
+      color:var(--navy-light);
+      font-size:22px;
+    }
+
+    .selection-guide {
+      margin:7px 0 17px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .year-options {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .year-choice {
+      min-height:78px;
+      padding:14px 18px;
+      border:2px solid #b9cbe0;
+      border-radius:14px;
+      background:#f8fbff;
+      color:var(--navy-light);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      font:inherit;
+      cursor:pointer;
+      transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
+    }
+
+    .year-choice strong { font-size:22px; }
+
+    .year-choice span {
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .year-choice:hover {
+      transform:translateY(-2px);
+      border-color:#6e9bd0;
+    }
+
+    .year-choice[aria-pressed="true"] {
+      border-color:var(--blue);
+      background:#eaf3ff;
+      box-shadow:0 7px 18px rgba(30,103,198,.16);
+    }
+
+    .year-choice:focus-visible {
+      outline:3px solid var(--navy-light);
+      outline-offset:3px;
+    }
+
     .subjects {
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -138,6 +205,18 @@
       transform:translateY(-2px);
       border-color:#88acd7;
       box-shadow:0 11px 26px rgba(18,48,85,.13);
+    }
+
+    .exam-subject:disabled {
+      opacity:.55;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+
+    .exam-subject:disabled:hover {
+      transform:none;
+      border-color:var(--line);
+      box-shadow:none;
     }
 
     .exam-subject:focus-visible {
@@ -235,8 +314,13 @@
     @media (max-width:680px) {
       header { padding:34px 16px 31px; }
       main { width:min(100% - 20px,960px); }
+      .selection-panel { padding:18px; }
       .subjects { grid-template-columns:1fr; }
       .exam-subject { min-height:112px; padding:17px; }
+    }
+
+    @media (max-width:420px) {
+      .year-options { grid-template-columns:1fr; }
     }
 
     @media (prefers-reduced-motion:reduce) {
@@ -248,59 +332,76 @@
   <header>
     <div class="brand">GEM AI LEARNING MISSION CLASS</div>
     <h1>🎯 한국 대학수학능력시험 수능관</h1>
-    <p>준비할 수능 과목을 선택하세요.</p>
+    <p>시험 연도와 준비할 수능 과목을 선택하세요.</p>
   </header>
 
   <main>
-    <section class="intro" aria-labelledby="subject-title">
-      <h2 id="subject-title">수능 과목 선택</h2>
-      <p>원하는 영역을 누르면 선택한 과목이 표시됩니다.</p>
+    <section class="intro" aria-labelledby="selection-title">
+      <h2 id="selection-title">수능 학습 선택</h2>
+      <p>학생의 시험 연도를 먼저 고른 뒤 원하는 영역을 선택해 주세요.</p>
       <div class="student-session">
         <span id="student" class="student">등록 학생 확인 중</span>
         <button id="logout" class="logout" type="button">수업 종료·나가기</button>
       </div>
     </section>
 
-    <section class="subjects" aria-label="수능 과목 선택">
-      <button class="exam-subject" type="button" data-subject="수능 국어" data-key="korean" aria-pressed="false">
+    <section class="selection-panel" aria-labelledby="exam-year-title">
+      <h2 id="exam-year-title">시험 연도 선택</h2>
+      <p class="selection-guide">학생이 수능을 응시할 연도를 선택하세요.</p>
+      <div class="year-options" role="group" aria-label="수능 시험 연도">
+        <button class="year-choice" type="button" data-year="2027" aria-pressed="false" aria-controls="subject-options">
+          <strong>2027년</strong><span>수능 응시</span>
+        </button>
+        <button class="year-choice" type="button" data-year="2028" aria-pressed="false" aria-controls="subject-options">
+          <strong>2028년</strong><span>수능 응시</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="selection-panel" aria-labelledby="subject-title">
+      <h2 id="subject-title">수능 과목 선택</h2>
+      <p class="selection-guide">시험 연도를 선택하면 과목 버튼이 활성화됩니다.</p>
+      <div id="subject-options" class="subjects">
+      <button class="exam-subject" type="button" data-subject="수능 국어" data-key="korean" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">📘</span>
         <span class="subject-copy"><strong>수능 국어</strong><small>국어 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
-      <button class="exam-subject" type="button" data-subject="수능 수학" data-key="math" aria-pressed="false">
+      <button class="exam-subject" type="button" data-subject="수능 수학" data-key="math" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">📐</span>
         <span class="subject-copy"><strong>수능 수학</strong><small>수학 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
-      <button class="exam-subject" type="button" data-subject="수능 영어" data-key="english" aria-pressed="false">
+      <button class="exam-subject" type="button" data-subject="수능 영어" data-key="english" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🔤</span>
         <span class="subject-copy"><strong>수능 영어</strong><small>영어 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
-      <button class="exam-subject" type="button" data-subject="수능 한국사" data-key="history" aria-pressed="false">
+      <button class="exam-subject" type="button" data-subject="수능 한국사" data-key="history" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🏛️</span>
         <span class="subject-copy"><strong>수능 한국사</strong><small>한국사 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
-      <button class="exam-subject" type="button" data-subject="수능 사회탐구" data-key="social" aria-pressed="false">
+      <button class="exam-subject" type="button" data-subject="수능 사회탐구" data-key="social" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🌏</span>
         <span class="subject-copy"><strong>수능 사회탐구</strong><small>사회탐구 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
-      <button class="exam-subject" type="button" data-subject="수능 과학탐구" data-key="science" aria-pressed="false">
+      <button class="exam-subject" type="button" data-subject="수능 과학탐구" data-key="science" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🔬</span>
         <span class="subject-copy"><strong>수능 과학탐구</strong><small>과학탐구 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
-      <button class="exam-subject" type="button" data-subject="수능 제2외국어/한문" data-key="second-language" aria-pressed="false">
+      <button class="exam-subject" type="button" data-subject="수능 제2외국어/한문" data-key="second-language" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🌐</span>
         <span class="subject-copy"><strong>수능 제2외국어/한문</strong><small>제2외국어 또는 한문 영역 선택</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
+      </div>
     </section>
 
     <div id="selection-status" class="selection-status" role="status" aria-live="polite">
-      공부할 수능 과목을 선택해 주세요.
+      먼저 시험 연도를 선택해 주세요.
     </div>
 
     <a class="back" href="/class.html">← 전체 과목으로 돌아가기</a>
@@ -324,22 +425,60 @@
       }
     }
 
+    const yearButtons = Array.from(document.querySelectorAll(".year-choice"));
     const subjectButtons = Array.from(document.querySelectorAll(".exam-subject"));
     const selectionStatus = document.getElementById("selection-status");
+    let selectedYear = "";
+    let selectedSubjectButton = null;
+
+    function updateSelectionStatus() {
+      if (!selectedYear) {
+        selectionStatus.textContent = "먼저 시험 연도를 선택해 주세요.";
+      } else if (!selectedSubjectButton) {
+        selectionStatus.textContent = `선택한 시험 연도: ${selectedYear}년 · 공부할 수능 과목을 선택해 주세요.`;
+      } else {
+        selectionStatus.textContent = `선택 완료: ${selectedYear}년 · ${selectedSubjectButton.dataset.subject}`;
+      }
+    }
+
+    function updateSelectionHash() {
+      const selection = new URLSearchParams();
+      selection.set("year", selectedYear);
+      if (selectedSubjectButton) selection.set("subject", selectedSubjectButton.dataset.key);
+      history.replaceState(null, "", `#${selection.toString()}`);
+    }
+
+    function selectYear(button, updateHash = true) {
+      selectedYear = button.dataset.year;
+      yearButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      subjectButtons.forEach((item) => { item.disabled = false; });
+      updateSelectionStatus();
+      if (updateHash) updateSelectionHash();
+    }
 
     function selectSubject(button, updateHash = true) {
+      if (!selectedYear) return;
+      selectedSubjectButton = button;
       subjectButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-      selectionStatus.textContent = `선택한 과목: ${button.dataset.subject}`;
-      if (updateHash) history.replaceState(null, "", `#${button.dataset.key}`);
+      updateSelectionStatus();
+      if (updateHash) updateSelectionHash();
     }
+
+    yearButtons.forEach((button) => {
+      button.addEventListener("click", () => selectYear(button));
+    });
 
     subjectButtons.forEach((button) => {
       button.addEventListener("click", () => selectSubject(button));
     });
 
-    const selectedKey = location.hash.slice(1);
-    const selectedButton = subjectButtons.find((button) => button.dataset.key === selectedKey);
-    if (selectedButton) selectSubject(selectedButton, false);
+    const savedSelection = new URLSearchParams(location.hash.slice(1));
+    const savedYearButton = yearButtons.find((button) => button.dataset.year === savedSelection.get("year"));
+    if (savedYearButton) {
+      selectYear(savedYearButton, false);
+      const savedSubjectButton = subjectButtons.find((button) => button.dataset.key === savedSelection.get("subject"));
+      if (savedSubjectButton) selectSubject(savedSubjectButton, false);
+    }
 
     document.getElementById("logout").addEventListener("click", async () => {
       await fetch("/api/session", {
