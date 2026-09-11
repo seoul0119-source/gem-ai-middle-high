@@ -296,6 +296,15 @@
     let registrationInProgress = false;
     let timeoutId = null;
 
+    function writeLocalStorageValue(key, value) {
+      try {
+        localStorage.setItem(key, String(value));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
     form.action = WEB_APP_URL;
     
     form.addEventListener("submit", function () {
@@ -385,17 +394,17 @@
     statusMessage.textContent =
       `등록 완료! 학생 ID: ${result.studentId}`;
 
-    localStorage.setItem(
+    writeLocalStorageValue(
       "gemStudentId",
       result.studentId
     );
 
-    localStorage.setItem(
+    writeLocalStorageValue(
       "gemStudentName",
       result.name
     );
 
-    localStorage.setItem(
+    writeLocalStorageValue(
       "gemRegistrationType",
       result.registrationType
     );
@@ -435,4 +444,3 @@
   </script>
 </body>
 </html>
-

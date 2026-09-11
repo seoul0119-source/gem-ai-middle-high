@@ -1,6 +1,6 @@
 import chatHandler from "./chat.js";
 import { getCourse } from "./courses.js";
-import { requireStudentSession } from "../lib/student-session.js";
+import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
 import { isSchoolEnglishNoAnswerRequest } from "./_no-answer-guard.js";
 import crypto from "node:crypto";
 
@@ -209,8 +209,19 @@ function collectMessageActivities(messages) {
 }
 
 export default async function handler(request, response) {
-  const course = getCourse(request.body?.courseId);
+  const courseId = String(request.body?.courseId || "");
+  const course = getCourse(courseId);
   if (course?.kind !== "english") return chatHandler(request, response);
+
+  // This wrapper can answer a no-answer request before the shared chat handler
+  // runs, so it must enforce the same signed course-run boundary itself.
+  const student = requireStudentSession(request, response);
+  if (!student) return;
+  if (!isActiveCourseRun(student, courseId, request.body?.courseRunId)) {
+    return sendJson(response, 409, {
+      error:"현재 시작된 수업과 요청한 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
+    });
+  }
 
   const originalMessages = Array.isArray(request.body?.messages) ? request.body.messages : [];
 
@@ -218,7 +229,6 @@ export default async function handler(request, response) {
   // English variety wrappers that contained a literal example capable of
   // anchoring the model's first question.
   if (isSchoolEnglishNoAnswerRequest(originalMessages)) {
-    if (!requireStudentSession(request, response)) return;
     return sendJson(response, 200, {
       text: "알겠어요. 정답이나 힌트는 말하지 않을게요. 현재 문제를 직접 풀어 보세요.\n\n답: (________)"
     });

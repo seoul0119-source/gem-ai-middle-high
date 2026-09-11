@@ -1,7 +1,12 @@
-import { readStudentSession, requireStudentSession } from "../lib/student-session.js";
+import {
+  isActiveCourseRun,
+  readStudentSession,
+  requireStudentSession
+} from "../lib/student-session.js";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
+const CE2_COURSE_ID = "g3-math-fr";
 
 const CE2_PROMPT = `Tu es le professeur avatar de mathématiques, chaleureux, calme et encourageant, pour la classe pilote CE2 de GEM AI Learning Mission Class International.
 
@@ -197,18 +202,7 @@ async function handleChat(req, res) {
   }
 }
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6LIvJEhy9KXQbpTghGRaAXtjL03HltJF7Lb4leU6v_q0bkoBsjMkhN-Q8laeT27zDdQ/exec";
 const MAX_BASE64_LENGTH = 5_500_000;
-
-async function trackCe2(student, action) {
-  const url = new URL(APPS_SCRIPT_URL);
-  const params = action === "start"
-    ? { action:"start", session:student.session, sessionId:student.session, subject:"Mathématiques", course:"Mathématiques", level:"CE2", grade:"CE2" }
-    : { action:"end", session:student.session, sessionId:student.session };
-  Object.entries(params).forEach(([key,value]) => url.searchParams.set(key, String(value)));
-  const result = await fetch(url, { redirect:"follow", headers:{ Accept:"text/html,application/xhtml+xml" } });
-  if (!result.ok) throw new Error("Le suivi de la leçon n'est pas disponible.");
-}
 
 function cleanSpeechText(value) {
   const numbers = {1:"un",2:"deux",3:"trois",4:"quatre",5:"cinq",6:"six",7:"sept",8:"huit",9:"neuf",10:"dix"};
@@ -298,8 +292,18 @@ export default async function handler(req, res) {
   const student = requireStudentSession(req, res);
   if (!student) return;
   if (action === "session-start" || action === "session-end") {
-    try { await trackCe2(student, action === "session-start" ? "start" : "end"); return sendJson(res, 200, { success:true }); }
-    catch (error) { console.error("CE2 tracking error", error); return sendJson(res, 502, { error:"Le suivi de la leçon est momentanément indisponible." }); }
+    return sendJson(res, 410, {
+      error:"Cette ancienne action de suivi n'est plus disponible. Recharge la classe pour continuer."
+    });
+  }
+  if (!["chat", "speech", "transcribe"].includes(action)) {
+    return sendJson(res, 400, { error:"Action non prise en charge." });
+  }
+  const courseId = String(req.body?.courseId || "");
+  if (courseId !== CE2_COURSE_ID || !isActiveCourseRun(student, courseId, req.body?.courseRunId)) {
+    return sendJson(res, 409, {
+      error:"Cette leçon n'est plus active. Recharge la classe pour continuer."
+    });
   }
   if (action === "speech") return handleSpeech(req, res);
   if (action === "transcribe") return handleTranscribe(req, res);

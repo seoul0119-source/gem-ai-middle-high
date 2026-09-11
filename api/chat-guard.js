@@ -1,6 +1,6 @@
 import chatHandler from "./chat.js";
 import { getCourse } from "./courses.js";
-import { requireStudentSession } from "../lib/student-session.js";
+import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
 import {
   isSchoolEnglishNoAnswerRequest,
   schoolEnglishNoAnswerResponse
@@ -79,10 +79,21 @@ function collectSchoolEnglishVarietyHistory(messages, existingHistory) {
 }
 
 export default async function handler(request, response) {
-  const course = getCourse(request.body?.courseId);
+  const courseId = String(request.body?.courseId || "");
+  const course = getCourse(courseId);
   const messages = Array.isArray(request.body?.messages) ? request.body.messages : [];
 
   if (course?.kind === "english") {
+    // The no-answer branch below returns before chat.js, so validate the exact
+    // active course run here before mutating prompts or returning any content.
+    const student = requireStudentSession(request, response);
+    if (!student) return;
+    if (!isActiveCourseRun(student, courseId, request.body?.courseRunId)) {
+      return sendJson(response, 409, {
+        error:"현재 시작된 수업과 요청한 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
+      });
+    }
+
     if (!course.prompt.includes(SCHOOL_ENGLISH_VARIETY_MARKER)) {
       course.prompt += SCHOOL_ENGLISH_VARIETY_RULE;
     }
@@ -95,7 +106,6 @@ export default async function handler(request, response) {
   }
 
   if (course?.kind === "english" && isSchoolEnglishNoAnswerRequest(messages)) {
-    if (!requireStudentSession(request, response)) return;
     return sendJson(response, 200, { text: schoolEnglishNoAnswerResponse() });
   }
 

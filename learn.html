@@ -862,6 +862,7 @@
     const VOLUME_KEY = "gem-teacher-volume";
     let sessionEnded = false;
     let sessionEnding = false;
+    let courseRunId = "";
     let lessonManuallyEnded = false;
 
     async function readJsonResponse(response, fallbackMessage) {
@@ -892,6 +893,16 @@
       } catch (error) {
         // Private browsing, a full quota, or blocked storage must never stop a lesson.
         console.warn("Device learning record could not be saved", error);
+      }
+    }
+
+    function readLocalValue(storageKey) {
+      if (!storageKey) return null;
+      try {
+        return localStorage.getItem(storageKey);
+      } catch (error) {
+        console.warn("Device preference could not be read", error);
+        return null;
       }
     }
 
@@ -927,6 +938,12 @@
       progressWeak.textContent = weakTopics.length
         ? `취약 유형: ${weakTopics.join(" · ")}`
         : "취약 유형: 아직 기록이 없습니다.";
+    }
+
+    function hasCompletedCurrentSuneungLesson() {
+      return learningRecords.some((record) =>
+        record.lessonSeed === lessonSeed && Number(record.question) === 10
+      );
     }
 
     function configureLearningProgress(studentId) {
@@ -1022,7 +1039,7 @@
     let currentAudio = null;
     let currentSpeechResolve = null;
     let activeSpeechId = 0;
-    const savedTeacherVolume = Number(localStorage.getItem(VOLUME_KEY));
+    const savedTeacherVolume = Number(readLocalValue(VOLUME_KEY));
     let teacherVolume = Number.isFinite(savedTeacherVolume) && savedTeacherVolume >= 0.05 && savedTeacherVolume <= 1
       ? savedTeacherVolume
       : 0.45;
@@ -1118,14 +1135,20 @@
     async function initializeStudentSession() {
       try {
         const session = await sessionRequest();
-        await sessionRequest({ action: "start", courseId: COURSE_ID });
+        const started = await sessionRequest({ action: "start", courseId: COURSE_ID });
+        courseRunId = String(started.courseRunId || "");
         configureLearningProgress(session.student.id);
         sessionEnded = false;
         document.body.classList.remove("auth-pending");
         input.disabled = false;
         sendButton.disabled = false;
         micButton.disabled = false;
-        connection.innerHTML = `<strong>학생</strong> ${session.student.name} · 수업 기록 중`;
+        const studentStatusLabel = document.createElement("strong");
+        studentStatusLabel.textContent = "학생";
+        connection.replaceChildren(
+          studentStatusLabel,
+          document.createTextNode(` ${String(session.student.name || "학생")} · 수업 기록 중`)
+        );
         if (mobileLessonMedia.matches) settleMobileLessonView();
         else input.focus();
         return true;
@@ -1145,7 +1168,7 @@
       if (sessionEnded || sessionEnding) return;
       sessionEnding = true;
       try {
-        await sessionRequest({ action: "end" });
+        await sessionRequest({ action: "end", courseId: COURSE_ID, courseRunId });
         sessionEnded = true;
       } catch (error) {
         console.error("Course tracking end failed", error);
@@ -1157,12 +1180,13 @@
     function finishTrackingOnExit() {
       if (sessionEnded || sessionEnding) return;
       sessionEnding = true;
-      const body = new Blob([JSON.stringify({ action: "end" })], { type: "application/json" });
+      const endPayload = { action: "end-on-exit", courseId: COURSE_ID, courseRunId };
+      const body = new Blob([JSON.stringify(endPayload)], { type: "application/json" });
       if (!navigator.sendBeacon?.("/api/session", body)) {
         fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "end" }),
+          body: JSON.stringify(endPayload),
           keepalive: true
         }).catch(() => null);
       }
@@ -1170,6 +1194,9 @@
 
     const sessionReady = initializeStudentSession();
     window.addEventListener("pagehide", finishTrackingOnExit);
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) location.reload();
+    });
 
     function cleanForDisplay(text) {
       let output = String(text || "")
@@ -1394,7 +1421,7 @@
           const response = await fetch("/api/speech", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: part, courseId: COURSE_ID })
+            body: JSON.stringify({ text: part, courseId: COURSE_ID, courseRunId })
           });
           const data = await readJsonResponse(response, COURSE.avatar
             ? AVATAR_TEXT.voiceUnavailable
@@ -1428,7 +1455,12 @@
       } catch (error) {
         if (speechId !== activeSpeechId) return;
         console.warn("Natural voice fallback", error);
-        if (COURSE_ID === "toeic") {
+        if (COURSE_ID === "suneung-2028-integrated-science") {
+          // Protected Integrated Science may speak only server-approved bank
+          // responses. Never route a rejected or altered payload to the
+          // unrestricted browser speech engine.
+          console.warn("Protected Integrated Science browser speech fallback blocked");
+        } else if (COURSE_ID === "toeic") {
           addMessage("assistant", "음성 재생에 실패했습니다. 음성 대화를 다시 시작해 주세요.");
         } else {
           await browserSpeak(clean, speechId);
@@ -1839,6 +1871,7 @@
             messages,
             history: IS_GENERATIVE_LESSON ? courseHistory : [],
             lessonSeed,
+            courseRunId,
             inputMode,
             learningProfile: learningProfileForRequest()
           })
@@ -1866,7 +1899,8 @@
         rememberGeneratedProblem(answerReadyText);
         if (COURSE.voice || autoSpeak) await speakWithoutCountingQuestionTime(lastAssistantText, isStarting);
         trackCurrentQuestion(answerReadyText, data.record?.question);
-        if (/(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|lesson (?:is )?(?:complete|completed|finished)|you (?:have |'ve )?completed (?:today's |this )?lesson/i.test(lastAssistantText)) {
+        const lessonCompletionClaim = /(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|lesson (?:is )?(?:complete|completed|finished)|you (?:have |'ve )?completed (?:today's |this )?lesson/i.test(lastAssistantText);
+        if (lessonCompletionClaim && (!IS_SUNEUNG || hasCompletedCurrentSuneungLesson())) {
           await finishLesson(false);
         }
       } catch (error) {
@@ -1900,7 +1934,8 @@
         ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.preparingNew}`
         : "<strong>상태</strong> 새 수업 기록 준비 중";
       try {
-        await sessionRequest({ action: "restart", courseId: COURSE_ID });
+        const restarted = await sessionRequest({ action: "restart", courseId: COURSE_ID });
+        courseRunId = String(restarted.courseRunId || "");
         lessonManuallyEnded = false;
         sessionEnded = false;
         sessionEnding = false;
@@ -1939,7 +1974,7 @@
     teacherVolumeInput.addEventListener("input", () => {
       teacherVolume = Math.min(1, Math.max(0.05, Number(teacherVolumeInput.value) / 100));
       teacherVolumeValue.textContent = `${Math.round(teacherVolume * 100)}%`;
-      localStorage.setItem(VOLUME_KEY, String(teacherVolume));
+      saveLocalJson(VOLUME_KEY, teacherVolume);
       if (currentAudio) currentAudio.volume = teacherVolume;
     });
 
@@ -2088,6 +2123,7 @@
             audio,
             mimeType: blob.type,
             courseId: COURSE_ID,
+            courseRunId,
             context: lastAssistantText
           })
         });
@@ -2097,9 +2133,12 @@
         if (!response.ok) throw new Error(data.error || "음성 인식 실패");
         voiceFailureNoticeShown = false;
         input.value = data.text;
-        connection.innerHTML = COURSE.avatar
-          ? `<strong>${AVATAR_TEXT.heard}</strong> ${data.text}`
-          : `<strong>인식</strong> ${data.text}`;
+        const recognitionStatusLabel = document.createElement("strong");
+        recognitionStatusLabel.textContent = COURSE.avatar ? AVATAR_TEXT.heard : "인식";
+        connection.replaceChildren(
+          recognitionStatusLabel,
+          document.createTextNode(` ${String(data.text || "")}`)
+        );
         // The recognized answer is already rendered as a user message. Clear
         // the input so the previous answer never remains under the next problem.
         input.value = "";

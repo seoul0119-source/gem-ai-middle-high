@@ -1,4 +1,4 @@
-import { requireStudentSession } from "../lib/student-session.js";
+import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
 
 const MAX_BASE64_LENGTH = 5_500_000;
 
@@ -14,9 +14,16 @@ export default async function handler(request, response) {
     return sendJson(response, 405, { error: "POST 요청만 사용할 수 있습니다." });
   }
 
-  if (!requireStudentSession(request, response)) return;
+  const student = requireStudentSession(request, response);
+  if (!student) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
+  const courseId = String(request.body?.courseId || "");
+  if (!isActiveCourseRun(student, courseId, request.body?.courseRunId)) {
+    return sendJson(response, 409, {
+      error: "현재 시작된 수업과 음성 입력 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
+    });
+  }
   const base64 = String(request.body?.audio || "");
   if (!apiKey || !base64 || base64.length > MAX_BASE64_LENGTH) {
     return sendJson(response, 400, { error: "짧게 다시 말해 주세요." });
@@ -25,7 +32,6 @@ export default async function handler(request, response) {
   try {
     const mimeType = String(request.body?.mimeType || "audio/webm").split(";")[0];
     const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
-    const courseId = String(request.body?.courseId || "");
     const cleanContext = String(request.body?.context || "")
       .replace(/\[도표 시작\][\s\S]*?\[도표 끝\]/g, " ")
       .replace(/\s+/g, " ")

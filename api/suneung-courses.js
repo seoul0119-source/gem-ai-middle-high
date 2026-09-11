@@ -1,3 +1,5 @@
+import { CLOSED_SUNEUNG_SCIENCE_GREETING } from "../lib/suneung-science-bank.js";
+
 const RECORD_RULES = `
 
 [학습 기록 — 화면에 보이지 않는 시스템 자료]
@@ -148,7 +150,7 @@ export const SUNEUNG_COURSES = {
     title: "2028학년도 수능 통합과학 · GEM 범위",
     grade: "2028학년도 수능 대비",
     subject: "수능 통합과학",
-    greeting: "안녕하세요! GEM 신앙 교육 원칙에 따라 공식 범위 일부를 제외하고, 허용된 통합과학 핵심 영역에서 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.",
+    greeting: CLOSED_SUNEUNG_SCIENCE_GREETING,
     prompt: SUNEUNG_2028_INTEGRATED_SCIENCE_PROMPT,
     kind: "science",
     suneung: { year: "2028", subject: "integrated-science", guarded: true }

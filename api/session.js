@@ -1,7 +1,9 @@
 import { getCourse } from "./courses.js";
+import { randomUUID } from "node:crypto";
 import {
   clearStudentSession,
   readStudentSession,
+  isActiveCourseRun,
   requireStudentSession,
   setStudentSession
 } from "../lib/student-session.js";
@@ -124,13 +126,57 @@ function courseLevel(course) {
   return match ? `Lv.${match[1]}` : course.grade;
 }
 
-async function trackStart(student, courseId) {
-  const course = getCourse(courseId);
+function requireCourse(courseId) {
+  const normalizedCourseId = String(courseId || "");
+  const course = getCourse(normalizedCourseId);
   if (!course) {
     const error = new Error("올바른 과목을 선택해 주세요.");
     error.status = 400;
     throw error;
   }
+  return { courseId: normalizedCourseId, course };
+}
+
+export function isPositiveTrackingResponse(result, action) {
+  const expectedAction = action === "start" || action === "end" ? action : "";
+  if (!expectedAction) return false;
+
+  const message = String(result?.message || "").normalize("NFKC").replace(/\s+/g, " ").trim();
+  if (!message || /찾을\s*수\s*없|할\s*수\s*없|유효하지|실패|오류|거부|않|못|아니|불가|미완료|보류|대기\s*중|unauthori[sz]ed|forbidden|error|fail|\b(?:not|never|incomplete|pending|unable|cannot)\b/i.test(message)) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(message);
+    const responseAction = String(payload?.action || expectedAction).toLowerCase();
+    if (payload?.success === true && responseAction === expectedAction) return true;
+  } catch (_) {
+    // The deployed Apps Script currently returns an HTML user message. JSON is
+    // supported as an explicit future contract, but arbitrary HTML is not.
+  }
+
+  const actionWord = expectedAction === "start" ? "시작|입장" : "종료|퇴실";
+  const englishAction = expectedAction === "start" ? "start(?:ed)?" : "end(?:ed)?|finish(?:ed)?";
+  const koreanAction = new RegExp(`(?:수업|학습).{0,24}(?:${actionWord})|(?:${actionWord}).{0,24}(?:수업|학습)`);
+  const koreanCompletedAction = new RegExp(`(?:수업|학습)(?:을|이|가)?\\s*(?:정상적으로\\s*)?(?:${actionWord})(?:했습니다|하였습니다|되었습니다|됐습니다)`);
+  const koreanSuccess = /성공(?:했습니다)?|완료(?:되었습니다|됐습니다|했습니다|하였습니다)|(?:기록|저장|처리)(?:되었습니다|됐습니다|했습니다|하였습니다)|되었습니다|됐습니다/;
+  const englishSuccess = new RegExp(`(?:${englishAction}).{0,32}(?:success|complete|saved|recorded|ok)|(?:success|complete|saved|recorded|ok).{0,32}(?:${englishAction})`, "i");
+  return koreanCompletedAction.test(message)
+    || (koreanAction.test(message) && koreanSuccess.test(message))
+    || englishSuccess.test(message);
+}
+
+function assertPositiveTrackingResponse(result, action) {
+  if (isPositiveTrackingResponse(result, action)) return;
+  const error = new Error(action === "start"
+    ? "수업 시작 기록을 저장하지 못했습니다. 다시 입장해 주세요."
+    : "수업 종료 기록을 저장하지 못했습니다.");
+  error.status = 502;
+  throw error;
+}
+
+async function trackStart(student, courseId, validatedCourse = null) {
+  const course = validatedCourse || requireCourse(courseId).course;
   const result = await requestSheet({
     action: "start",
     session: student.session,
@@ -140,32 +186,39 @@ async function trackStart(student, courseId) {
     level: courseLevel(course),
     grade: course.grade
   });
-  if (/찾을\s*수\s*없|유효하지|실패|오류/.test(result.message)) {
-    throw new Error("수업 시작 기록을 저장하지 못했습니다. 다시 입장해 주세요.");
-  }
+  assertPositiveTrackingResponse(result, "start");
   return { course, message: result.message };
 }
 
 async function trackEnd(student) {
   if (!student?.session) return { message: "" };
+  requireCourse(student.courseId);
   const result = await requestSheet({
     action: "end",
     session: student.session,
     sessionId: student.session
   });
-  if (/찾을\s*수\s*없|유효하지|실패|오류/.test(result.message)) {
-    throw new Error("수업 종료 기록을 저장하지 못했습니다.");
-  }
+  assertPositiveTrackingResponse(result, "end");
   return result;
 }
 
-async function createFreshCourseSession(student, courseId) {
-  if (student.courseId && !student.endedAt) await trackEnd(student);
+async function createFreshCourseSession(student, courseId, course) {
+  if (student.courseId && !student.endedAt) {
+    // Closing a previous page may already have ended this sheet row. Starting
+    // the new page must still succeed if that best-effort end was duplicated.
+    await trackEnd(student).catch((error) => {
+      console.warn("Previous course tracking end could not be confirmed", error.message);
+    });
+  }
   const fresh = await loginStudent(student.id);
-  const tracking = await trackStart(fresh, courseId);
+  const tracking = await trackStart(fresh, courseId, course);
   return {
     ...fresh,
+    // loginStudent refreshes the sheet row, not the user's authentication.
+    // Keep the signed cookie's original login boundary across course runs.
+    authenticatedAt: student.authenticatedAt ?? student.iat,
     courseId,
+    courseRunId: randomUUID(),
     startedAt: new Date().toISOString(),
     endedAt: null,
     trackingMessage: tracking.message
@@ -210,18 +263,24 @@ export default async function handler(request, response) {
     if (!student) return;
 
     if (action === "start") {
-      const courseId = String(body.courseId || "");
+      // Resolve the requested course before ending or starting any sheet row.
+      // A stale/removed/forged course ID must never cause persistence changes.
+      const { courseId, course } = requireCourse(body.courseId);
       let active = student;
       let trackingMessage = "";
-      if (student.endedAt || (student.courseId && student.courseId !== courseId)) {
-        active = await createFreshCourseSession(student, courseId);
+      // Every learning-page load starts a fresh tracked row. This also avoids
+      // reusing a row that a pagehide beacon has just ended without changing
+      // the browser cookie.
+      if (student.courseId || student.endedAt) {
+        active = await createFreshCourseSession(student, courseId, course);
         trackingMessage = active.trackingMessage;
       } else if (!student.courseId || !student.startedAt) {
-        const tracking = await trackStart(student, courseId);
+        const tracking = await trackStart(student, courseId, course);
         trackingMessage = tracking.message;
         active = {
           ...student,
           courseId,
+          courseRunId: randomUUID(),
           startedAt: new Date().toISOString(),
           endedAt: null
         };
@@ -230,32 +289,49 @@ export default async function handler(request, response) {
       return sendJson(response, 200, {
         success: true,
         courseId: active.courseId,
+        courseRunId: active.courseRunId,
         startedAt: active.startedAt,
         trackingMessage
       });
     }
 
     if (action === "restart") {
-      const courseId = String(body.courseId || student.courseId || "");
-      const active = await createFreshCourseSession(student, courseId);
+      const { courseId, course } = requireCourse(body.courseId || student.courseId);
+      const active = await createFreshCourseSession(student, courseId, course);
       setStudentSession(response, active);
       return sendJson(response, 200, {
         success: true,
         courseId: active.courseId,
+        courseRunId: active.courseRunId,
         startedAt: active.startedAt,
         trackingMessage: active.trackingMessage
       });
     }
 
-    if (action === "end") {
+    if (action === "end" || action === "end-on-exit") {
+      const courseId = String(body.courseId || "");
+      const courseRunId = String(body.courseRunId || "");
+      requireCourse(courseId);
+      if (!isActiveCourseRun(student, courseId, courseRunId)) {
+        if (action === "end-on-exit") {
+          return sendJson(response, 200, { success: true, ignored: true });
+        }
+        return sendJson(response, 409, {
+          error: "현재 수업과 종료 요청이 일치하지 않습니다."
+        });
+      }
       if (!student.endedAt) await trackEnd(student);
       const endedAt = student.endedAt || new Date().toISOString();
-      setStudentSession(response, { ...student, endedAt });
+      // A pagehide response can arrive after the next page has already issued
+      // a fresh active cookie. Never let that late response overwrite it.
+      if (action === "end") setStudentSession(response, { ...student, endedAt });
       return sendJson(response, 200, { success: true, endedAt });
     }
 
     if (action === "logout") {
-      if (!student.endedAt) await trackEnd(student).catch(() => null);
+      if (student.courseId && getCourse(student.courseId) && !student.endedAt) {
+        await trackEnd(student).catch(() => null);
+      }
       clearStudentSession(response);
       return sendJson(response, 200, { success: true });
     }

@@ -4,11 +4,16 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 const classHtml = await readFile(new URL("../class.html", import.meta.url), "utf8");
+const indexHtml = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const welcomeHtml = await readFile(new URL("../welcome.html", import.meta.url), "utf8");
 const suneungHtml = await readFile(new URL("../suneung.html", import.meta.url), "utf8");
 const learnHtml = await readFile(new URL("../learn.html", import.meta.url), "utf8");
 const chatSource = await readFile(new URL("../api/chat.js", import.meta.url), "utf8");
 const speechSource = await readFile(new URL("../api/speech.js", import.meta.url), "utf8");
+const transcribeSource = await readFile(new URL("../api/transcribe.js", import.meta.url), "utf8");
+const sessionSource = await readFile(new URL("../api/session.js", import.meta.url), "utf8");
 const { getCourse } = await import("../api/courses.js");
+const { cleanText: cleanSpeechText } = await import("../api/speech.js");
 const { extractLearningRecord } = await import("../lib/learning-record.js");
 const {
   SAFE_SCIENCE_REDIRECT,
@@ -19,9 +24,11 @@ const {
   expectedSuneungQuestion,
   hasIncompleteSuneungChoiceSet,
   hasInvalidSuneungSequence,
+  isFreshSuneungStart,
   sanitizeLearningProfile,
   suneungMathStageForQuestion
 } = await import("../api/chat.js");
+const { isActiveCourseRun, isActiveCourseSession } = await import("../lib/student-session.js");
 
 function createButton(dataset, disabled = false, textContent = "") {
   const attributes = new Map([["aria-pressed", "false"]]);
@@ -57,6 +64,42 @@ function extractNamedFunction(source, name) {
   }
   assert.fail(`${name} must have a closing brace`);
 }
+
+test("keeps entry and registration flows running when browser storage is blocked", () => {
+  for (const [page, source] of [["entry", indexHtml], ["registration", welcomeHtml]]) {
+    for (const errorName of ["SecurityError", "QuotaExceededError"]) {
+      let attempts = 0;
+      const context = {
+        localStorage:{
+          setItem() {
+            attempts += 1;
+            throw new Error(errorName);
+          }
+        }
+      };
+      const writerSource = extractNamedFunction(source, "writeLocalStorageValue");
+      runInNewContext(`${writerSource}\nthis.writeLocalStorageValue = writeLocalStorageValue;`, context);
+
+      assert.doesNotThrow(() => context.writeLocalStorageValue("key", "value"), `${page} ${errorName} must be non-fatal`);
+      assert.equal(context.writeLocalStorageValue("key", "value"), false);
+      assert.equal(attempts, 2);
+    }
+    assert.equal((source.match(/localStorage\.setItem/g) || []).length, 1, `${page} must route writes through the safe helper`);
+  }
+
+  const timestampReaderSource = extractNamedFunction(indexHtml, "readStoredTimestamp");
+  for (const errorName of ["SecurityError", "QuotaExceededError"]) {
+    const context = { localStorage:{ getItem() { throw new Error(errorName); } } };
+    runInNewContext(`${timestampReaderSource}\nthis.readStoredTimestamp = readStoredTimestamp;`, context);
+    assert.equal(context.readStoredTimestamp("trial-key"), null, `${errorName} reads must be non-fatal`);
+  }
+
+  assert.match(indexHtml, /writeLocalStorageValue\("gem-program-language", selectedLanguage\)/);
+  assert.match(indexHtml, /writeLocalStorageValue\("gem-support-course", course\)/);
+  assert.match(welcomeHtml, /writeLocalStorageValue\([\s\S]*?"gemStudentId"/);
+  assert.match(welcomeHtml, /writeLocalStorageValue\([\s\S]*?"gemRegistrationType"/);
+  assert.match(welcomeHtml, /const nextUrl =[\s\S]*?window\.setTimeout/);
+});
 
 function runSuneungUi(initialHash = "") {
   const yearButtons = [createButton({ year:"2027" }), createButton({ year:"2028" })];
@@ -412,6 +455,29 @@ test("fixes every mathematics stage and 2027 common-elective slot on the server"
     4,
     false
   ), true, "integrated science must keep its 3·4·3 visible stage sequence");
+
+  assert.equal(hasInvalidSuneungSequence(
+    "오늘의 학습을 마쳤습니다.",
+    course2028,
+    direct,
+    1,
+    false
+  ), true, "a model cannot end an unfinished ten-question lesson");
+  assert.equal(hasInvalidSuneungSequence(
+    "도전 1/3 · 힌트: 먼저 식의 구조를 살펴보세요.",
+    course2028,
+    direct,
+    1,
+    false
+  ), false, "a same-question staged hint may omit a repeated problem header");
+  assert.equal(hasInvalidSuneungSequence(
+    "10문제를 모두 풀었습니다. 오늘의 학습을 마쳤습니다.",
+    course2028,
+    direct,
+    10,
+    false,
+    { question:10 }
+  ), false, "a validated question-10 record may finish the lesson without another header");
 });
 
 test("derives the current record number from contiguous progress and the visible problem", () => {
@@ -430,6 +496,11 @@ test("derives the current record number from contiguous progress and the visible
     { role:"user", content:"B" }
   ], profile), 0, "a transcript that skips question 3 must not produce a record");
   assert.equal(expectedSuneungQuestion([{ role:"user", content:"시작" }], { lessonRecords:[] }, true), 0);
+  assert.equal(isFreshSuneungStart([{ role:"user", content:"시작" }], { lessonRecords:[] }), true);
+  assert.equal(isFreshSuneungStart([
+    { role:"assistant", content:"문제 3/10 — 개념 확인" },
+    { role:"user", content:"시작" }
+  ], profile), false, "start entered during a lesson must not reset progress to question 1");
 });
 
 test("extracts validated assessment records without exposing metadata to students", () => {
@@ -492,7 +563,18 @@ test("blocks excluded integrated-science content in questions, explanations, and
     "환경에 유리한 형질이 세대를 거쳐 퍼진다",
     "환경에 더 알맞은 특징이 세대가 지날수록 많아진다",
     "Beneficial traits become more common over generations",
-    "Organisms with greater reproductive success leave more offspring"
+    "Organisms with greater reproductive success leave more offspring",
+    "대립유전자 빈도가 여러 세대에 걸쳐 변화한다",
+    "환경이 유전되는 특징을 가진 개체를 골라 생존시킨다",
+    "Species share a distant ancestor",
+    "생명은 무생물 물질에서 생겨났다",
+    "우주는 한 점에서 팽창하기 시작했다",
+    "지구가 45억 년 전에 형성되었다",
+    "microevolution", "macro-evolution", "evolved traits", "biologicalevolution",
+    "evolutionaryadaptation", "개체군의 유전적 구성이 세대마다 달라진다",
+    "유전되는 차이가 있는 개체가 더 많은 새끼를 남긴다",
+    "All living things share distant ancestry",
+    "Allele frequencies shift from generation to generation"
   ]) {
     assert.equal(containsExcludedSuneungScienceContent(unsafe), true, `${unsafe} must be blocked`);
   }
@@ -502,7 +584,14 @@ test("blocks excluded integrated-science content in questions, explanations, and
   assert.equal(containsExcludedSuneungScienceContent("Fossil-fuel emissions affect the carbon cycle"), false);
   assert.equal(containsExcludedSuneungScienceContent("산불 진화 작업에 물이 필요한 이유를 열용량으로 설명하시오"), false);
   assert.equal(containsExcludedSuneungScienceContent("화재 진화 훈련에서는 안전 장비를 사용한다"), false);
+  assert.equal(containsExcludedSuneungScienceContent("산불을 진화한다"), false);
+  assert.equal(containsExcludedSuneungScienceContent("소방대원이 화재를 진화하고 잔불을 정리한다"), false);
   assert.equal(containsExcludedSuneungScienceContent("Beneficial safety practices spread over generations"), false);
+  assert.equal(containsExcludedSuneungScienceContent("Revolutionary energy technology can reduce emissions"), false);
+  assert.equal(containsExcludedSuneungScienceContent("The industrial revolution changed energy technology"), false);
+  assert.equal(containsExcludedSuneungScienceContent("Nonliving barriers formed to protect wildlife"), false);
+  assert.equal(containsExcludedSuneungScienceContent("유전자는 세대를 거쳐 전달된다"), false);
+  assert.equal(containsExcludedSuneungScienceContent("우주의 현재 팽창률을 측정한다"), false);
   assert.equal(containsExcludedSuneungScienceContent("화석 연료와 생물의 진화를 함께 설명하시오"), true);
   assert.equal(containsExcludedSuneungScienceContent("산불 진화 작업과 자연 선택을 비교하시오"), true);
   assert.equal(containsExcludedSuneungScienceContent("생물의 적응을 설명하시오"), true);
@@ -667,6 +756,91 @@ test("continues lessons when device progress storage is unavailable", () => {
   assert.equal(warnings, 1);
   assert.match(learnHtml, /saveLocalJson\(progressStorageKey, learningRecords\)/);
   assert.match(learnHtml, /saveLocalJson\(courseHistoryStorageKey, courseHistory\)/);
+});
+
+test("does not end a Suneung lesson before question 10 is validated", () => {
+  assert.match(learnHtml, /function hasCompletedCurrentSuneungLesson\(\)/);
+  assert.match(learnHtml, /Number\(record\.question\) === 10/);
+  assert.match(learnHtml, /lessonCompletionClaim && \(!IS_SUNEUNG \|\| hasCompletedCurrentSuneungLesson\(\)\)/);
+});
+
+test("keeps all A-E choices in Suneung math speech", () => {
+  const text = [
+    "문제 8/10 — 수능형 실전 · 대수 · 4점 · 객관식",
+    "A) 1",
+    "B) 2",
+    "C) 3",
+    "D) 4",
+    "E) 5"
+  ].join("\n");
+  const suneungSpeech = cleanSpeechText(text, "suneung-2028-math");
+  for (const label of ["A) 1", "B) 2", "C) 3", "D) 4", "E) 5"]) {
+    assert.match(suneungSpeech, new RegExp(label.replace(")", "\\)")));
+  }
+
+  const schoolEnglishSpeech = cleanSpeechText(text, "h3-english");
+  for (const label of ["A) 1", "B) 2", "C) 3", "D) 4", "E) 5"]) {
+    assert.doesNotMatch(schoolEnglishSpeech, new RegExp(label.replace(")", "\\)")));
+  }
+  assert.match(speechSource, /SCHOOL_ENGLISH_COURSE_IDS\.has\(String\(courseId/);
+  assert.doesNotMatch(speechSource, /const isSchoolEnglish = \/\(\?:활동/);
+});
+
+test("uses the default teacher volume when preference storage is blocked", () => {
+  let warnings = 0;
+  const context = {
+    localStorage:{ getItem() { throw new Error("SecurityError"); } },
+    console:{ warn() { warnings += 1; } }
+  };
+  const readSource = extractNamedFunction(learnHtml, "readLocalValue");
+  runInNewContext(`${readSource}\nthis.readLocalValue = readLocalValue;`, context);
+
+  const savedTeacherVolume = Number(context.readLocalValue("gem-teacher-volume"));
+  const teacherVolume = Number.isFinite(savedTeacherVolume) && savedTeacherVolume >= 0.05 && savedTeacherVolume <= 1
+    ? savedTeacherVolume
+    : 0.45;
+  assert.equal(teacherVolume, 0.45);
+  assert.equal(warnings, 1);
+  assert.match(learnHtml, /const savedTeacherVolume = Number\(readLocalValue\(VOLUME_KEY\)\)/);
+  assert.match(learnHtml, /saveLocalJson\(VOLUME_KEY, teacherVolume\)/);
+});
+
+test("binds chat and voice APIs to the active course session", () => {
+  const active = { session:"session-token", courseId:"suneung-2028-math", endedAt:null };
+  assert.equal(isActiveCourseSession(active, "suneung-2028-math"), true);
+  assert.equal(isActiveCourseSession(active, "suneung-2028-integrated-science"), false);
+  assert.equal(isActiveCourseSession({ ...active, endedAt:new Date().toISOString() }, "suneung-2028-math"), false);
+  assert.match(chatSource, /isActiveCourseRun\(student, requestedCourseId, request\.body\?\.courseRunId\)/);
+  assert.match(speechSource, /isActiveCourseRun\(student, courseId, request\.body\?\.courseRunId\)/);
+  assert.match(transcribeSource, /isActiveCourseRun\(student, courseId, request\.body\?\.courseRunId\)/);
+  assert.equal((learnHtml.match(/courseRunId/g) || []).length >= 10, true);
+});
+
+test("renders the signed student name as text instead of executable HTML", () => {
+  assert.match(learnHtml, /studentStatusLabel\.textContent = "학생"/);
+  assert.match(learnHtml, /document\.createTextNode\(` \$\{String\(session\.student\.name \|\| "학생"\)\}/);
+  assert.doesNotMatch(learnHtml, /connection\.innerHTML = `<strong>학생<\/strong> \$\{session\.student\.name\}/);
+});
+
+test("renders speech recognition text without interpreting HTML", () => {
+  assert.match(learnHtml, /recognitionStatusLabel\.textContent = COURSE\.avatar \? AVATAR_TEXT\.heard : "인식"/);
+  assert.match(learnHtml, /document\.createTextNode\(` \$\{String\(data\.text \|\| ""\)\}`\)/);
+  assert.doesNotMatch(learnHtml, /connection\.innerHTML = COURSE\.avatar[\s\S]*?\$\{data\.text\}/);
+});
+
+test("prevents a late page-exit response from overwriting a fresh session cookie", () => {
+  assert.match(learnHtml, /endPayload = \{ action: "end-on-exit", courseId: COURSE_ID, courseRunId \}/);
+  assert.match(sessionSource, /action === "end" \|\| action === "end-on-exit"/);
+  assert.match(sessionSource, /if \(action === "end"\) setStudentSession/);
+  assert.match(sessionSource, /if \(student\.courseId \|\| student\.endedAt\)/);
+  assert.match(learnHtml, /if \(event\.persisted\) location\.reload\(\)/);
+
+  const tabA = { session:"sheet-a", courseId:"suneung-2028-math", courseRunId:"run-a", endedAt:null };
+  const tabB = { session:"sheet-b", courseId:"suneung-2028-math", courseRunId:"run-b", endedAt:null };
+  assert.equal(isActiveCourseRun(tabA, "suneung-2028-math", "run-a"), true);
+  assert.equal(isActiveCourseRun(tabB, "suneung-2028-math", "run-a"), false,
+    "an old tab must not end a newer run of the same course");
+  assert.match(sessionSource, /isActiveCourseRun\(student, courseId, courseRunId\)/);
 });
 
 test("offers the seven requested Suneung subject groups behind the student session gate", () => {

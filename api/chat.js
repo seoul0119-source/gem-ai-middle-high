@@ -1,12 +1,13 @@
 import { getCourse } from "./courses.js";
 import { isSchoolEnglishNoAnswerRequest } from "./_no-answer-guard.js";
-import { requireStudentSession } from "../lib/student-session.js";
+import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
 import { extractLearningRecord } from "../lib/learning-record.js";
 import {
   SAFE_SCIENCE_REDIRECT,
   containsExcludedSuneungScienceContent,
   isGuardedSuneungScienceCourse
 } from "../lib/suneung-science-safety.js";
+import { handleClosedSuneungScienceLesson } from "../lib/suneung-science-bank.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -345,6 +346,14 @@ export function expectedSuneungQuestion(messages, profile, isLessonStart = false
   return nextFromRecords || fromConversation;
 }
 
+const KOREAN_LESSON_START_PATTERN = /^(?:시작|시작하기|수학\s*시작하기|국어\s*시작하기|사회\s*시작하기|한국사\s*시작하기|과학\s*시작하기|영어\s*시작|start|처음부터|새\s*수업)[.!?。]?$/i;
+
+export function isFreshSuneungStart(messages, profile) {
+  const latestUser = [...messages].reverse().find((message) => message?.role === "user");
+  const requested = KOREAN_LESSON_START_PATTERN.test(String(latestUser?.content || "").trim());
+  return requested && expectedSuneungQuestion(messages, profile) === 0;
+}
+
 function buildSuneungSessionRule(course, lessonSeed, learningProfile, messages = []) {
   if (!course?.suneung) return "";
   const sessionPlan = buildSuneungSessionPlan(course, lessonSeed);
@@ -598,9 +607,21 @@ export function hasInvalidSuneungSequence(
   record = null
 ) {
   if (!course?.suneung || !sessionPlan) return false;
-  const headers = [...String(text || "").matchAll(/^\s*문제\s*(\d+)\s*\/\s*10\s*[—-]\s*([^\r\n]+)$/gim)]
+  const output = String(text || "");
+  const completionClaim = /(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|학습\s*완료/.test(output);
+  if (completionClaim && record?.question !== 10) return true;
+
+  const headers = [...output.matchAll(/^\s*문제\s*(\d+)\s*\/\s*10\s*[—-]\s*([^\r\n]+)$/gim)]
     .map((match) => ({ question:Number(match[1]), tail:match[2] }));
-  if (!headers.length) return Boolean(isLessonStart || (record?.question && record.question < 10));
+  if (!headers.length) {
+    if (record?.question === 10) return false;
+    if (isLessonStart || record?.question) return true;
+    if (expectedRecordQuestion >= 1 && expectedRecordQuestion <= 10) {
+      const allowedSameQuestionFeedback = /(?:도전\s*[12]\s*\/\s*3|힌트|음성.{0,30}(?:정확|분명|전달|인식)|답(?:만)?\s*(?:짧게\s*)?다시)/.test(output);
+      return !allowedSameQuestionFeedback;
+    }
+    return false;
+  }
 
   for (const header of headers) {
     const expectedStage = sessionPlan.stages[header.question - 1];
@@ -1193,19 +1214,12 @@ export default async function handler(request, response) {
   const student = requireStudentSession(request, response);
   if (!student) return;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return sendJson(response, 503, {
-      error: "수업 엔진 준비 중입니다. 관리자에게 OPENAI_API_KEY 설정을 확인해 주세요."
-    });
-  }
-
   const requestedCourseId = String(request.body?.courseId || "");
   const course = getCourse(requestedCourseId);
   if (!course) {
     return sendJson(response, 400, { error: "올바른 수업을 선택해 주세요." });
   }
-  if (!student.courseId || student.courseId !== requestedCourseId || student.endedAt) {
+  if (!isActiveCourseRun(student, requestedCourseId, request.body?.courseRunId)) {
     return sendJson(response, 409, {
       error: "현재 시작된 수업과 요청한 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
     });
@@ -1221,7 +1235,32 @@ export default async function handler(request, response) {
   if (guardedSuneungScience
     && latestSubmittedMessage?.role === "user"
     && containsExcludedSuneungScienceContent(latestSubmittedMessage.content)) {
-    return sendJson(response, 200, { text: SAFE_SCIENCE_REDIRECT });
+    const safeClosedResponse = handleClosedSuneungScienceLesson({
+      courseId:requestedCourseId,
+      messages,
+      learningProfile:request.body?.learningProfile,
+      blockedInput:true
+    });
+    return sendJson(response, 200, safeClosedResponse || { text:SAFE_SCIENCE_REDIRECT });
+  }
+
+  // This guarded course is deliberately closed and deterministic: every
+  // question, hint, grade, record, and summary comes from the reviewed bank.
+  // Keep it before every OpenAI credential check and network call so no input
+  // can reach a generative path, including input that a semantic filter misses.
+  if (guardedSuneungScience) {
+    return sendJson(response, 200, handleClosedSuneungScienceLesson({
+      courseId:requestedCourseId,
+      messages,
+      learningProfile:request.body?.learningProfile
+    }));
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return sendJson(response, 503, {
+      error: "수업 엔진 준비 중입니다. 관리자에게 OPENAI_API_KEY 설정을 확인해 주세요."
+    });
   }
 
   try {
@@ -1257,9 +1296,22 @@ export default async function handler(request, response) {
             : `\n\n[이번 학생 답은 음성 인식 결과]\n문장이 어색하거나 현재 문제의 답으로 해석하기 불분명하면 오답으로 채점하지 마세요. 정답, 정답 번호, 완성된 모범 답, 정답이 포함된 예시를 절대로 미리 말하지 마세요. “음성이 정확히 전달되지 않았어요. 답만 짧게 다시 말해 주세요.”라고만 안내하고 현재 문제에서 기다리세요.`
         : "";
       const latestUserMessage = messages[messages.length - 1];
-      const koreanLessonStart = course.language !== "en" && course.language !== "fr"
+      const koreanStartRequested = course.language !== "en" && course.language !== "fr"
         && latestUserMessage?.role === "user"
-        && /^(?:시작|시작하기|수학\s*시작하기|국어\s*시작하기|사회\s*시작하기|한국사\s*시작하기|과학\s*시작하기|영어\s*시작|start|처음부터|새\s*수업)[.!?。]?$/i.test(String(latestUserMessage.content || "").trim());
+        && KOREAN_LESSON_START_PATTERN.test(String(latestUserMessage.content || "").trim());
+      const activeSuneungQuestion = course.suneung
+        ? expectedSuneungQuestion(messages, suneungLearningProfile)
+        : 0;
+      const koreanLessonStart = koreanStartRequested
+        && (!course.suneung || isFreshSuneungStart(messages, suneungLearningProfile));
+      if (course.suneung && koreanStartRequested && !koreanLessonStart) {
+        const questionLabel = activeSuneungQuestion >= 1 && activeSuneungQuestion <= 10
+          ? `${activeSuneungQuestion}번`
+          : "현재";
+        return sendJson(response, 200, {
+          text: `${questionLabel} 문제가 진행 중입니다. 화면에 보이는 문제의 답을 입력해 주세요. 처음부터 다시 하려면 ‘새 수업’ 버튼을 눌러 주세요.`
+        });
+      }
       const koreanStartRule = koreanLessonStart
         ? `\n\n[한국어 수업 첫 시작 — 최우선 규칙]\n인사말, 과정명, 학년, 레벨, 수업 방법, 문제 수, 버튼 안내와 “수업을 시작합니다”를 출력하지 마세요. 응답의 첫 글자부터 바로 “문제 1/10” 또는 해당 과정의 “활동 1/10”으로 시작하고 첫 문제 하나만 제시한 뒤 학생의 답을 기다리세요.`
         : "";

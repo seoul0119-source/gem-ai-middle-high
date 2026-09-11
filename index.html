@@ -804,7 +804,17 @@
     let selectedHighSchoolPathway = "general";
     let selectedSubject = "math";
     let selectedSupportCourse = "";
-    localStorage.setItem("gem-program-language", selectedLanguage);
+
+    function writeLocalStorageValue(key, value) {
+      try {
+        localStorage.setItem(key, String(value));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    writeLocalStorageValue("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
       if (selectedSupportCourse) {
@@ -913,7 +923,7 @@
       selectedLanguage = language;
       selectedSupportCourse = "";
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
-      localStorage.setItem("gem-program-language", language);
+      writeLocalStorageValue("gem-program-language", language);
       languageOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.language === language));
       });
@@ -944,7 +954,7 @@
       selectedSchoolLevel = level;
       selectedSupportCourse = "";
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
-      localStorage.setItem("gem-school-level", level);
+      writeLocalStorageValue("gem-school-level", level);
       schoolLevelOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.level === level));
       });
@@ -956,7 +966,7 @@
       selectedSubject = subject;
       selectedSupportCourse = "";
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
-      localStorage.setItem("gem-subject", subject);
+      writeLocalStorageValue("gem-subject", subject);
       subjectOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.subject === subject));
       });
@@ -968,7 +978,7 @@
       selectedHighSchoolPathway = pathway;
       selectedSupportCourse = "";
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
-      localStorage.setItem("gem-high-school-pathway", pathway);
+      writeLocalStorageValue("gem-high-school-pathway", pathway);
       highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => option.setAttribute("aria-pressed", String(option.dataset.pathway === pathway)));
       updateLoginButtonLabel();
     }
@@ -1015,12 +1025,7 @@
     }
 
     function writeStoredTimestamp(key, value) {
-      try {
-        localStorage.setItem(key, String(value));
-        return true;
-      } catch (_) {
-        return false;
-      }
+      return writeLocalStorageValue(key, value);
     }
 
     function applyParentRegistrationCopy() {
@@ -1077,7 +1082,7 @@
 
     function selectSupportCourse(course) {
       selectedSupportCourse = course;
-      localStorage.setItem("gem-support-course", course);
+      writeLocalStorageValue("gem-support-course", course);
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", String(option.dataset.support === course)));
       subjectOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
       highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => option.setAttribute("aria-pressed", "false"));

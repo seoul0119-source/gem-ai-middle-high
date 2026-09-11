@@ -1,4 +1,6 @@
-import { requireStudentSession } from "../lib/student-session.js";
+import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
+import { GUARDED_SUNEUNG_SCIENCE_COURSE_ID } from "../lib/suneung-science-safety.js";
+import { isApprovedClosedSuneungScienceSpeechText } from "../lib/suneung-science-bank.js";
 
 const MAX_TEXT_LENGTH = 1800;
 const CIRCLED_TO_SPOKEN = {
@@ -17,6 +19,10 @@ const FRENCH_QUESTION_NUMBERS = {
   1: "un", 2: "deux", 3: "trois", 4: "quatre", 5: "cinq",
   6: "six", 7: "sept", 8: "huit", 9: "neuf", 10: "dix"
 };
+const SCHOOL_ENGLISH_COURSE_IDS = new Set([
+  "m1-english", "m2-english", "m3-english",
+  "h1-english", "h2-english", "h3-english"
+]);
 
 function sendJson(response, status, payload) {
   response.status(status).setHeader("Content-Type", "application/json; charset=utf-8");
@@ -24,9 +30,9 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
 }
 
-function cleanText(value) {
+export function cleanText(value, courseId = "") {
   const raw = String(value || "");
-  const isSchoolEnglish = /(?:활동\s*\d+\s*\/\s*10\s*[—–-]\s*(?:단어|회화|이야기|퀴즈)|문제\s*\d+\s*\/\s*10\s*[—–-]\s*(?:문법|독해|수능형|내신형|어휘|문맥))/i.test(raw);
+  const isSchoolEnglish = SCHOOL_ENGLISH_COURSE_IDS.has(String(courseId || ""));
 
   let output = raw
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*|```/g, ""))
@@ -63,7 +69,7 @@ function cleanText(value) {
     output = output
       .replace(/^\s*[①②③④⑤⑥⑦⑧⑨⑩]\s+.+$/gm, "")
       .replace(/^\s*\d+\s*[.)]\s+.+$/gm, "")
-      .replace(/^\s*[A-Da-d]\s*[.)]\s+.+$/gm, "")
+      .replace(/^\s*[A-Ea-e]\s*[.)]\s+.+$/gm, "")
       .replace(/^\s*(?:보기|선택지)\s*[:：].*$/gm, "");
   } else {
     // In other subjects, meaningful circled choices are spoken naturally.
@@ -90,15 +96,28 @@ export default async function handler(request, response) {
     return sendJson(response, 405, { error: "POST 요청만 사용할 수 있습니다." });
   }
 
-  if (!requireStudentSession(request, response)) return;
+  const student = requireStudentSession(request, response);
+  if (!student) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   const courseId = String(request.body?.courseId || "");
+  if (!isActiveCourseRun(student, courseId, request.body?.courseRunId)) {
+    return sendJson(response, 409, {
+      error: "현재 시작된 수업과 음성 요청 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
+    });
+  }
   const isToeic = courseId === "toeic";
   const isSuneung = courseId.startsWith("suneung-");
   const isEnglishAvatar = /^g[1-5]-math-en$/.test(courseId);
   const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
-  const input = cleanText(request.body?.text);
+  const rawText = String(request.body?.text || "");
+  if (courseId === GUARDED_SUNEUNG_SCIENCE_COURSE_ID
+    && !isApprovedClosedSuneungScienceSpeechText(rawText)) {
+    return sendJson(response, 400, {
+      error:"승인된 통합과학 수업 내용만 음성으로 들을 수 있습니다."
+    });
+  }
+  const input = cleanText(rawText, courseId);
   if (!apiKey || !input) return sendJson(response, 400, { error: isEnglishAvatar
     ? "There is no text to speak."
     : isFrenchAvatar
