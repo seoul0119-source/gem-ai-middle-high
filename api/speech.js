@@ -95,6 +95,7 @@ export default async function handler(request, response) {
   const apiKey = process.env.OPENAI_API_KEY;
   const courseId = String(request.body?.courseId || "");
   const isToeic = courseId === "toeic";
+  const isSuneung = courseId.startsWith("suneung-");
   const isEnglishAvatar = /^g[1-5]-math-en$/.test(courseId);
   const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
   const input = cleanText(request.body?.text);
@@ -116,6 +117,8 @@ export default async function handler(request, response) {
           ? "Speak only in clear natural American English as a warm elementary mathematics teacher. Never speak Korean. Read the multiplication sign as 'times', never as the Korean word '곱하기'. Do not read markdown symbols, visual blanks, answer boxes, or lesson counters."
           : isFrenchAvatar
             ? "Parle uniquement en français naturel, clair et chaleureux, comme un professeur de mathématiques de l'école élémentaire. Prononce le signe de multiplication comme « fois ». Ne parle ni coréen ni anglais. Ne lis pas les symboles Markdown, les champs de réponse, les blancs visuels ni les compteurs d'activités."
+          : isSuneung
+            ? "Speak in clear, natural Korean as a calm and encouraging Korean CSAT teacher. Read mathematical expressions, scientific terms, units, and answer choices accurately and at a measured pace. Do not add, guess, or omit content. Never reveal an answer that is not present in the input. Do not read markdown symbols, visual blanks, answer boxes, metadata, or lesson counters."
           : isToeic
             ? "Speak like a clear, natural TOEIC practice teacher. Read the Korean directions naturally, and pronounce the English question and each answer choice in clear American English. Never read lesson counters, part headings, markdown symbols, visual blanks, or answer boxes. Read exactly and only the answer choices present in the input, in their original order. Do not add, invent, omit, complete, or guess any choice or sentence. Do not reveal which choice is correct."
             : "Speak like a warm, calm and encouraging bilingual English teacher. Speak Korean explanations naturally. Pronounce every English word and English sentence with clear native American English pronunciation, slightly slowly. Do not imitate Korean phonetic spellings. Never read markdown symbols, visual blanks, answer boxes, dummy ellipsis choices, or lesson counters. For middle/high-school English multiple-choice activities, do not speak the answer-choice text; the learner reads choices on screen and answers by number.",

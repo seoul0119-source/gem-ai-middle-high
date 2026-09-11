@@ -1,6 +1,12 @@
 import { getCourse } from "./courses.js";
 import { isSchoolEnglishNoAnswerRequest } from "./_no-answer-guard.js";
 import { requireStudentSession } from "../lib/student-session.js";
+import { extractLearningRecord } from "../lib/learning-record.js";
+import {
+  SAFE_SCIENCE_REDIRECT,
+  containsExcludedSuneungScienceContent,
+  isGuardedSuneungScienceCourse
+} from "../lib/suneung-science-safety.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -205,6 +211,180 @@ function sanitizeHistory(history) {
   return history.slice(-60).map((item) => String(item || "").slice(0, 500)).filter(Boolean);
 }
 
+export function suneungMathStageForQuestion(question) {
+  const number = Number(question);
+  if (!Number.isInteger(number) || number < 1 || number > 10) return "";
+  if (number <= 3) return "개념";
+  if (number <= 7) return "대표 유형";
+  return "실전";
+}
+
+const SUNEUNG_2027_ELECTIVE_POSITIONS = {
+  2: [[3, 8], [2, 6], [4, 9], [1, 7], [5, 10]],
+  3: [[2, 5, 8], [3, 6, 9], [1, 7, 10], [2, 4, 9], [3, 5, 10]]
+};
+
+export function buildSuneungSessionPlan(course, lessonSeed) {
+  if (!course?.suneung) return null;
+  const stages = Array.from({ length: 10 }, (_, index) => {
+    const question = index + 1;
+    if (course.suneung.subject === "integrated-science") {
+      if (question <= 3) return "개념";
+      if (question <= 7) return "자료 분석";
+      return "실전";
+    }
+    return suneungMathStageForQuestion(question);
+  });
+  const scopes = Array(10).fill("direct");
+  let commonCount = 0;
+  let electiveCount = 0;
+  let electiveQuestions = [];
+
+  if (course.suneung.year === "2027" && course.suneung.subject === "math") {
+    const seed = String(lessonSeed || "").slice(0, 160);
+    const checksum = [...seed].reduce((total, character) => total + character.codePointAt(0), 0);
+    commonCount = checksum % 2 === 0 ? 8 : 7;
+    electiveCount = 10 - commonCount;
+    const templates = SUNEUNG_2027_ELECTIVE_POSITIONS[electiveCount];
+    electiveQuestions = templates[Math.floor(checksum / 2) % templates.length];
+    scopes.fill("common");
+    for (const question of electiveQuestions) scopes[question - 1] = "elective";
+  }
+
+  return { stages, scopes, commonCount, electiveCount, electiveQuestions };
+}
+
+export function sanitizeLearningProfile(profile, sessionPlan = null) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
+  const boundedCount = (value) => Math.max(0, Math.min(1000, Math.trunc(Number(value) || 0)));
+  const allowedTopics = [
+    "지수와 로그", "지수함수와 로그함수", "삼각함수", "수열", "대수", "미적분", "함수의 극한과 연속",
+    "함수의 극한", "도함수", "미분", "적분", "확률과 통계", "경우의 수", "확률", "통계",
+    "이차곡선", "평면벡터", "공간도형과 공간좌표", "공간좌표",
+    "측정과 단위", "정보와 신호", "원소와 주기성", "주기성", "화학 결합", "지구 시스템", "판 구조론",
+    "운동량과 충격량", "생명 시스템", "물질대사", "유전자와 단백질", "산화와 환원", "산화 환원", "산과 염기",
+    "에너지", "생태계", "기후 변화", "감염병", "빅데이터", "인공지능", "과학기술 윤리",
+    "개념", "계산", "조건 해석", "자료 해석", "시간 관리"
+  ];
+  const canonicalTopic = (value) => {
+    const compact = String(value || "").toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
+    return allowedTopics.find((topic) => compact.includes(topic.replace(/[^a-z0-9가-힣]/gi, "").toLowerCase())) || "";
+  };
+  const weakTopics = Array.isArray(profile.weakTopics)
+    ? profile.weakTopics
+      .slice(0, 5)
+      .map(canonicalTopic)
+      .filter(Boolean)
+    : [];
+  const lessonRecordCandidates = Array.isArray(profile.lessonRecords)
+    ? profile.lessonRecords.slice(-10).map((record) => {
+      if (!record || typeof record !== "object" || Array.isArray(record)) return null;
+      const question = boundedCount(record.question);
+      const attempts = boundedCount(record.attempts);
+      const topic = canonicalTopic(record.topic);
+      const stageText = String(record.stage || "");
+      const suppliedStage = /자료/.test(stageText)
+        ? "자료 분석"
+        : /실전/.test(stageText)
+          ? "실전"
+          : /유형/.test(stageText)
+            ? "대표 유형"
+            : /개념/.test(stageText)
+              ? "개념"
+              : "";
+      const suppliedScope = ["common", "elective", "direct"].includes(record.scope) ? record.scope : "direct";
+      const outcome = record.outcome === "correct" || record.outcome === "incorrect" ? record.outcome : "";
+      if (question < 1 || question > 10 || attempts < 1 || attempts > 3 || !topic || !suppliedStage || !outcome) return null;
+      const stage = sessionPlan?.stages?.[question - 1] || suppliedStage;
+      const scope = sessionPlan?.scopes?.[question - 1] || suppliedScope;
+      return { question, stage, topic, scope, outcome, attempts };
+    }).filter(Boolean)
+    : [];
+  let lessonRecords = lessonRecordCandidates;
+  if (sessionPlan) {
+    const recordsByQuestion = new Map();
+    for (const record of lessonRecordCandidates) recordsByQuestion.set(record.question, record);
+    lessonRecords = [];
+    for (let question = 1; question <= 10 && recordsByQuestion.has(question); question += 1) {
+      lessonRecords.push(recordsByQuestion.get(question));
+    }
+  }
+  const completed = sessionPlan ? lessonRecords.length : (lessonRecords.length || boundedCount(profile.completed));
+  return {
+    completed,
+    correct: sessionPlan || lessonRecords.length
+      ? lessonRecords.filter((record) => record.outcome === "correct").length
+      : boundedCount(profile.correct),
+    incorrect: sessionPlan || lessonRecords.length
+      ? lessonRecords.filter((record) => record.outcome === "incorrect").length
+      : boundedCount(profile.incorrect),
+    weakTopics,
+    lessonRecords
+  };
+}
+
+function latestAssistantSuneungQuestion(messages) {
+  for (const message of [...messages].reverse()) {
+    if (message?.role !== "assistant") continue;
+    const matches = [...String(message.content || "").matchAll(/문제\s*(\d+)\s*\/\s*10/gi)];
+    if (matches.length) {
+      const question = Number(matches[matches.length - 1][1]);
+      if (Number.isInteger(question) && question >= 1 && question <= 10) return question;
+    }
+  }
+  return 0;
+}
+
+export function expectedSuneungQuestion(messages, profile, isLessonStart = false) {
+  if (isLessonStart) return 0;
+  const nextFromRecords = profile?.lessonRecords?.length
+    ? Math.min(11, profile.lessonRecords.length + 1)
+    : 0;
+  const fromConversation = latestAssistantSuneungQuestion(messages);
+  if (nextFromRecords && fromConversation && nextFromRecords !== fromConversation) return 0;
+  return nextFromRecords || fromConversation;
+}
+
+function buildSuneungSessionRule(course, lessonSeed, learningProfile, messages = []) {
+  if (!course?.suneung) return "";
+  const sessionPlan = buildSuneungSessionPlan(course, lessonSeed);
+  let rule = "";
+  if (course.suneung.year === "2027" && course.suneung.subject === "math") {
+    const scopeSchedule = sessionPlan.scopes
+      .map((scope, index) => `${index + 1}번=${scope === "common" ? "공통" : `선택 ${course.suneung.elective}`}`)
+      .join(", ");
+    rule += `\n\n[이번 2027 수학 세션 배분 — 최우선]\n10문제 중 공통 수학Ⅰ·수학Ⅱ ${sessionPlan.commonCount}문제와 선택 ${course.suneung.elective} ${sessionPlan.electiveCount}문제를 정확히 구성하세요. 번호별 범위는 다음과 같으며 바꾸면 안 됩니다: ${scopeSchedule}. 다른 선택과목의 고유 내용은 절대로 출제하지 마세요.`;
+  }
+
+  const profile = sanitizeLearningProfile(learningProfile, sessionPlan);
+  const latestUserText = [...messages].reverse().find((message) => message?.role === "user")?.content;
+  const isLessonStart = /^(?:시작|시작하기|수학\s*시작하기|과학\s*시작하기|새\s*수업)[.!?。]?$/i
+    .test(String(latestUserText || "").trim());
+  const currentQuestion = expectedSuneungQuestion(messages, profile)
+    || (isLessonStart && !profile?.lessonRecords?.length ? 1 : 0);
+  if (currentQuestion >= 1 && currentQuestion <= 10) {
+    const currentStage = sessionPlan.stages[currentQuestion - 1];
+    const currentScope = sessionPlan.scopes[currentQuestion - 1];
+    rule += `\n\n[현재 문항의 서버 확정값 — 변경 금지]\n현재 학생이 답하는 문항은 ${currentQuestion}번이고 단계는 “${currentStage}”, 기록 scope는 “${currentScope}”입니다. 이 문항의 GEM_RECORD question/stage/scope는 각각 ${currentQuestion}/“${currentStage}”/“${currentScope}”로만 기록하세요. 문제가 끝나면 다음 번호로만 진행하세요.`;
+  }
+  if (profile && (profile.completed || profile.weakTopics.length)) {
+    rule += `\n\n[최근 이 기기 학습 기록]\n완료 ${profile.completed}문제, 정답 ${profile.correct}, 오답 ${profile.incorrect}. 취약 주제: ${profile.weakTopics.join(", ") || "아직 없음"}. 현재 과정 범위와 3·4·3 구조를 지키면서 취약 주제를 우선 복습하세요.`;
+    if (profile.lessonRecords.length) {
+      const completedSummary = profile.lessonRecords
+        .sort((left, right) => left.question - right.question)
+        .map((record) => `${record.question}번 ${record.stage}/${record.topic}/${record.scope}/${record.outcome}/${record.attempts}회`)
+        .join("; ");
+      rule += `\n현재 세션에서 이미 끝난 문제: ${completedSummary}. 이 기록을 이용해 문제 번호·단계·범위 배분을 이어 가고, 끝난 문제를 다시 출제하지 마세요.`;
+      if (course.suneung.year === "2027" && course.suneung.subject === "math") {
+        const commonDone = profile.lessonRecords.filter((record) => record.scope === "common").length;
+        const electiveDone = profile.lessonRecords.filter((record) => record.scope === "elective").length;
+        rule += ` 현재 완료 배분은 공통 ${commonDone}문제, 선택 ${electiveDone}문제입니다.`;
+      }
+    }
+  }
+  return rule;
+}
+
 function normalizeProblem(text) {
   return String(text || "")
     .toLowerCase()
@@ -385,6 +565,74 @@ function hasIncompleteChoiceSet(text) {
   const looksLikeChoiceActivity = /(?:multiple[ -]?choice|fact choice|equation choice|repeated-addition choice|선택|객관식)/i.test(currentActivity);
   if (!looksLikeChoiceActivity) return false;
   return !["A", "B", "C"].every((label) => options.get(label));
+}
+
+export function hasIncompleteSuneungChoiceSet(text, course) {
+  if (!course?.suneung) return false;
+  const output = String(text || "");
+  const problemStarts = [...output.matchAll(/문제\s*\d+\s*\/\s*10\b/gi)];
+  if (!problemStarts.length) return false;
+  const currentProblem = output.slice(problemStarts[problemStarts.length - 1].index);
+  const optionLines = [...currentProblem.matchAll(/^[ \t]*([A-E])[ \t]*[).:：][ \t]*([^\r\n]*)[ \t]*$/gim)];
+  const isCurrentProblemFeedback = /(?:^|\n)[ \t]*(?:도전\s*[12]\s*\/\s*3|힌트|정답(?:입니다|이에요|:)|문제\s*\d+\s*\/\s*10[^\n]*정답(?:입니다|이에요|:)|최종\s*복습|학습\s*(?:결과|요약)|수업을\s*마쳤)/m.test(currentProblem);
+  if (!optionLines.length && isCurrentProblemFeedback) return false;
+  const requiresFiveChoices = course.suneung.subject === "integrated-science"
+    || /5지\s*선다|객관식/.test(currentProblem)
+    || optionLines.length > 0;
+  if (!requiresFiveChoices) return false;
+
+  const options = new Map(optionLines.map((match) => [match[1].toUpperCase(), match[2].trim()]));
+  return !["A", "B", "C", "D", "E"].every((label) => options.get(label));
+}
+
+function compactSuneungHeaderPart(value) {
+  return String(value || "").replace(/[^A-Za-z0-9가-힣ⅠⅡ]/g, "").toLowerCase();
+}
+
+export function hasInvalidSuneungSequence(
+  text,
+  course,
+  sessionPlan,
+  expectedRecordQuestion,
+  isLessonStart,
+  record = null
+) {
+  if (!course?.suneung || !sessionPlan) return false;
+  const headers = [...String(text || "").matchAll(/^\s*문제\s*(\d+)\s*\/\s*10\s*[—-]\s*([^\r\n]+)$/gim)]
+    .map((match) => ({ question:Number(match[1]), tail:match[2] }));
+  if (!headers.length) return Boolean(isLessonStart || (record?.question && record.question < 10));
+
+  for (const header of headers) {
+    const expectedStage = sessionPlan.stages[header.question - 1];
+    if (!expectedStage) return true;
+    const stagePart = header.tail.split("·")[0] || "";
+    const stageMatches = expectedStage === "개념"
+      ? /개념/.test(stagePart)
+      : expectedStage === "대표 유형"
+        ? /대표\s*유형/.test(stagePart)
+        : expectedStage === "자료 분석"
+          ? /자료\s*분석/.test(stagePart)
+          : /실전/.test(stagePart);
+    if (!stageMatches) return true;
+
+    if (course.suneung.year === "2027") {
+      const coursePart = compactSuneungHeaderPart(header.tail.split("·")[1]);
+      const expectedScope = sessionPlan.scopes[header.question - 1];
+      if (expectedScope === "elective") {
+        if (!coursePart.includes(compactSuneungHeaderPart(course.suneung.elective))) return true;
+      } else if (!/(?:공통|수학(?:Ⅰ|Ⅱ|i{1,2}|1|2))/i.test(coursePart)) {
+        return true;
+      }
+    }
+  }
+
+  const latestHeaderQuestion = headers[headers.length - 1].question;
+  let expectedVisibleQuestion = 0;
+  if (isLessonStart) expectedVisibleQuestion = 1;
+  else if (record?.question && record.question < 10) expectedVisibleQuestion = record.question + 1;
+  else if (record?.question === 10) expectedVisibleQuestion = 10;
+  else expectedVisibleQuestion = expectedRecordQuestion;
+  return Boolean(expectedVisibleQuestion && latestHeaderQuestion !== expectedVisibleQuestion);
 }
 
 function hasOrphanChoiceLabel(text) {
@@ -942,7 +1190,8 @@ export default async function handler(request, response) {
     return sendJson(response, 405, { error: "POST 요청만 사용할 수 있습니다." });
   }
 
-  if (!requireStudentSession(request, response)) return;
+  const student = requireStudentSession(request, response);
+  if (!student) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -951,14 +1200,28 @@ export default async function handler(request, response) {
     });
   }
 
-  const course = getCourse(request.body?.courseId);
+  const requestedCourseId = String(request.body?.courseId || "");
+  const course = getCourse(requestedCourseId);
   if (!course) {
     return sendJson(response, 400, { error: "올바른 수업을 선택해 주세요." });
+  }
+  if (!student.courseId || student.courseId !== requestedCourseId || student.endedAt) {
+    return sendJson(response, 409, {
+      error: "현재 시작된 수업과 요청한 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
+    });
   }
 
   const messages = sanitizeMessages(request.body?.messages);
   if (!messages || messages.length === 0) {
     return sendJson(response, 400, { error: "수업 메시지를 입력해 주세요." });
+  }
+
+  const guardedSuneungScience = isGuardedSuneungScienceCourse(request.body?.courseId);
+  const latestSubmittedMessage = messages[messages.length - 1];
+  if (guardedSuneungScience
+    && latestSubmittedMessage?.role === "user"
+    && containsExcludedSuneungScienceContent(latestSubmittedMessage.content)) {
+    return sendJson(response, 200, { text: SAFE_SCIENCE_REDIRECT });
   }
 
   try {
@@ -972,6 +1235,17 @@ export default async function handler(request, response) {
             : `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
         : "";
       const signatures = new Set(history.map(normalizeProblem).filter(Boolean));
+      const suneungSessionPlan = buildSuneungSessionPlan(course, request.body?.lessonSeed);
+      const suneungLearningProfile = sanitizeLearningProfile(
+        request.body?.learningProfile,
+        suneungSessionPlan
+      );
+      const suneungSessionRule = buildSuneungSessionRule(
+        course,
+        request.body?.lessonSeed,
+        request.body?.learningProfile,
+        messages
+      );
       const schoolEnglishAnswerRule = course.kind === "english"
         ? SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE
         : "";
@@ -989,6 +1263,11 @@ export default async function handler(request, response) {
       const koreanStartRule = koreanLessonStart
         ? `\n\n[한국어 수업 첫 시작 — 최우선 규칙]\n인사말, 과정명, 학년, 레벨, 수업 방법, 문제 수, 버튼 안내와 “수업을 시작합니다”를 출력하지 마세요. 응답의 첫 글자부터 바로 “문제 1/10” 또는 해당 과정의 “활동 1/10”으로 시작하고 첫 문제 하나만 제시한 뒤 학생의 답을 기다리세요.`
         : "";
+      const expectedRecordQuestion = expectedSuneungQuestion(
+        messages,
+        suneungLearningProfile,
+        koreanLessonStart
+      );
       const grade3Start = isGrade3AvatarStart(messages, request.body?.courseId);
       const avatarStartRule = grade3Start ? AVATAR_START_PROTECTION_RULE : "";
       const grade3Hint = isAvatarHintRequest(messages, request.body?.courseId);
@@ -1030,7 +1309,7 @@ export default async function handler(request, response) {
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         let formatRepairRule = "";
-        if (attempt > 0) {
+        if (attempt > 0 && !course.suneung) {
           formatRepairRule += course.language === "en"
             ? `\n\n[Multiple-choice format repair]\nEvery multiple-choice activity must contain three complete choices labeled A), B), and C). Write meaningful text after every label. Never output an empty label such as “C)” or “C answer”. Verify that exactly one choice is correct before responding.`
             : course.language === "fr"
@@ -1046,12 +1325,23 @@ export default async function handler(request, response) {
         if (course.kind === "english" && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\n중1-고3 영어의 빈칸·문장 완성·지문 완성·알맞은 단어 또는 표현 넣기 문제에서는 학생이 채울 실제 위치에 키보드의 일반 밑줄 문자(_) 8개인 “________”을 반드시 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 모든 활동과 문제 맨 아래에는 문제 유형과 관계없이 별도로 정확히 “답: (________)”을 표시하세요. 표시가 하나라도 빠진 후보는 출력하지 마세요.`;
         }
+        if (guardedSuneungScience && attempt > 0) {
+          formatRepairRule += `\n\n[통합과학 제외 범위 오류 재생성]\n직전 후보에 이 교실의 제외 범위가 포함되어 폐기되었습니다. 허용 범위에서 완전히 새로운 문제·힌트·해설을 만들고 제외된 표현을 언급하거나 나열하지 마세요.`;
+        }
+        if (course.suneung && attempt > 0) {
+          formatRepairRule += `\n\n[수능형 선택지 형식 재검사]\n5지선다형 문제에는 내용이 완전한 A), B), C), D), E) 다섯 선택지를 모두 쓰고 정답은 하나만 두세요. 단답형에는 선택지를 만들지 마세요.`;
+          if (course.suneung.subject === "math") {
+            formatRepairRule += `\n문제 1–3은 개념, 4–7은 대표 유형, 8–10은 실전으로 고정합니다. 서버가 지정한 번호별 범위와 GEM_RECORD question/stage/scope를 바꾸지 마세요.`;
+          } else if (course.suneung.subject === "integrated-science") {
+            formatRepairRule += `\n문제 1–3은 개념, 4–7은 자료 분석, 8–10은 실전으로 고정합니다. 서버가 지정한 번호와 GEM_RECORD question/stage/scope를 바꾸지 마세요.`;
+          }
+        }
         const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
+            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
             input: messages,
             max_output_tokens: course.kind === "toefl"
               ? 1200
@@ -1067,6 +1357,10 @@ export default async function handler(request, response) {
         }
         const text = getOutputText(data);
         if (!text) continue;
+        if (guardedSuneungScience && containsExcludedSuneungScienceContent(text)) {
+          console.warn("Excluded Suneung integrated-science content rejected", attempt + 1);
+          continue;
+        }
         if (toeicStudentChoice && toeicCorrectChoice
           && contradictsVerifiedToeicGrade(text, toeicShouldBeCorrect, toeicQuestion)) {
           console.warn("TOEIC response contradicted independent grading", {
@@ -1116,6 +1410,10 @@ export default async function handler(request, response) {
           console.warn("Grade 3 hint disclosed an answer or repeated the answer field", attempt + 1);
           continue;
         }
+        if (hasIncompleteSuneungChoiceSet(text, course)) {
+          console.warn("Incomplete Suneung five-choice set rejected", attempt + 1);
+          continue;
+        }
         if (hasIncompleteChoiceSet(text)) {
           console.warn("Incomplete multiple-choice set rejected", attempt + 1);
           continue;
@@ -1128,8 +1426,35 @@ export default async function handler(request, response) {
           ensureAnswerSlot(text, course.kind, course.language, grade3Hint),
           request.body?.courseId
         );
-        const signature = normalizeProblem(answerReadyText);
-        if (!signature || !signatures.has(signature)) return sendJson(response, 200, { text: answerReadyText });
+        const extracted = course.suneung
+          ? extractLearningRecord(answerReadyText, {
+            expectedQuestion: expectedRecordQuestion,
+            expectedStage: suneungSessionPlan?.stages?.[expectedRecordQuestion - 1],
+            expectedScope: suneungSessionPlan?.scopes?.[expectedRecordQuestion - 1]
+          })
+          : { text: answerReadyText, record: null };
+        if (course.suneung && /\[GEM_RECORD\]/i.test(answerReadyText) && !extracted.record) {
+          console.warn("Invalid or out-of-sequence Suneung record rejected", attempt + 1);
+          continue;
+        }
+        if (hasInvalidSuneungSequence(
+          extracted.text,
+          course,
+          suneungSessionPlan,
+          expectedRecordQuestion,
+          koreanLessonStart,
+          extracted.record
+        )) {
+          console.warn("Out-of-sequence Suneung response rejected", attempt + 1);
+          continue;
+        }
+        const signature = normalizeProblem(extracted.text);
+        if (!signature || !signatures.has(signature)) {
+          return sendJson(response, 200, {
+            text: extracted.text,
+            ...(extracted.record ? { record: extracted.record } : {})
+          });
+        }
         console.warn("Duplicate lesson problem rejected", attempt + 1);
       }
       return sendJson(response, 502, { error: "새 문제를 다시 준비해 주세요." });

@@ -317,6 +317,91 @@
       line-height:1.6;
     }
 
+    [hidden] { display:none!important; }
+
+    .learning-launch {
+      margin-bottom:22px;
+      padding:22px;
+      border:2px solid #9dbbdf;
+      border-radius:16px;
+      background:#f8fbff;
+      box-shadow:0 8px 22px rgba(18,48,85,.08);
+    }
+
+    .learning-launch h2 {
+      margin:0;
+      color:var(--navy-light);
+      font-size:22px;
+    }
+
+    .launch-guide {
+      margin:8px 0 16px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .math-track-options {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-bottom:16px;
+    }
+
+    .math-track-choice {
+      min-height:60px;
+      padding:11px;
+      border:2px solid #bdcce0;
+      border-radius:12px;
+      background:#fff;
+      color:var(--navy-light);
+      font:inherit;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .math-track-choice[aria-pressed="true"] {
+      border-color:var(--blue);
+      background:#eaf3ff;
+      box-shadow:0 5px 14px rgba(30,103,198,.14);
+    }
+
+    .math-track-choice:focus-visible,
+    .start-learning:focus-visible {
+      outline:3px solid var(--navy-light);
+      outline-offset:3px;
+    }
+
+    .science-guard-notice {
+      margin:0 0 16px;
+      padding:14px 16px;
+      border:1px solid #dcbf69;
+      border-radius:12px;
+      background:#fff8e5;
+      color:#654f18;
+      line-height:1.65;
+    }
+
+    .start-learning {
+      width:100%;
+      min-height:56px;
+      padding:13px 18px;
+      border:0;
+      border-radius:13px;
+      background:var(--blue);
+      color:#fff;
+      font:inherit;
+      font-size:18px;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .start-learning:hover { background:#174f9b; }
+
+    .start-learning:disabled {
+      cursor:not-allowed;
+      background:#91a4ba;
+    }
+
     .back {
       display:inline-block;
       margin-top:18px;
@@ -345,12 +430,14 @@
       header { padding:34px 16px 31px; }
       main { width:min(100% - 20px,960px); }
       .selection-panel { padding:18px; }
+      .learning-launch { padding:18px; }
       .subjects { grid-template-columns:1fr; }
       .exam-subject { min-height:112px; padding:17px; }
     }
 
     @media (max-width:420px) {
       .year-options { grid-template-columns:1fr; }
+      .math-track-options { grid-template-columns:1fr; }
     }
 
     @media (prefers-reduced-motion:reduce) {
@@ -431,6 +518,20 @@
       </div>
     </section>
 
+    <section id="learning-launch" class="learning-launch" aria-labelledby="launch-title" hidden>
+      <h2 id="launch-title">AI 수능 수업 시작</h2>
+      <p id="launch-guide" class="launch-guide">선택한 과정의 학습 내용을 확인해 주세요.</p>
+      <div id="math-track-options" class="math-track-options" role="group" aria-label="2027학년도 수능 수학 선택과목" hidden>
+        <button class="math-track-choice" type="button" data-track="probability" aria-pressed="false">확률과 통계</button>
+        <button class="math-track-choice" type="button" data-track="calculus" aria-pressed="false">미적분</button>
+        <button class="math-track-choice" type="button" data-track="geometry" aria-pressed="false">기하</button>
+      </div>
+      <p id="science-guard-notice" class="science-guard-notice" hidden>
+        GEM 신앙 교육 원칙에 따라 생물의 기원·계통 및 우주 기원과 관련된 공식 범위 일부는 제공하지 않습니다. 따라서 이 과정은 공식 통합과학 전 범위 과정이 아닙니다.
+      </p>
+      <button id="start-learning" class="start-learning" type="button" disabled>선택 후 AI 수업 시작 →</button>
+    </section>
+
     <div id="selection-status" class="selection-status" role="status" aria-live="polite">
       먼저 시험 연도를 선택해 주세요.
     </div>
@@ -458,10 +559,17 @@
 
     const yearButtons = Array.from(document.querySelectorAll(".year-choice"));
     const subjectButtons = Array.from(document.querySelectorAll(".exam-subject"));
+    const trackButtons = Array.from(document.querySelectorAll(".math-track-choice"));
     const yearPolicy = document.getElementById("year-policy");
     const selectionStatus = document.getElementById("selection-status");
+    const learningLaunch = document.getElementById("learning-launch");
+    const launchGuide = document.getElementById("launch-guide");
+    const mathTrackOptions = document.getElementById("math-track-options");
+    const scienceGuardNotice = document.getElementById("science-guard-notice");
+    const startLearningButton = document.getElementById("start-learning");
     let selectedYear = "";
     let selectedSubjectButton = null;
+    let selectedTrack = "";
 
     const examPlans = {
       "2027": {
@@ -492,6 +600,20 @@
       }
     };
 
+    const courseRoutes = {
+      "2027": {
+        math: {
+          probability:"suneung-2027-math-probability",
+          calculus:"suneung-2027-math-calculus",
+          geometry:"suneung-2027-math-geometry"
+        }
+      },
+      "2028": {
+        math:"suneung-2028-math",
+        science:"suneung-2028-integrated-science"
+      }
+    };
+
     function applyExamPlan() {
       const plan = examPlans[selectedYear];
       yearPolicy.dataset.year = selectedYear;
@@ -505,13 +627,55 @@
       });
     }
 
+    function selectedCourseId() {
+      const subjectKey = selectedSubjectButton?.dataset.key;
+      const route = courseRoutes[selectedYear]?.[subjectKey];
+      if (typeof route === "string") return route;
+      if (route && selectedTrack) return route[selectedTrack] || "";
+      return "";
+    }
+
+    function resetTrackSelection() {
+      selectedTrack = "";
+      trackButtons.forEach((item) => item.setAttribute("aria-pressed", "false"));
+    }
+
+    function updateLearningLaunch() {
+      const subjectKey = selectedSubjectButton?.dataset.key;
+      const route = courseRoutes[selectedYear]?.[subjectKey];
+      const is2027Math = selectedYear === "2027" && subjectKey === "math";
+      const is2028Science = selectedYear === "2028" && subjectKey === "science";
+      learningLaunch.hidden = !route;
+      mathTrackOptions.hidden = !is2027Math;
+      scienceGuardNotice.hidden = !is2028Science;
+      startLearningButton.disabled = !selectedCourseId();
+
+      if (!route) return;
+      if (is2027Math) {
+        launchGuide.textContent = selectedTrack
+          ? `수학Ⅰ·수학Ⅱ 공통과 선택한 ${trackButtons.find((button) => button.dataset.track === selectedTrack)?.textContent || "선택과목"}을 10문제로 공부합니다.`
+          : "수학Ⅰ·수학Ⅱ와 함께 응시할 선택과목을 하나 골라 주세요.";
+      } else if (is2028Science) {
+        launchGuide.textContent = "허용된 통합과학 범위에서 개념 3·자료 분석 4·실전 3문제를 한 문제씩 공부합니다.";
+      } else {
+        launchGuide.textContent = "대수·미적분Ⅰ·확률과 통계를 개념 3·유형 4·실전 3문제로 공부합니다.";
+      }
+      startLearningButton.textContent = selectedCourseId()
+        ? "AI 선생님과 학습 시작 →"
+        : "선택과목을 고른 뒤 시작 →";
+    }
+
     function updateSelectionStatus() {
       if (!selectedYear) {
         selectionStatus.textContent = "먼저 시험 연도를 선택해 주세요.";
       } else if (!selectedSubjectButton) {
         selectionStatus.textContent = `${examPlans[selectedYear].label} 체제가 적용되었습니다. 공부할 수능 과목을 선택해 주세요.`;
+      } else if (selectedYear === "2027" && selectedSubjectButton.dataset.key === "math" && !selectedTrack) {
+        selectionStatus.textContent = "2027학년도 수능 수학 선택 완료 · 아래에서 확률과 통계, 미적분, 기하 중 한 과목을 골라 주세요.";
+      } else if (selectedCourseId()) {
+        selectionStatus.textContent = `학습 준비 완료: ${examPlans[selectedYear].label} · ${selectedSubjectButton.dataset.subject}${selectedTrack ? ` · ${trackButtons.find((button) => button.dataset.track === selectedTrack)?.textContent || ""}` : ""}`;
       } else {
-        selectionStatus.textContent = `선택 완료: ${examPlans[selectedYear].label} · ${selectedSubjectButton.dataset.subject}`;
+        selectionStatus.textContent = `선택 완료: ${examPlans[selectedYear].label} · ${selectedSubjectButton.dataset.subject} · 이 과목의 AI 학습 내용은 준비 중입니다.`;
       }
     }
 
@@ -519,6 +683,7 @@
       const selection = new URLSearchParams();
       selection.set("year", selectedYear);
       if (selectedSubjectButton) selection.set("subject", selectedSubjectButton.dataset.key);
+      if (selectedTrack) selection.set("track", selectedTrack);
       history.replaceState(null, "", `#${selection.toString()}`);
     }
 
@@ -528,17 +693,30 @@
       yearButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
       if (yearChanged) {
         selectedSubjectButton = null;
+        resetTrackSelection();
         subjectButtons.forEach((item) => item.setAttribute("aria-pressed", "false"));
       }
       applyExamPlan();
+      updateLearningLaunch();
       updateSelectionStatus();
       if (updateHash) updateSelectionHash();
     }
 
     function selectSubject(button, updateHash = true) {
       if (!selectedYear) return;
+      if (selectedSubjectButton !== button) resetTrackSelection();
       selectedSubjectButton = button;
       subjectButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      updateLearningLaunch();
+      updateSelectionStatus();
+      if (updateHash) updateSelectionHash();
+    }
+
+    function selectTrack(button, updateHash = true) {
+      if (selectedYear !== "2027" || selectedSubjectButton?.dataset.key !== "math") return;
+      selectedTrack = button.dataset.track;
+      trackButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      updateLearningLaunch();
       updateSelectionStatus();
       if (updateHash) updateSelectionHash();
     }
@@ -551,12 +729,25 @@
       button.addEventListener("click", () => selectSubject(button));
     });
 
+    trackButtons.forEach((button) => {
+      button.addEventListener("click", () => selectTrack(button));
+    });
+
+    startLearningButton.addEventListener("click", () => {
+      const courseId = selectedCourseId();
+      if (courseId) location.href = `/learn.html?course=${encodeURIComponent(courseId)}`;
+    });
+
     const savedSelection = new URLSearchParams(location.hash.slice(1));
     const savedYearButton = yearButtons.find((button) => button.dataset.year === savedSelection.get("year"));
     if (savedYearButton) {
       selectYear(savedYearButton, false);
       const savedSubjectButton = subjectButtons.find((button) => button.dataset.key === savedSelection.get("subject"));
-      if (savedSubjectButton) selectSubject(savedSubjectButton, false);
+      if (savedSubjectButton) {
+        selectSubject(savedSubjectButton, false);
+        const savedTrackButton = trackButtons.find((button) => button.dataset.track === savedSelection.get("track"));
+        if (savedTrackButton) selectTrack(savedTrackButton, false);
+      }
     }
 
     document.getElementById("logout").addEventListener("click", async () => {
