@@ -766,6 +766,8 @@ test("waits for browser fallback speech before restarting the microphone", async
     currentSpeechResolve: null,
     teacherVolume: 0.45,
     COURSE:{ language:"ko" },
+    IS_SUNEUNG:false,
+    IS_MATH:false,
     cleanLessonForSpeech:(value) => value,
     getVoice:() => null,
     SpeechSynthesisUtterance:FakeUtterance,
@@ -811,6 +813,13 @@ test("waits for browser fallback speech before restarting the microphone", async
   assert.equal(failed, true, "speech errors must settle the speech wait");
   assert.equal(cancelCalls, 1);
 
+  context.IS_SUNEUNG = true;
+  context.IS_MATH = true;
+  const mathPromise = context.browserSpeak("에이 선택지, lim(x→5) f(x)=2", 8);
+  assert.equal(spoken.at(-1).lang, "ko-KR", "Suneung math fallback must use a Korean voice");
+  spoken.at(-1).emit("end");
+  await mathPromise;
+
   assert.match(learnHtml, /await browserSpeak\(clean, speechId\)/);
   assert.match(learnHtml, /await speakWithoutCountingQuestionTime\(lastAssistantText, isStarting\)/);
   assert.doesNotMatch(learnHtml, /scheduleRecording\(450\)/);
@@ -848,8 +857,14 @@ test("keeps all A-E choices in Suneung math speech", () => {
     "E) 5"
   ].join("\n");
   const suneungSpeech = cleanSpeechText(text, "suneung-2028-math");
-  for (const label of ["A) 1", "B) 2", "C) 3", "D) 4", "E) 5"]) {
-    assert.match(suneungSpeech, new RegExp(label.replace(")", "\\)")));
+  for (const choice of [
+    "에이 선택지, 1.",
+    "비 선택지, 2.",
+    "씨 선택지, 3.",
+    "디 선택지, 4.",
+    "이 선택지, 5."
+  ]) {
+    assert.match(suneungSpeech, new RegExp(choice.replace(".", "\\.")));
   }
 
   const schoolEnglishSpeech = cleanSpeechText(text, "h3-english");
