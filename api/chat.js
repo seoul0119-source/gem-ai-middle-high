@@ -324,16 +324,32 @@ export function sanitizeLearningProfile(profile, sessionPlan = null) {
   };
 }
 
-function latestAssistantSuneungQuestion(messages) {
+export function latestAssistantSuneungQuestionContent(messages, expectedQuestion = 0) {
+  const requestedQuestion = Number(expectedQuestion);
+  const hasRequestedQuestion = Number.isInteger(requestedQuestion)
+    && requestedQuestion >= 1
+    && requestedQuestion <= 10;
+
   for (const message of [...messages].reverse()) {
     if (message?.role !== "assistant") continue;
-    const matches = [...String(message.content || "").matchAll(/문제\s*(\d+)\s*\/\s*10/gi)];
-    if (matches.length) {
-      const question = Number(matches[matches.length - 1][1]);
-      if (Number.isInteger(question) && question >= 1 && question <= 10) return question;
+    const content = String(message.content || "");
+    const matches = [...content.matchAll(/문제\s*(\d+)\s*\/\s*10/gi)];
+    for (let index = matches.length - 1; index >= 0; index -= 1) {
+      const question = Number(matches[index][1]);
+      if (!Number.isInteger(question) || question < 1 || question > 10) continue;
+      if (hasRequestedQuestion && question !== requestedQuestion) continue;
+      const nextQuestionStart = matches[index + 1]?.index;
+      const questionText = extractLearningRecord(
+        content.slice(matches[index].index, nextQuestionStart)
+      ).text.trim();
+      if (questionText) return { question, text:questionText };
     }
   }
-  return 0;
+  return null;
+}
+
+function latestAssistantSuneungQuestion(messages) {
+  return latestAssistantSuneungQuestionContent(messages)?.question || 0;
 }
 
 export function expectedSuneungQuestion(messages, profile, isLessonStart = false) {
@@ -346,11 +362,25 @@ export function expectedSuneungQuestion(messages, profile, isLessonStart = false
   return nextFromRecords || fromConversation;
 }
 
-const KOREAN_LESSON_START_PATTERN = /^(?:시작|시작하기|수학\s*시작하기|국어\s*시작하기|사회\s*시작하기|한국사\s*시작하기|과학\s*시작하기|영어\s*시작|start|처음부터|새\s*수업)[.!?。]?$/i;
+export function isKoreanLessonStartRequest(value) {
+  let command = String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+  if (command === "start") return true;
+
+  // Speech recognition commonly keeps a greeting in the same transcript as
+  // the learner's command (for example, “안녕하세요. 시작해 주세요.”).
+  command = command.replace(/^(?:(?:안녕하세요|안녕하십니까|안녕|선생님|박사님))+/, "");
+  if (["처음부터", "새수업", "새학습"].includes(command)) return true;
+
+  return /^(?:(?:이제|지금|오늘|다시|새로|새|처음부터))?(?:(?:수능)?(?:수학|국어|사회|한국사|과학|영어)?(?:수업|학습|문제풀이|문제)?(?:을|를)?)?(?:시작|시작하기|시작해줘|시작해주세요|시작해주십시오|시작부탁드립니다|시작부탁드려요|시작부탁해요|시작합시다|시작하자)$/.test(command);
+}
 
 export function isFreshSuneungStart(messages, profile) {
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
-  const requested = KOREAN_LESSON_START_PATTERN.test(String(latestUser?.content || "").trim());
+  const requested = isKoreanLessonStartRequest(latestUser?.content);
   return requested && expectedSuneungQuestion(messages, profile) === 0;
 }
 
@@ -367,8 +397,7 @@ function buildSuneungSessionRule(course, lessonSeed, learningProfile, messages =
 
   const profile = sanitizeLearningProfile(learningProfile, sessionPlan);
   const latestUserText = [...messages].reverse().find((message) => message?.role === "user")?.content;
-  const isLessonStart = /^(?:시작|시작하기|수학\s*시작하기|과학\s*시작하기|새\s*수업)[.!?。]?$/i
-    .test(String(latestUserText || "").trim());
+  const isLessonStart = isKoreanLessonStartRequest(latestUserText);
   const currentQuestion = expectedSuneungQuestion(messages, profile)
     || (isLessonStart && !profile?.lessonRecords?.length ? 1 : 0);
   if (currentQuestion >= 1 && currentQuestion <= 10) {
@@ -1298,7 +1327,7 @@ export default async function handler(request, response) {
       const latestUserMessage = messages[messages.length - 1];
       const koreanStartRequested = course.language !== "en" && course.language !== "fr"
         && latestUserMessage?.role === "user"
-        && KOREAN_LESSON_START_PATTERN.test(String(latestUserMessage.content || "").trim());
+        && isKoreanLessonStartRequest(latestUserMessage.content);
       const activeSuneungQuestion = course.suneung
         ? expectedSuneungQuestion(messages, suneungLearningProfile)
         : 0;
@@ -1308,8 +1337,13 @@ export default async function handler(request, response) {
         const questionLabel = activeSuneungQuestion >= 1 && activeSuneungQuestion <= 10
           ? `${activeSuneungQuestion}번`
           : "현재";
+        const activeQuestion = activeSuneungQuestion >= 1 && activeSuneungQuestion <= 10
+          ? latestAssistantSuneungQuestionContent(messages, activeSuneungQuestion)
+          : null;
         return sendJson(response, 200, {
-          text: `${questionLabel} 문제가 진행 중입니다. 화면에 보이는 문제의 답을 입력해 주세요. 처음부터 다시 하려면 ‘새 수업’ 버튼을 눌러 주세요.`
+          text: activeQuestion?.text
+            ? `${questionLabel} 문제가 진행 중입니다. 문제를 다시 읽어드릴게요.\n\n${activeQuestion.text}`
+            : `${questionLabel} 문제가 진행 중입니다. 화면에 보이는 문제의 답을 입력해 주세요. 처음부터 다시 하려면 ‘새 수업’ 버튼을 눌러 주세요.`
         });
       }
       const koreanStartRule = koreanLessonStart

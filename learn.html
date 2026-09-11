@@ -2146,7 +2146,19 @@
         sentToTeacher = true;
         await sendMessage(data.text, "voice");
       } catch (error) {
-        if (!voiceFailureNoticeShown) {
+        if (sentToTeacher) {
+          // Transcription already succeeded, so a downstream lesson error must
+          // never be presented as a microphone or speech-recognition failure.
+          console.error("Teacher response failed after successful transcription", error);
+          addMessage("assistant", "음성은 정상적으로 인식했지만 답을 AI 선생님에게 전달하지 못했습니다. 잠시 후 다시 보내 주세요.");
+          connection.innerHTML = COURSE.avatar
+            ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.checkConnection}`
+            : "<strong>상태</strong> 수업 연결 확인 필요";
+          // sendMessage normally restarts the microphone in its own finally.
+          // If an unexpected downstream exception escaped it, guarantee that
+          // voice conversation mode still recovers instead of stopping here.
+          scheduleRecording(1200);
+        } else if (!voiceFailureNoticeShown) {
           addMessage("assistant", error.message || (COURSE.avatar
             ? AVATAR_TEXT.notUnderstood
             : "목소리를 알아듣지 못했습니다. 다시 말해 주세요."));

@@ -124,12 +124,18 @@ export default async function handler(request, response) {
 
     let transcriptionModel = "gpt-transcribe";
     let { result, data } = await requestTranscription(transcriptionModel);
-    if (!result.ok && [400, 403, 404].includes(result.status)) {
-      console.warn("GPT Transcribe fallback", result.status, data?.error?.code, data?.error?.param);
+    const primaryTranscriptMissing = result.ok && !data?.text?.trim();
+    if ((!result.ok && [400, 403, 404].includes(result.status)) || primaryTranscriptMissing) {
+      console.warn(
+        "GPT Transcribe fallback",
+        primaryTranscriptMissing ? "empty_transcript" : result.status,
+        data?.error?.code,
+        data?.error?.param
+      );
       transcriptionModel = "gpt-4o-transcribe";
       ({ result, data } = await requestTranscription(transcriptionModel));
     }
-    if (!result.ok || !data.text?.trim()) {
+    if (!result.ok || !data?.text?.trim()) {
       console.error(
         "OpenAI transcription error",
         result.status,
