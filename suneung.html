@@ -145,9 +145,10 @@
       background:#f8fbff;
       color:var(--navy-light);
       display:flex;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
-      gap:10px;
+      gap:4px;
       font:inherit;
       cursor:pointer;
       transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
@@ -175,6 +176,29 @@
     .year-choice:focus-visible {
       outline:3px solid var(--navy-light);
       outline-offset:3px;
+    }
+
+    .year-policy {
+      margin:0 0 18px;
+      padding:14px 16px;
+      border-left:4px solid #8298b4;
+      border-radius:10px;
+      background:#f4f7fb;
+      color:#3d536e;
+      font-weight:700;
+      line-height:1.65;
+    }
+
+    .year-policy[data-year="2027"] {
+      border-left-color:var(--blue);
+      background:#eef6ff;
+      color:#244c7e;
+    }
+
+    .year-policy[data-year="2028"] {
+      border-left-color:#b47b0e;
+      background:#fff8e5;
+      color:#654f18;
     }
 
     .subjects {
@@ -208,9 +232,15 @@
     }
 
     .exam-subject:disabled {
-      opacity:.55;
       cursor:not-allowed;
+      border-style:dashed;
+      background:#f6f8fb;
       box-shadow:none;
+    }
+
+    .exam-subject:disabled .subject-icon {
+      filter:grayscale(1);
+      opacity:.68;
     }
 
     .exam-subject:disabled:hover {
@@ -349,52 +379,53 @@
       <h2 id="exam-year-title">시험 연도 선택</h2>
       <p class="selection-guide">학생이 수능을 응시할 연도를 선택하세요.</p>
       <div class="year-options" role="group" aria-label="수능 시험 연도">
-        <button class="year-choice" type="button" data-year="2027" aria-pressed="false" aria-controls="subject-options">
-          <strong>2027년</strong><span>수능 응시</span>
+        <button class="year-choice" type="button" data-year="2027" aria-pressed="false" aria-controls="year-policy subject-options">
+          <strong>2027학년도</strong><span>2026년 시행 · 현행 체제</span>
         </button>
-        <button class="year-choice" type="button" data-year="2028" aria-pressed="false" aria-controls="subject-options">
-          <strong>2028년</strong><span>수능 응시</span>
+        <button class="year-choice" type="button" data-year="2028" aria-pressed="false" aria-controls="year-policy subject-options">
+          <strong>2028학년도</strong><span>2027년 시행 · 통합형 개편</span>
         </button>
       </div>
     </section>
 
     <section class="selection-panel" aria-labelledby="subject-title">
       <h2 id="subject-title">수능 과목 선택</h2>
-      <p class="selection-guide">시험 연도를 선택하면 과목 버튼이 활성화됩니다.</p>
+      <p class="selection-guide">시험 연도를 선택한 뒤 지금 공부할 과목을 고르세요. 연도에 따라 안내가 바뀝니다.</p>
+      <p id="year-policy" class="year-policy" aria-live="polite" aria-atomic="true">시험 연도를 선택하면 적용되는 수능 체제를 안내합니다.</p>
       <div id="subject-options" class="subjects">
       <button class="exam-subject" type="button" data-subject="수능 국어" data-key="korean" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">📘</span>
-        <span class="subject-copy"><strong>수능 국어</strong><small>국어 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 국어</strong><small>연도별 국어 출제 범위</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       <button class="exam-subject" type="button" data-subject="수능 수학" data-key="math" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">📐</span>
-        <span class="subject-copy"><strong>수능 수학</strong><small>수학 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 수학</strong><small>연도별 수학 출제 범위</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       <button class="exam-subject" type="button" data-subject="수능 영어" data-key="english" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🔤</span>
-        <span class="subject-copy"><strong>수능 영어</strong><small>영어 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 영어</strong><small>영어 영역</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       <button class="exam-subject" type="button" data-subject="수능 한국사" data-key="history" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🏛️</span>
-        <span class="subject-copy"><strong>수능 한국사</strong><small>한국사 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 한국사</strong><small>한국사 영역</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       <button class="exam-subject" type="button" data-subject="수능 사회탐구" data-key="social" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🌏</span>
-        <span class="subject-copy"><strong>수능 사회탐구</strong><small>사회탐구 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 사회탐구</strong><small>연도별 사회탐구 체제</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       <button class="exam-subject" type="button" data-subject="수능 과학탐구" data-key="science" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🔬</span>
-        <span class="subject-copy"><strong>수능 과학탐구</strong><small>과학탐구 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 과학탐구</strong><small>연도별 과학탐구 체제</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       <button class="exam-subject" type="button" data-subject="수능 제2외국어/한문" data-key="second-language" aria-pressed="false" disabled>
         <span class="subject-icon" aria-hidden="true">🌐</span>
-        <span class="subject-copy"><strong>수능 제2외국어/한문</strong><small>제2외국어 또는 한문 영역 선택</small></span>
+        <span class="subject-copy"><strong>수능 제2외국어/한문</strong><small>제2외국어 또는 한문 영역</small></span>
         <span class="check" aria-hidden="true">✓</span>
       </button>
       </div>
@@ -427,17 +458,60 @@
 
     const yearButtons = Array.from(document.querySelectorAll(".year-choice"));
     const subjectButtons = Array.from(document.querySelectorAll(".exam-subject"));
+    const yearPolicy = document.getElementById("year-policy");
     const selectionStatus = document.getElementById("selection-status");
     let selectedYear = "";
     let selectedSubjectButton = null;
+
+    const examPlans = {
+      "2027": {
+        label:"2027학년도",
+        policy:"2015 개정 교육과정 · 국어·수학은 공통과목에 응시하고 각 영역별 선택과목 1개를 고르며, 사회·과학탐구는 17개 과목 중 최대 2개를 선택합니다.",
+        subjects:{
+          korean:{ label:"수능 국어", detail:"독서·문학 공통 + 화법과 작문·언어와 매체 중 1개" },
+          math:{ label:"수능 수학", detail:"수학Ⅰ·수학Ⅱ 공통 + 확률과 통계·미적분·기하 중 1개" },
+          english:{ label:"수능 영어", detail:"절대평가" },
+          history:{ label:"수능 한국사", detail:"모든 수험생 필수 · 절대평가" },
+          social:{ label:"수능 사회탐구", detail:"사회 9개 과목 중 선택 · 탐구 전체 최대 2개" },
+          science:{ label:"수능 과학탐구", detail:"과학 8개 과목 중 선택 · 탐구 전체 최대 2개" },
+          "second-language":{ label:"수능 제2외국어/한문", detail:"선택 영역 · 9개 과목 중 1개 · 30문항 40분" }
+        }
+      },
+      "2028": {
+        label:"2028학년도",
+        policy:"2022 개정 교육과정 · 국어·수학 선택과목이 폐지되며, 사회·과학탐구 선택자는 통합사회와 통합과학을 모두 응시합니다.",
+        subjects:{
+          korean:{ label:"수능 국어", detail:"화법과 언어·독서와 작문·문학 공통" },
+          math:{ label:"수능 수학", detail:"대수·미적분Ⅰ·확률과 통계 공통" },
+          english:{ label:"수능 영어", detail:"절대평가 · 현행 문항 수와 시험시간 유지" },
+          history:{ label:"수능 한국사", detail:"모든 수험생 필수 · 절대평가" },
+          social:{ label:"수능 통합사회", detail:"사회·과학탐구 선택자는 통합과학과 함께 응시" },
+          science:{ label:"수능 통합과학", detail:"사회·과학탐구 선택자는 통합사회와 함께 응시" },
+          "second-language":{ label:"수능 제2외국어/한문", detail:"선택 영역 · 9개 과목 중 1개 · 20문항 30분" }
+        }
+      }
+    };
+
+    function applyExamPlan() {
+      const plan = examPlans[selectedYear];
+      yearPolicy.dataset.year = selectedYear;
+      yearPolicy.textContent = plan.policy;
+      subjectButtons.forEach((button) => {
+        const subject = plan.subjects[button.dataset.key];
+        button.dataset.subject = subject.label;
+        button.querySelector("strong").textContent = subject.label;
+        button.querySelector("small").textContent = subject.detail;
+        button.disabled = false;
+      });
+    }
 
     function updateSelectionStatus() {
       if (!selectedYear) {
         selectionStatus.textContent = "먼저 시험 연도를 선택해 주세요.";
       } else if (!selectedSubjectButton) {
-        selectionStatus.textContent = `선택한 시험 연도: ${selectedYear}년 · 공부할 수능 과목을 선택해 주세요.`;
+        selectionStatus.textContent = `${examPlans[selectedYear].label} 체제가 적용되었습니다. 공부할 수능 과목을 선택해 주세요.`;
       } else {
-        selectionStatus.textContent = `선택 완료: ${selectedYear}년 · ${selectedSubjectButton.dataset.subject}`;
+        selectionStatus.textContent = `선택 완료: ${examPlans[selectedYear].label} · ${selectedSubjectButton.dataset.subject}`;
       }
     }
 
@@ -449,9 +523,14 @@
     }
 
     function selectYear(button, updateHash = true) {
+      const yearChanged = selectedYear !== button.dataset.year;
       selectedYear = button.dataset.year;
       yearButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-      subjectButtons.forEach((item) => { item.disabled = false; });
+      if (yearChanged) {
+        selectedSubjectButton = null;
+        subjectButtons.forEach((item) => item.setAttribute("aria-pressed", "false"));
+      }
+      applyExamPlan();
       updateSelectionStatus();
       if (updateHash) updateSelectionHash();
     }
