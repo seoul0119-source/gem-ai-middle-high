@@ -41,18 +41,24 @@ function decodeJavaScriptHexEscapes(value) {
 }
 
 function extractUserHtml(wrapper) {
-  const body = decodeJavaScriptHexEscapes(wrapper);
-  const match = body.match(/"userHtml"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  const body = String(wrapper || "");
+  // Apps Script places its page configuration in the first JavaScript string
+  // passed to goog.script.init(). Decode that outer string before parsing the
+  // configuration JSON. Decoding \x22 globally first turns HTML attributes
+  // into quotes and can make a userHtml regex stop in the middle of the page.
+  const match = body.match(/goog\.script\.init\s*\(\s*("(?:\\.|[^"\\])*")/);
   if (!match) return decodeHtmlEntities(body);
   try {
-    return decodeHtmlEntities(JSON.parse(`"${match[1]}"`));
+    const literal = match[1].replace(/\\x([0-9a-f]{2})/gi, "\\u00$1");
+    const configText = JSON.parse(literal);
+    const config = JSON.parse(configText);
+    if (typeof config?.userHtml === "string") {
+      return decodeHtmlEntities(config.userHtml);
+    }
   } catch (_) {
-    return decodeHtmlEntities(match[1]
-      .replace(/\\u003d/gi, "=")
-      .replace(/\\u0026/gi, "&")
-      .replace(/\\\//g, "/")
-      .replace(/\\"/g, '"'));
+    // The caller's strict login/tracking validation rejects malformed wrappers.
   }
+  return decodeHtmlEntities(body);
 }
 
 function plainMessage(html) {

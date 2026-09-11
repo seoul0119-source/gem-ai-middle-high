@@ -56,6 +56,26 @@ function signedRequest(body, student = {}) {
   };
 }
 
+function appsScriptTrackingWrapper(message) {
+  const userHtml = `
+<!DOCTYPE html>
+<html lang="ko"><body><main data-state="saved"><h1>GEM AI CLASS</h1><p>${message}</p></main></body></html>`;
+  const configText = JSON.stringify({
+    functionNames: ["doGet"],
+    userHtml,
+    ncc: "test"
+  });
+  const hexEncoded = new Set(["{", "}", "[", "]", '"', "<", ">", "="]);
+  let encodedConfig = "";
+  for (const character of configText) {
+    if (character === "\\") encodedConfig += "\\\\";
+    else if (hexEncoded.has(character)) {
+      encodedConfig += `\\x${character.charCodeAt(0).toString(16).padStart(2, "0")}`;
+    } else encodedConfig += character;
+  }
+  return `<!DOCTYPE html><html><body><script>goog.script.init("${encodedConfig}", "", undefined, true);</script></body></html>`;
+}
+
 test("accepts only an explicit sheet tracking success contract", () => {
   assert.equal(isPositiveTrackingResponse({ message: "수업 시작 기록이 저장되었습니다." }, "start"), true);
   assert.equal(isPositiveTrackingResponse({ message: "수업이 종료되었습니다." }, "end"), true);
@@ -117,6 +137,49 @@ test("does not accept an unknown 2xx HTML sheet response", async () => {
     const response = makeResponse();
     await sessionHandler(signedRequest({ action: "start", courseId: "h3-math" }), response);
     assert.equal(fetchCalls, 1);
+    assert.equal(response.statusCode, 502);
+    assert.match(JSON.parse(response.body).error, /시작 기록을 저장하지 못했습니다/);
+    assert.equal(response.headers.has("set-cookie"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("decodes the real Apps Script wrapper before validating a tracking success", async () => {
+  const originalFetch = globalThis.fetch;
+  const wrapper = appsScriptTrackingWrapper("수업 입장 기록이 저장되었습니다.");
+  assert.match(wrapper, /html lang\\x3d\\\\\\x22ko\\\\\\x22/,
+    "the fixture must retain Apps Script's quoted-attribute encoding trap");
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => wrapper
+  });
+
+  try {
+    const response = makeResponse();
+    await sessionHandler(signedRequest({ action: "start", courseId: "h3-math" }), response);
+    const payload = JSON.parse(response.body);
+    assert.equal(response.statusCode, 200);
+    assert.equal(payload.success, true);
+    assert.equal(payload.courseId, "h3-math");
+    assert.match(payload.courseRunId, /^[0-9a-f-]{36}$/i);
+    assert.match(payload.trackingMessage, /수업 입장 기록이 저장되었습니다/);
+    assert.equal(response.headers.has("set-cookie"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("rejects an invalid-session message decoded from the real Apps Script wrapper", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => appsScriptTrackingWrapper("수업 입장 기록을 찾을 수 없습니다.")
+  });
+
+  try {
+    const response = makeResponse();
+    await sessionHandler(signedRequest({ action: "start", courseId: "h3-math" }), response);
     assert.equal(response.statusCode, 502);
     assert.match(JSON.parse(response.body).error, /시작 기록을 저장하지 못했습니다/);
     assert.equal(response.headers.has("set-cookie"), false);

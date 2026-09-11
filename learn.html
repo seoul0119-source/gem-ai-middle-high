@@ -1192,7 +1192,7 @@
       }
     }
 
-    const sessionReady = initializeStudentSession();
+    let sessionReady = initializeStudentSession();
     window.addEventListener("pagehide", finishTrackingOnExit);
     window.addEventListener("pageshow", (event) => {
       if (event.persisted) location.reload();
@@ -1936,6 +1936,7 @@
       try {
         const restarted = await sessionRequest({ action: "restart", courseId: COURSE_ID });
         courseRunId = String(restarted.courseRunId || "");
+        sessionReady = Promise.resolve(true);
         lessonManuallyEnded = false;
         sessionEnded = false;
         sessionEnding = false;

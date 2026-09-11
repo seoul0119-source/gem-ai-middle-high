@@ -674,6 +674,80 @@ test("enables local progress, timed records, voice review, and Suneung return ro
   assert.equal((learnHtml.match(/entrance:\s*"\/suneung\.html#year=/g) || []).length, 5);
 });
 
+test("restores lesson readiness after a successful session restart", async () => {
+  assert.match(learnHtml, /let sessionReady = initializeStudentSession\(\);/);
+  assert.doesNotMatch(learnHtml, /const sessionReady = initializeStudentSession\(\);/);
+
+  const listenerStart = learnHtml.indexOf('document.getElementById("restart").addEventListener("click", async () => {');
+  const listenerEnd = learnHtml.indexOf("\n\n    speakButton.addEventListener", listenerStart);
+  assert.ok(listenerStart >= 0 && listenerEnd > listenerStart, "restart listener must be extractable");
+  const listenerSource = learnHtml.slice(listenerStart, listenerEnd);
+  assert.match(listenerSource, /courseRunId = String\(restarted\.courseRunId \|\| ""\);\s*sessionReady = Promise\.resolve\(true\);/);
+
+  const context = {
+    result:null,
+    crypto:{ randomUUID:() => "lesson-seed-after-retry" }
+  };
+  runInNewContext(`
+    let capturedRestart;
+    const restartButton = {
+      disabled:false,
+      addEventListener(type, listener) {
+        if (type === "click") capturedRestart = listener;
+      }
+    };
+    const document = { getElementById:() => restartButton };
+    const COURSE_ID = "suneung-2027-math-probability";
+    const COURSE = { avatar:false, greeting:"수능 수학 수업" };
+    const AVATAR_TEXT = {};
+    const connection = { innerHTML:"" };
+    const input = { disabled:true, focus() {} };
+    const sendButton = { disabled:true };
+    const micButton = { disabled:true };
+    const endLessonButton = { disabled:true };
+    const mobileLessonMedia = { matches:false };
+    const chat = { replaceChildren() {} };
+    const messages = [{ role:"assistant", content:"이전 오류" }];
+    let sessionReady = Promise.resolve(false);
+    let courseRunId = "";
+    let lessonManuallyEnded = true;
+    let sessionEnded = true;
+    let sessionEnding = true;
+    let lessonSeed = "old-seed";
+    let currentQuestionNumber = 4;
+    let questionStartedAt = 123;
+    let lastAssistantText = "";
+    async function sessionRequest() { return { courseRunId:"run-after-retry" }; }
+    function renderLearningProgress() {}
+    function addMessage() {}
+    function settleMobileLessonView() {}
+    ${listenerSource}
+    this.runRestartRecovery = async function () {
+      const readyBefore = await sessionReady;
+      await capturedRestart();
+      const readyAfter = await sessionReady;
+      return {
+        readyBefore,
+        readyAfter,
+        courseRunId,
+        inputDisabled:input.disabled,
+        sendDisabled:sendButton.disabled,
+        micDisabled:micButton.disabled
+      };
+    };
+  `, context);
+
+  context.result = await context.runRestartRecovery();
+  assert.deepEqual({ ...context.result }, {
+    readyBefore:false,
+    readyAfter:true,
+    courseRunId:"run-after-retry",
+    inputDisabled:false,
+    sendDisabled:false,
+    micDisabled:false
+  });
+});
+
 test("waits for browser fallback speech before restarting the microphone", async () => {
   class FakeUtterance {
     constructor(text) {
