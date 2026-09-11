@@ -13,3 +13,8 @@ export function isSchoolEnglishNoAnswerRequest(messages) {
 export function schoolEnglishNoAnswerResponse() {
   return "알겠어요. 정답이나 힌트는 말하지 않을게요. 현재 문제를 직접 풀어 보세요.\n\n답: (________)";
 }
+
+export default function handler(_request, response) {
+  response.setHeader("Cache-Control", "no-store");
+  return response.status(404).json({ error: "Not found" });
+}

@@ -1242,3 +1242,8 @@ export const COURSES = {
 export function getCourse(courseId) {
   return COURSES[courseId] || null;
 }
+
+export default function handler(_request, response) {
+  response.setHeader("Cache-Control", "no-store");
+  return response.status(404).json({ error: "Not found" });
+}
