@@ -1484,7 +1484,7 @@
       if (!clean) return [];
 
       return clean
-        .split(/(?=^[ \t]*(?:이[ \t]+(?:보기|선택지)[ \t]*[,，:：.]|정답은[ \t]+(?:어느[ \t]+보기|무엇)인가요\?[ \t]*$))/gm)
+        .split(/(?=^[ \t]*(?:(?:에이|비|씨|디|이)[ \t]+(?:보기|선택지)[ \t]*[,，:：.]|정답은[ \t]+(?:어느[ \t]+보기|무엇)인가요\?[ \t]*$))/gm)
         .map((part) => part.trim())
         .filter(Boolean);
     }
@@ -1509,9 +1509,8 @@
           speechParts = clean.split(/(?=^[ \t]*(?:[A-D][).:：]|\([A-D]\))[ \t]+)/gim)
             .map((part) => part.trim()).filter(Boolean);
         } else if (IS_SUNEUNG && IS_MATH) {
-          // Keep E and the final answer request in independent clips. This
-          // prevents a long TTS response from intermittently omitting E while
-          // limiting each question to at most three provider requests.
+          // Each choice is an independent script; D must not remain at the
+          // end of a long body/A-C clip. Never infer or append missing choices.
           speechParts = splitSuneungMathSpeechParts(clean);
         }
 
@@ -1529,10 +1528,18 @@
             ? AVATAR_TEXT.voiceUnavailable
             : "음성 생성 실패"));
           return data;
-        }));
+        }).map((pending) => IS_SUNEUNG && IS_MATH
+          ? pending.catch(() => ({ failed: true }))
+          : pending));
 
-        for (const data of audioParts) {
+        for (let partIndex = 0; partIndex < audioParts.length; partIndex += 1) {
+          const data = audioParts[partIndex];
           if (speechId !== activeSpeechId) return;
+          if (data.failed) {
+            await browserSpeak(speechParts[partIndex], speechId);
+            continue;
+          }
+          try {
           currentAudio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
           currentAudio.volume = teacherVolume;
           await new Promise((resolve, reject) => {
@@ -1550,6 +1557,16 @@
             currentAudio.addEventListener("error", () => finish(new Error("음성 재생 실패")), { once: true });
             currentAudio.play().catch(finish);
           });
+          } catch (error) {
+            if (!(IS_SUNEUNG && IS_MATH)) throw error;
+            if (speechId !== activeSpeechId) return;
+            currentAudio?.pause();
+            currentAudio = null;
+            // Recover only this clip: replaying the whole question repeats
+            // A-D and can overlap a partially playing audio element.
+            console.warn("Suneung speech clip fallback", { partIndex });
+            await browserSpeak(speechParts[partIndex], speechId);
+          }
         }
       } catch (error) {
         if (speechId !== activeSpeechId) return;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { numericChoiceScript } from "../api/speech.js";
 
 const learnHtml = await readFile(new URL("../learn.html", import.meta.url), "utf8");
 
@@ -38,7 +39,7 @@ const orderedTail = [
   "정답은 어느 보기인가요?"
 ];
 
-test("segments Suneung math into body through D, E, and the final answer request", () => {
+test("segments every choice independently, including D and E", () => {
   const context = {};
   runInNewContext(
     `${extractNamedFunction(learnHtml, "splitSuneungMathSpeechParts")}\nthis.splitSuneungMathSpeechParts = splitSuneungMathSpeechParts;`,
@@ -46,11 +47,9 @@ test("segments Suneung math into body through D, E, and the final answer request
   );
 
   const parts = Array.from(context.splitSuneungMathSpeechParts(completeQuestion));
-  assert.equal(parts.length, 3, "use three reliable clips without creating six extra TTS requests");
+  assert.equal(parts.length, 7);
   assert.match(parts[0], /^첫 번째 문제입니다\./);
-  assert.match(parts[0], /에이 선택지, 5분의 1\.[\s\S]*디 선택지, 2분의 1\.$/);
-  assert.equal(parts[1], "이 선택지, 3분의 2.", "E must have its own clip so the TTS model cannot omit it");
-  assert.equal(parts[2], "정답은 어느 보기인가요?", "the answer request must be its own final clip");
+  assert.deepEqual(parts.slice(1), orderedTail);
 
   const recombined = parts.join("\n");
   let previous = -1;
@@ -100,18 +99,19 @@ test("a natural-voice failure sends the same complete A-E order to browser speec
   `, context);
 
   await context.speakText(completeQuestion);
-  assert.deepEqual(fallbackCalls, [completeQuestion], "fallback must receive the complete normalized question once");
+  assert.deepEqual(fallbackCalls, [completeQuestion.split("\n").slice(0, 2).join("\n"), ...orderedTail]);
+  const fallbackText = fallbackCalls.join("\n");
 
   let previous = -1;
   for (const expected of orderedTail) {
-    const position = fallbackCalls[0].indexOf(expected);
+    const position = fallbackText.indexOf(expected);
     assert.ok(position > previous, `${expected} must remain in order in fallback speech`);
     previous = position;
   }
-  assert.match(fallbackCalls[0], /이 선택지, 3분의 2\.\n정답은 어느 보기인가요\?$/);
+  assert.match(fallbackText, /이 선택지, 3분의 2\.\n정답은 어느 보기인가요\?$/);
 });
 
-test("successful natural speech requests and plays body, E, and final question in order", async () => {
+test("successful natural speech plays body, A-E and final question exactly once in order", async () => {
   const requested = [];
   const audioInstances = [];
   const playedSources = [];
@@ -168,9 +168,8 @@ test("successful natural speech requests and plays body, E, and final question i
   `, context);
 
   const expectedParts = [
-    completeQuestion.split("\n").slice(0, -2).join("\n"),
-    "이 선택지, 3분의 2.",
-    "정답은 어느 보기인가요?"
+    completeQuestion.split("\n").slice(0, 2).join("\n"),
+    ...orderedTail
   ];
   const flushUntil = async (predicate, message) => {
     for (let attempt = 0; attempt < 20 && !predicate(); attempt += 1) await Promise.resolve();
@@ -186,32 +185,76 @@ test("successful natural speech requests and plays body, E, and final question i
       courseId:"suneung-2028-math",
       courseRunId:"speech-success-test"
     })),
-    "all three speech requests must preserve the planned order"
+    "all speech requests must preserve the planned order"
   );
 
-  await flushUntil(() => audioInstances.length === 1, "the first audio clip must start");
-  assert.deepEqual(playedSources, ["data:audio/mpeg;base64,audio-part-1"]);
-  audioInstances[0].emit("ended");
-
-  await flushUntil(() => audioInstances.length === 2, "E audio must follow the body through D");
-  assert.deepEqual(playedSources, [
-    "data:audio/mpeg;base64,audio-part-1",
-    "data:audio/mpeg;base64,audio-part-2"
-  ]);
-  audioInstances[1].emit("ended");
-
-  await flushUntil(() => audioInstances.length === 3, "the final answer question must follow E");
-  assert.deepEqual(playedSources, [
-    "data:audio/mpeg;base64,audio-part-1",
-    "data:audio/mpeg;base64,audio-part-2",
-    "data:audio/mpeg;base64,audio-part-3"
-  ]);
-  audioInstances[2].emit("ended");
+  for (let index = 0; index < expectedParts.length; index += 1) {
+    await flushUntil(() => audioInstances.length === index + 1, `clip ${index} must start only after its predecessor`);
+    assert.equal(playedSources[index], `data:audio/mpeg;base64,audio-part-${index + 1}`);
+    audioInstances[index].emit("ended");
+  }
   await speechFinished;
 
   assert.deepEqual(fallbackCalls, [], "a successful natural voice sequence must not invoke fallback");
   assert.equal(context.currentAudio, null);
 });
+
+test("recorded numeric D/E choices have explicit Korean scripts", () => {
+  const course = "suneung-2027-math-probability";
+  for (const [input, expected] of [
+    ["디 선택지, 12.", "디 선택지. 값은 십이입니다."],
+    ["이 선택지, 14.", "이 선택지. 값은 십사입니다."],
+    ["디 선택지, 0.75.", "디 선택지. 값은 영 점 칠 오입니다."],
+    ["이 선택지, 1.35.", "이 선택지. 값은 일 점 삼 오입니다."],
+    ["이 선택지, -0.05.", "이 선택지. 값은 마이너스 영 점 영 오입니다."]
+  ]) assert.equal(numericChoiceScript(input, course), expected);
+  assert.equal(numericChoiceScript("이 선택지, 1.35.", "toeic"), "이 선택지, 1.35.");
+  assert.equal(numericChoiceScript("디 선택지, 2분의 1.", course), "디 선택지, 2분의 1.");
+});
+
+for (const failure of ["D generation", "E playback"]) {
+  test(`${failure} falls back only for the failed clip without repeating earlier choices`, async () => {
+    const played = [];
+    const fallback = [];
+    const paused = [];
+    const parts = [completeQuestion.split("\n").slice(0, 2).join("\n"), ...orderedTail];
+    let count = 0;
+    class Clip {
+      constructor(source) { this.index = Number(source.split(",").at(-1)); this.events = {}; }
+      addEventListener(type, listener) { this.events[type] = listener; }
+      pause() { paused.push(this.index); }
+      play() {
+        played.push(this.index);
+        queueMicrotask(() => this.events[failure === "E playback" && this.index === 5 ? "error" : "ended"]());
+        return Promise.resolve();
+      }
+    }
+    const context = {
+      COURSE_ID:"suneung-2027-math-probability", COURSE:{ avatar:false },
+      IS_SUNEUNG:true, IS_MATH:true, activeSpeechId:0,
+      currentAudio:null, currentSpeechResolve:null, teacherVolume:0.45, courseRunId:"test",
+      cleanMathForSpeech:String, cleanLessonForSpeech:String,
+      browserSpeak:async (text) => { fallback.push(text); },
+      readJsonResponse:async (response) => response.payload,
+      fetch:async () => {
+        const index = count++;
+        if (failure === "D generation" && index === 4) throw new Error("test network error");
+        return { ok:true, payload:{ audio:String(index), mimeType:"audio/mpeg" } };
+      },
+      Audio:Clip, CustomEvent:class {}, window:{ dispatchEvent() {} }, console:{ warn() {} }
+    };
+    runInNewContext(`
+      ${extractNamedFunction(learnHtml, "splitSuneungMathSpeechParts")}
+      function cancelCurrentSpeech() { activeSpeechId += 1; }
+      async ${extractNamedFunction(learnHtml, "speakText")}
+      this.speakText = speakText;
+    `, context);
+    await context.speakText(completeQuestion);
+    assert.deepEqual(fallback, [parts[failure === "D generation" ? 4 : 5]]);
+    assert.deepEqual(played, failure === "D generation" ? [0,1,2,3,5,6] : [0,1,2,3,4,5,6]);
+    assert.deepEqual(paused, failure === "E playback" ? [5] : []);
+  });
+}
 
 test("browser fallback continues to E and the final question after a D utterance error", async () => {
   class FakeUtterance {

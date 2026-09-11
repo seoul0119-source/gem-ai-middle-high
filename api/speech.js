@@ -221,6 +221,24 @@ export function cleanText(value, courseId = "") {
   return truncateSpeechText(output, courseId);
 }
 
+// A standalone short numeric choice needs an explicit reading, not an
+// invitation for the generative voice to interpret a letter/number fragment.
+export function numericChoiceScript(text, courseId = "") {
+  if (!isSuneungMathCourse(courseId)) return text;
+  const match = String(text).trim().match(/^(에이|비|씨|디|이)\s+(?:보기|선택지)\s*[,，:：.]\s*([-−]?)(\d{1,4})(?:\.(\d+))?\.?$/);
+  if (!match) return text;
+  const [, label, sign, integer, decimals] = match;
+  const digits = ["영", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
+  const units = ["", "십", "백", "천"];
+  const canonical = String(Number(integer));
+  const whole = canonical === "0" ? "영" : [...canonical].map((digit, index) => {
+    const place = canonical.length - index - 1;
+    return digit === "0" ? "" : `${digit === "1" && place ? "" : digits[Number(digit)]}${units[place]}`;
+  }).join("");
+  const fraction = decimals ? ` 점 ${[...decimals].map((digit) => digits[Number(digit)]).join(" ")}` : "";
+  return `${label} 선택지. 값은 ${sign ? "마이너스 " : ""}${whole}${fraction}입니다.`;
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -249,7 +267,7 @@ export default async function handler(request, response) {
       error:"승인된 통합과학 수업 내용만 음성으로 들을 수 있습니다."
     });
   }
-  const input = cleanText(rawText, courseId);
+  const input = numericChoiceScript(cleanText(rawText, courseId), courseId);
   if (!apiKey || !input) return sendJson(response, 400, { error: isEnglishAvatar
     ? "There is no text to speak."
     : isFrenchAvatar
