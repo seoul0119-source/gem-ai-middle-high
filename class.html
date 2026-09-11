@@ -116,6 +116,23 @@ header p{
     transform:translateY(-2px);
 }
 
+.subject:focus-visible{
+    outline:3px solid #173d70;
+    outline-offset:3px;
+}
+
+.subject.suneung-route{
+    grid-column:1 / -1;
+    min-height:64px;
+    background:linear-gradient(135deg,#c38a15,#e0ae3d);
+    color:#07162d;
+    box-shadow:0 6px 16px rgba(151,103,9,.24);
+}
+
+.subject.suneung-route:hover{
+    background:linear-gradient(135deg,#ad7610,#cf9b2d);
+}
+
 .elementary-route{
     margin-bottom:25px;
     padding:22px;
@@ -210,6 +227,7 @@ footer{
         <button class="subject" data-href="/learn.html?course=h1-korean">📘 고1 국어 Lv.10</button>
         <button class="subject" data-href="/learn.html?course=h2-korean">📘 고2 국어 Lv.11</button>
         <button class="subject" data-href="/learn.html?course=h3-korean">📘 고3 국어 Lv.12</button>
+        <button class="subject suneung-route" data-href="/suneung.html">🎯 한국 대학수학능력시험 수능관</button>
         <button class="subject" data-href="/english.html">🔤 영어 통합 학습관</button>
         <button class="subject" data-href="/learn.html?course=m1-math">📐 중1 수학 Lv.7</button>
         <button class="subject" data-href="/learn.html?course=m2-math">📐 중2 수학 Lv.8</button>

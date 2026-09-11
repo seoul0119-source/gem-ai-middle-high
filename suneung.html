@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GEM 한국 대학수학능력시험 수능관</title>
+  <style>
+    :root {
+      --navy:#07162d;
+      --navy-light:#173d70;
+      --blue:#1e67c6;
+      --gold:#e7c46a;
+      --ink:#172033;
+      --muted:#52657e;
+      --pale:#f3f6fb;
+      --line:#d3deeb;
+    }
+
+    * { box-sizing:border-box; }
+
+    body {
+      margin:0;
+      background:var(--pale);
+      color:var(--ink);
+      font-family:Arial,"Noto Sans KR",sans-serif;
+    }
+
+    body.auth-pending header,
+    body.auth-pending main,
+    body.auth-pending footer { visibility:hidden; }
+
+    header {
+      padding:42px 20px 38px;
+      background:linear-gradient(135deg,var(--navy),var(--navy-light));
+      color:#fff;
+      text-align:center;
+    }
+
+    .brand {
+      color:var(--gold);
+      font-size:14px;
+      font-weight:800;
+      letter-spacing:3px;
+    }
+
+    h1 {
+      margin:14px 0 10px;
+      font-size:clamp(30px,5vw,48px);
+      line-height:1.25;
+      word-break:keep-all;
+    }
+
+    header p {
+      margin:0;
+      color:#dbe7f7;
+      font-size:clamp(16px,2.5vw,20px);
+      line-height:1.6;
+    }
+
+    main {
+      width:min(960px,calc(100% - 28px));
+      margin:28px auto 50px;
+    }
+
+    .intro {
+      margin-bottom:22px;
+      text-align:center;
+    }
+
+    .intro h2 {
+      margin:0 0 8px;
+      color:var(--navy-light);
+      font-size:clamp(23px,3vw,31px);
+    }
+
+    .intro p {
+      margin:0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.7;
+    }
+
+    .student-session {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:15px;
+    }
+
+    .student {
+      display:inline-block;
+      padding:8px 13px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:#fff;
+      color:#34516f;
+      font-weight:700;
+    }
+
+    .logout {
+      border:1px solid #b8c8dc;
+      border-radius:10px;
+      padding:8px 12px;
+      background:#fff;
+      color:var(--navy-light);
+      font:inherit;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .subjects {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .exam-subject {
+      min-height:126px;
+      padding:20px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:#fff;
+      color:var(--ink);
+      box-shadow:0 7px 20px rgba(18,48,85,.08);
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      align-items:center;
+      gap:16px;
+      text-align:left;
+      font:inherit;
+      cursor:pointer;
+      transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+    }
+
+    .exam-subject:hover {
+      transform:translateY(-2px);
+      border-color:#88acd7;
+      box-shadow:0 11px 26px rgba(18,48,85,.13);
+    }
+
+    .exam-subject:focus-visible {
+      outline:3px solid var(--navy-light);
+      outline-offset:3px;
+    }
+
+    .exam-subject[aria-pressed="true"] {
+      border-color:var(--blue);
+      background:#eef6ff;
+      box-shadow:0 10px 26px rgba(30,103,198,.17);
+    }
+
+    .subject-icon {
+      width:54px;
+      height:54px;
+      border-radius:15px;
+      background:#eaf2fc;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+    }
+
+    .subject-copy {
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+
+    .subject-copy strong {
+      color:var(--navy-light);
+      font-size:20px;
+    }
+
+    .subject-copy small {
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .check {
+      width:29px;
+      height:29px;
+      border:1px solid #c5d4e5;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      color:transparent;
+      font-weight:900;
+    }
+
+    .exam-subject[aria-pressed="true"] .check {
+      border-color:var(--blue);
+      background:var(--blue);
+      color:#fff;
+    }
+
+    .selection-status {
+      margin-top:20px;
+      padding:18px 20px;
+      border:1px solid #ead28d;
+      border-radius:14px;
+      background:#fff8e5;
+      color:#654f18;
+      text-align:center;
+      font-size:16px;
+      line-height:1.6;
+    }
+
+    .back {
+      display:inline-block;
+      margin-top:18px;
+      color:#234f85;
+      font-weight:700;
+      text-decoration:none;
+    }
+
+    .back:focus-visible,
+    .logout:focus-visible {
+      outline:3px solid var(--navy-light);
+      outline-offset:3px;
+    }
+
+    footer {
+      margin-top:40px;
+      padding:24px 15px;
+      background:var(--navy);
+      color:#dce6f5;
+      text-align:center;
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    @media (max-width:680px) {
+      header { padding:34px 16px 31px; }
+      main { width:min(100% - 20px,960px); }
+      .subjects { grid-template-columns:1fr; }
+      .exam-subject { min-height:112px; padding:17px; }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      * { scroll-behavior:auto!important; transition:none!important; }
+    }
+  </style>
+</head>
+<body class="auth-pending">
+  <header>
+    <div class="brand">GEM AI LEARNING MISSION CLASS</div>
+    <h1>🎯 한국 대학수학능력시험 수능관</h1>
+    <p>준비할 수능 과목을 선택하세요.</p>
+  </header>
+
+  <main>
+    <section class="intro" aria-labelledby="subject-title">
+      <h2 id="subject-title">수능 과목 선택</h2>
+      <p>원하는 영역을 누르면 선택한 과목이 표시됩니다.</p>
+      <div class="student-session">
+        <span id="student" class="student">등록 학생 확인 중</span>
+        <button id="logout" class="logout" type="button">수업 종료·나가기</button>
+      </div>
+    </section>
+
+    <section class="subjects" aria-label="수능 과목 선택">
+      <button class="exam-subject" type="button" data-subject="수능 국어" data-key="korean" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">📘</span>
+        <span class="subject-copy"><strong>수능 국어</strong><small>국어 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+      <button class="exam-subject" type="button" data-subject="수능 수학" data-key="math" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">📐</span>
+        <span class="subject-copy"><strong>수능 수학</strong><small>수학 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+      <button class="exam-subject" type="button" data-subject="수능 영어" data-key="english" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">🔤</span>
+        <span class="subject-copy"><strong>수능 영어</strong><small>영어 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+      <button class="exam-subject" type="button" data-subject="수능 한국사" data-key="history" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">🏛️</span>
+        <span class="subject-copy"><strong>수능 한국사</strong><small>한국사 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+      <button class="exam-subject" type="button" data-subject="수능 사회탐구" data-key="social" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">🌏</span>
+        <span class="subject-copy"><strong>수능 사회탐구</strong><small>사회탐구 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+      <button class="exam-subject" type="button" data-subject="수능 과학탐구" data-key="science" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">🔬</span>
+        <span class="subject-copy"><strong>수능 과학탐구</strong><small>과학탐구 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+      <button class="exam-subject" type="button" data-subject="수능 제2외국어/한문" data-key="second-language" aria-pressed="false">
+        <span class="subject-icon" aria-hidden="true">🌐</span>
+        <span class="subject-copy"><strong>수능 제2외국어/한문</strong><small>제2외국어 또는 한문 영역 선택</small></span>
+        <span class="check" aria-hidden="true">✓</span>
+      </button>
+    </section>
+
+    <div id="selection-status" class="selection-status" role="status" aria-live="polite">
+      공부할 수능 과목을 선택해 주세요.
+    </div>
+
+    <a class="back" href="/class.html">← 전체 과목으로 돌아가기</a>
+  </main>
+
+  <footer>
+    © GEM AI Learning Mission Class<br>
+    Personalized AI Learning with Human Teacher Support
+  </footer>
+
+  <script>
+    async function loadStudentSession() {
+      try {
+        const response = await fetch("/api/session", { cache:"no-store" });
+        if (!response.ok) throw new Error("로그인 필요");
+        const data = await response.json();
+        document.getElementById("student").textContent = `${data.student.name} 학생 · ${data.student.id}`;
+        document.body.classList.remove("auth-pending");
+      } catch (_) {
+        location.replace("/");
+      }
+    }
+
+    const subjectButtons = Array.from(document.querySelectorAll(".exam-subject"));
+    const selectionStatus = document.getElementById("selection-status");
+
+    function selectSubject(button, updateHash = true) {
+      subjectButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      selectionStatus.textContent = `선택한 과목: ${button.dataset.subject}`;
+      if (updateHash) history.replaceState(null, "", `#${button.dataset.key}`);
+    }
+
+    subjectButtons.forEach((button) => {
+      button.addEventListener("click", () => selectSubject(button));
+    });
+
+    const selectedKey = location.hash.slice(1);
+    const selectedButton = subjectButtons.find((button) => button.dataset.key === selectedKey);
+    if (selectedButton) selectSubject(selectedButton, false);
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await fetch("/api/session", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ action:"logout" })
+      }).catch(() => null);
+      location.replace("/");
+    });
+
+    loadStudentSession();
+  </script>
+</body>
+</html>
