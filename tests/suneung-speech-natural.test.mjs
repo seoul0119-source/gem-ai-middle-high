@@ -119,6 +119,33 @@ test("preserves the final Suneung answer question when long speech is truncated"
   assert.equal(truncateSpeechText(truncated, "suneung-2028-math"), truncated);
 });
 
+test("preserves every A-E choice when a long Suneung problem is truncated", () => {
+  const longProblem = [
+    "문제 6/10 — 수능형 실전 · 확률과 통계 · 4점 · 5지선다형",
+    "긴 조건 설명입니다. ".repeat(220),
+    "A) 1/5",
+    "B) 2/5",
+    "C) 3/5",
+    "D) 1/2",
+    "E) 2/3",
+    "답: (________)"
+  ].join("\n");
+  const spoken = cleanText(longProblem, "suneung-2028-math");
+
+  assert.ok(spoken.length <= 1800);
+  for (const choice of [
+    "에이 선택지, 5분의 1.",
+    "비 선택지, 5분의 2.",
+    "씨 선택지, 5분의 3.",
+    "디 선택지, 2분의 1.",
+    "이 선택지, 3분의 2."
+  ]) {
+    assert.match(spoken, new RegExp(choice.replace(".", "\\.")));
+  }
+  assert.match(spoken, /이 선택지, 3분의 2\.\n+정답은 어느 보기인가요\?$/);
+  assert.doesNotMatch(spoken, /이 선(?:\n|$)/);
+});
+
 test("does not pronounce a visual attempt counter as a mathematical fraction", () => {
   const spoken = cleanText(
     "도전 2/3 · 힌트: 전체 경우의 수를 먼저 세어 보세요.",

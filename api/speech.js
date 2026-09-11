@@ -114,6 +114,22 @@ export function truncateSpeechText(value, courseId = "", maxLength = MAX_TEXT_LE
   if (text.length <= safeMaxLength) return text;
 
   if (isSuneungMathCourse(courseId)) {
+    const choiceStarts = [...text.matchAll(/^[ \t]*에이[ \t]+(?:보기|선택지)[ \t]*[,，:：.][ \t]*\S+/gm)];
+    const latestChoiceStart = choiceStarts[choiceStarts.length - 1]?.index;
+    if (Number.isSafeInteger(latestChoiceStart)) {
+      const choiceSuffix = text.slice(latestChoiceStart).trim();
+      const hasAllChoices = ["에이", "비", "씨", "디", "이"].every((label) => (
+        new RegExp(`^\\s*${label}\\s+(?:보기|선택지)\\s*[,，:：.]\\s*\\S+`, "m").test(choiceSuffix)
+      ));
+      const hasFinalPrompt = /(?:^|\n)정답은 (?:어느 보기|무엇)인가요\?\s*$/.test(choiceSuffix);
+      const separator = "\n\n";
+      if (hasAllChoices && hasFinalPrompt && choiceSuffix.length + separator.length < safeMaxLength) {
+        const prefixLength = safeMaxLength - separator.length - choiceSuffix.length;
+        const prefix = text.slice(0, Math.min(latestChoiceStart, prefixLength)).trimEnd();
+        return `${prefix}${separator}${choiceSuffix}`;
+      }
+    }
+
     const finalPrompt = text.match(/(?:^|\n)(정답은 (?:어느 보기|무엇)인가요\?)\s*$/)?.[1];
     if (finalPrompt && finalPrompt.length < safeMaxLength) {
       const separator = "\n\n";
