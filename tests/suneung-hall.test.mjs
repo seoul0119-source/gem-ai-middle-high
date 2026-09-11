@@ -1,9 +1,68 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const classHtml = await readFile(new URL("../class.html", import.meta.url), "utf8");
 const suneungHtml = await readFile(new URL("../suneung.html", import.meta.url), "utf8");
+
+function createButton(dataset, disabled = false) {
+  const attributes = new Map([["aria-pressed", "false"]]);
+  const listeners = new Map();
+  const children = {
+    strong:{ textContent:"" },
+    small:{ textContent:"" }
+  };
+
+  return {
+    dataset:{ ...dataset },
+    disabled,
+    setAttribute(name, value) { attributes.set(name, value); },
+    getAttribute(name) { return attributes.get(name); },
+    querySelector(selector) { return children[selector]; },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    click() { listeners.get("click")?.(); },
+    children
+  };
+}
+
+function runSuneungUi(initialHash = "") {
+  const yearButtons = [createButton({ year:"2027" }), createButton({ year:"2028" })];
+  const subjectButtons = [
+    ["korean", "수능 국어"], ["math", "수능 수학"], ["english", "수능 영어"],
+    ["history", "수능 한국사"], ["social", "수능 사회탐구"],
+    ["science", "수능 과학탐구"], ["second-language", "수능 제2외국어/한문"]
+  ].map(([key, subject]) => createButton({ key, subject }, true));
+  const yearPolicy = { dataset:{}, textContent:"" };
+  const selectionStatus = { textContent:"" };
+  const student = { textContent:"" };
+  const logout = createButton({});
+  const location = { hash:initialHash, replace() {} };
+  const document = {
+    body:{ classList:{ remove() {} } },
+    querySelectorAll(selector) {
+      return selector === ".year-choice" ? yearButtons : subjectButtons;
+    },
+    getElementById(id) {
+      return { "year-policy":yearPolicy, "selection-status":selectionStatus, student, logout }[id];
+    }
+  };
+  const history = {
+    replaceState(_state, _unused, value) { location.hash = value; }
+  };
+  const script = suneungHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script, "Suneung page script must exist");
+
+  runInNewContext(script, {
+    document,
+    location,
+    history,
+    URLSearchParams,
+    fetch:async () => ({ ok:true, json:async () => ({ student:{ name:"테스트", id:"GEM-TEST" } }) })
+  });
+
+  return { yearButtons, subjectButtons, yearPolicy, selectionStatus, location };
+}
 
 test("places the Suneung hall between Grade 12 Korean and the English hub", () => {
   const koreanIndex = classHtml.indexOf('data-href="/learn.html?course=h3-korean"');
@@ -84,6 +143,41 @@ test("changes the subject guidance to match the selected exam year", () => {
   assert.match(suneungHtml, /button\.querySelector\("small"\)\.textContent = subject\.detail;/);
   assert.match(suneungHtml, /yearPolicy\.textContent = plan\.policy;/);
   assert.match(suneungHtml, /id="year-policy" class="year-policy" aria-live="polite" aria-atomic="true"/);
+});
+
+test("resets the studied subject and applies the 2028 cards when the year changes", () => {
+  const ui = runSuneungUi();
+  const social = ui.subjectButtons.find((button) => button.dataset.key === "social");
+  const science = ui.subjectButtons.find((button) => button.dataset.key === "science");
+
+  assert.ok(ui.subjectButtons.every((button) => button.disabled));
+  ui.yearButtons[0].click();
+  assert.equal(ui.location.hash, "#year=2027");
+  assert.ok(ui.subjectButtons.every((button) => !button.disabled));
+  assert.equal(social.children.strong.textContent, "수능 사회탐구");
+  social.click();
+  assert.equal(social.getAttribute("aria-pressed"), "true");
+  assert.equal(ui.location.hash, "#year=2027&subject=social");
+
+  ui.yearButtons[1].click();
+  assert.equal(ui.yearButtons[0].getAttribute("aria-pressed"), "false");
+  assert.equal(ui.yearButtons[1].getAttribute("aria-pressed"), "true");
+  assert.ok(ui.subjectButtons.every((button) => button.getAttribute("aria-pressed") === "false"));
+  assert.equal(ui.location.hash, "#year=2028");
+  assert.equal(social.children.strong.textContent, "수능 통합사회");
+  assert.equal(science.children.strong.textContent, "수능 통합과학");
+  assert.match(ui.yearPolicy.textContent, /사회·과학탐구 선택자는 통합사회와 통합과학을 모두 응시/);
+  assert.match(ui.selectionStatus.textContent, /2028학년도 체제가 적용되었습니다/);
+});
+
+test("restores a saved 2028 year and subject selection", () => {
+  const ui = runSuneungUi("#year=2028&subject=social");
+  const social = ui.subjectButtons.find((button) => button.dataset.key === "social");
+
+  assert.equal(ui.yearButtons[1].getAttribute("aria-pressed"), "true");
+  assert.equal(social.getAttribute("aria-pressed"), "true");
+  assert.equal(social.children.strong.textContent, "수능 통합사회");
+  assert.match(ui.selectionStatus.textContent, /선택 완료: 2028학년도 · 수능 통합사회/);
 });
 
 test("offers the seven requested Suneung subject groups behind the student session gate", () => {
