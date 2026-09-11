@@ -7,7 +7,7 @@ import {
   containsExcludedSuneungScienceContent,
   isGuardedSuneungScienceCourse
 } from "../lib/suneung-science-safety.js";
-import { handleClosedSuneungScienceLesson } from "../lib/suneung-science-bank.js";
+import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -1260,6 +1260,8 @@ export default async function handler(request, response) {
   }
 
   const guardedSuneungScience = isGuardedSuneungScienceCourse(request.body?.courseId);
+  const handleClosedSuneungScienceLesson = guardedSuneungScience
+    ? createScienceLessonEngine(student.courseRunId).handleClosedSuneungScienceLesson : null;
   const latestSubmittedMessage = messages[messages.length - 1];
   if (guardedSuneungScience
     && latestSubmittedMessage?.role === "user"

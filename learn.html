@@ -1505,7 +1505,11 @@
 
       try {
         let speechParts = [clean];
-        if (COURSE_ID === "toeic") {
+        if (COURSE_ID === "suneung-2028-integrated-science") {
+          // Every clip is checked against the server's run-specific scripts.
+          speechParts = clean.split(/(?=^[ \t]*(?:[A-E][).:：][ \t]+|정답은 어느 보기인가요\?))/gm)
+            .map((part) => part.trim()).filter(Boolean);
+        } else if (COURSE_ID === "toeic") {
           speechParts = clean.split(/(?=^[ \t]*(?:[A-D][).:：]|\([A-D]\))[ \t]+)/gim)
             .map((part) => part.trim()).filter(Boolean);
         } else if (IS_SUNEUNG && IS_MATH) {

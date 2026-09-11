@@ -7,6 +7,7 @@ import chatHandler from "../api/chat.js";
 import { getCourse } from "../api/courses.js";
 import speechHandler from "../api/speech.js";
 import {
+  createScienceLessonEngine,
   CLOSED_SUNEUNG_SCIENCE_GREETING,
   CLOSED_SUNEUNG_SCIENCE_QUESTIONS,
   handleClosedSuneungScienceLesson,
@@ -52,6 +53,8 @@ async function browserFallbackCallsAfterSpeechFailure(courseId) {
     COURSE_ID:courseId,
     COURSE:{ avatar:false },
     IS_MATH:false,
+    IS_SUNEUNG:courseId.startsWith("suneung-"),
+    courseRunId:"fallback-test-run",
     activeSpeechId:1,
     currentAudio:null,
     currentSpeechResolve:null,
@@ -517,7 +520,7 @@ test("guarded Integrated Science chat route never calls the generative endpoint"
     assert.match(blockedResponse.payload.text, /^이 교실에서는 해당 주제를 다루지 않습니다/);
     assert.match(blockedResponse.payload.text, /문제 1\/10[\s\S]*도전 1\/3/);
     assert.doesNotMatch(blockedResponse.payload.text, new RegExp(unsafeRequest));
-    assert.equal(isApprovedClosedSuneungScienceSpeechText(blockedResponse.payload.text), true);
+    assert.equal(createScienceLessonEngine(courseRunId).isApprovedClosedSuneungScienceSpeechText(blockedResponse.payload.text), true);
     assert.equal(fetchCalls, 0);
   } finally {
     globalThis.fetch = previousFetch;
@@ -591,6 +594,16 @@ test("closed science speech accepts bank output and rejects every arbitrary payl
       assert.match(blockedResponse.payload.error, /승인된 통합과학/);
     }
     assert.equal(fetchCalls, 1, "rejected text must never reach the TTS network endpoint");
+    const engine = createScienceLessonEngine(courseRunId);
+    const fresh = engine.handleClosedSuneungScienceLesson({ courseId:COURSE_ID, messages:[{role:"user",content:"시작"}] });
+    const parts = clientCleanScienceSpeech(fresh.text).split(/(?=^[ \t]*(?:[A-E][).:：][ \t]+|정답은 어느 보기인가요\?))/gm).map(p=>p.trim()).filter(Boolean);
+    assert.equal(parts.length, 7);
+    for (const text of parts) {
+      const partResponse = responseCapture();
+      await speechHandler({method:"POST",headers,body:{courseId:COURSE_ID,courseRunId,text}},partResponse);
+      assert.equal(partResponse.statusCode,200, text);
+    }
+    assert.equal(fetchCalls,8);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
