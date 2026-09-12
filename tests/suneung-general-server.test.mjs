@@ -4,7 +4,8 @@ import chatHandler from "../api/chat-final.js";
 import { SUNEUNG_COURSES } from "../api/suneung-courses.js";
 import { buildSuneungSessionPlan, sanitizeLearningProfile } from "../api/chat.js";
 import { createSessionToken, SESSION_COOKIE } from "../lib/student-session.js";
-import { classifyGeneralSuneungInput, isGeneralSuneungCourse, normalizeGeneralProblem } from "../lib/suneung-general-flow.js";
+import { classifyGeneralSuneungInput, isGeneralSuneungCourse, normalizeGeneralProblem,
+  normalizeGeneralSuneungDisplay, validateGeneralSuneungTurn } from "../lib/suneung-general-flow.js";
 
 const generalCourses = Object.entries(SUNEUNG_COURSES).filter(([, course]) => isGeneralSuneungCourse(course));
 const subjectTopics = {
@@ -37,7 +38,9 @@ async function withProvider(callback) {
     const reply = queue.shift();
     const status = reply.status || 200;
     return { ok: status === 200, status, json: async () => status === 200
-      ? { status: reply.incomplete ? "incomplete" : "completed", output_text: reply.text }
+      ? { status: reply.incomplete ? "incomplete" : "completed", ...(reply.nested
+        ? { output: [{ type: "reasoning", summary: [] }, { type: "message", role: "assistant", content: [{ type: "output_text", text: reply.text }] }] }
+        : { output_text: reply.text }) }
       : { error: { code: reply.code || "rate_limit_exceeded" } } };
   };
   try { await callback({ queue, requests }); }
@@ -269,5 +272,49 @@ test("2028 math can explain a concept naturally without changing grading or cons
     assert.equal(response.statusCode, 200);
     assert.match(response.payload.text, /같은 수를 몇 번 곱/);
     assert.equal(response.payload.record, undefined);
+  });
+});
+
+test("real-model Markdown headings, bold A–E labels and fenced replies normalize before history and progression validation", async () => {
+  const markdown = text => `\`\`\`markdown\n${text
+    .replace(/^(문제[^\n]+)$/gm, "### **$1**")
+    .replace(/^([A-E]\))/gm, "- **$1**")}\n\`\`\``;
+  assert.equal(normalizeGeneralSuneungDisplay(markdown(question(1))), question(1));
+  assert.equal(normalizeGeneralSuneungDisplay("__단어__ 뜻과 빈칸 ________을 읽습니다."), "단어 뜻과 빈칸 ________을 읽습니다.");
+  await withProvider(async ({ queue, requests }) => {
+    const room = classroom("suneung-2027-korean-speech-writing");
+    // Emulate an assistant turn from an earlier deployment that still has raw Markdown.
+    room.messages.push({ role: "assistant", content: markdown(question(1)) });
+    queue.push({ text: "**문맥**은 앞뒤 내용과 상황을 뜻합니다.", nested: true });
+    assert.equal((await room.ask("문맥은 무엇인가요?")).statusCode, 200);
+    assert.ok(requests.at(-1).input.some(message => message.content === question(1)));
+    queue.push({ text: markdown(graded(1)), nested: true });
+    const next = await room.ask("답은 C입니다");
+    assert.equal(next.statusCode, 200);
+    assert.equal(next.payload.record?.question, 1);
+    assert.match(next.payload.text, /문제 2\/10 —/);
+    assert.match(next.payload.text, /^E\) 조건을 모두 생략한다\.$/m);
+    assert.doesNotMatch(next.payload.text, /\*\*|```|###/);
+    assert.equal(requests.length, 2, "format-only differences do not spend provider retries");
+  });
+});
+
+test("display normalization never invents missing choices or repairs wrong/multiple next-question numbers", async () => {
+  const args = { record: { question: 1, attempts: 1, outcome: "correct" }, intent: "answer", currentQuestion: 1, previousAttempts: 0 };
+  assert.equal(validateGeneralSuneungTurn({ ...args, text: "정답입니다." }), "missing_next_question_header");
+  assert.equal(validateGeneralSuneungTurn({ ...args, text: question(3) }), "wrong_next_question_number");
+  assert.equal(validateGeneralSuneungTurn({ ...args, text: `${question(2)}\n${question(3)}` }), "multiple_next_question_headers");
+  for (const broken of [question(2).replace(/^E\)[^\n]*\n/m, ""), `${question(2)}\nA) 중복 보기`]) {
+    assert.equal(validateGeneralSuneungTurn({ ...args, text: normalizeGeneralSuneungDisplay(`**${broken}**`) }), "next_question_choices_incomplete");
+  }
+  await withProvider(async ({ queue }) => {
+    const room = classroom("suneung-2028-english");
+    room.messages.push({ role: "assistant", content: question(1) });
+    const noE = graded(1).replace(/^E\)[^\n]*\n/m, "");
+    queue.push({ text: noE }, { text: noE }, { text: noE });
+    const result = await room.ask("C");
+    assert.equal(result.statusCode, 502);
+    assert.equal(result.payload.record, undefined);
+    assert.equal(room.profile.lessonRecords.length, 0);
   });
 });

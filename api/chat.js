@@ -12,7 +12,7 @@ import { requestSuneungResponse } from "../lib/suneung-ai-model.js";
 import {
   classifyGeneralSuneungInput, generalAttemptCount, generalQuestionHeaders,
   isCompleteGeneralQuestion, isGeneralSuneungCourse, isSuneungConversationHelp,
-  latestCompleteGeneralQuestion, normalizeGeneralProblem, validateGeneralSuneungTurn
+  latestCompleteGeneralQuestion, normalizeGeneralProblem, normalizeGeneralSuneungDisplay, validateGeneralSuneungTurn
 } from "../lib/suneung-general-flow.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
@@ -175,6 +175,8 @@ function sendJson(response, status, payload) {
 
 function sanitizeMessages(messages, generalSuneung = false) {
   if (!Array.isArray(messages)) return null;
+  if (generalSuneung) messages = messages.map(message => message?.role === "assistant"
+    ? { ...message, content: normalizeGeneralSuneungDisplay(message.content) } : message);
   let selected = messages.slice(-MAX_MESSAGES);
   if (generalSuneung) {
     // Long, repeated explanations must not evict the question being answered.
@@ -223,7 +225,8 @@ function getOutputText(data) {
 
 function sanitizeHistory(history, generalSuneung = false) {
   if (!Array.isArray(history)) return [];
-  return history.slice(-60).map((item) => String(item || "").slice(0, generalSuneung ? 16000 : 500)).filter(Boolean);
+  return history.slice(-60).map((item) => (generalSuneung ? normalizeGeneralSuneungDisplay(item) : String(item || ""))
+    .slice(0, generalSuneung ? 16000 : 500)).filter(Boolean);
 }
 
 export function suneungMathStageForQuestion(question) {
@@ -1495,7 +1498,8 @@ export default async function handler(request, response) {
           console.error("OpenAI lesson error", openAIResponse.status, data?.error?.code);
           return sendJson(response, 502, { error: "AI 선생님 연결이 잠시 원활하지 않습니다." });
         }
-        const text = getOutputText(data);
+        const rawText = getOutputText(data);
+        const text = generalSuneung ? normalizeGeneralSuneungDisplay(rawText) : rawText;
         if (generalSuneung && data.status === "incomplete") {
           lastGeneralRejection = "incomplete_response";
           console.warn("Incomplete general CSAT response rejected", { attempt: attempt + 1, reason: data.incomplete_details?.reason });
