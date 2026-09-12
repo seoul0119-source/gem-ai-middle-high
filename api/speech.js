@@ -4,6 +4,7 @@ import { createScienceLessonEngine, isApprovedClosedSuneungScienceSpeechText } f
 import { isApprovedScienceReplySpeech } from "../lib/science-reply-proof.js";
 import { SUNEUNG_COURSES } from "./suneung-courses.js";
 import { isGeneralSuneungCourse } from "../lib/suneung-general-flow.js";
+import { aiServiceUnavailable, providerAiServiceError } from "../lib/ai-service-error.js";
 
 const MAX_TEXT_LENGTH = 1800;
 const CIRCLED_TO_SPOKEN = {
@@ -353,12 +354,17 @@ export default async function handler(request, response) {
     });
 
     if (!result.ok) {
-      console.error("OpenAI speech error", result.status);
-      return sendJson(response, 502, { error: isEnglishAvatar
-        ? "The teacher voice could not be created."
-        : isFrenchAvatar
-          ? "La voix du professeur n'a pas pu être créée."
-        : "음성을 만들지 못했습니다." });
+      const data = await result.json().catch(() => null);
+      const serviceError = providerAiServiceError(result.status, data) || aiServiceUnavailable();
+      if (serviceError.payload.code === "ai_service_unavailable") {
+        serviceError.payload.error = isEnglishAvatar
+          ? "The teacher voice service is temporarily unavailable. Please try again later."
+          : isFrenchAvatar
+            ? "Le service vocal du professeur est temporairement indisponible. Réessayez plus tard."
+            : serviceError.payload.error;
+      }
+      console.warn("OpenAI speech unavailable", result.status, serviceError.payload.code);
+      return sendJson(response, serviceError.status, serviceError.payload);
     }
 
     const audio = Buffer.from(await result.arrayBuffer()).toString("base64");

@@ -154,6 +154,120 @@ test("general voice E locks competing answers then advances once; stale ASR cann
   assert.equal(context.scienceTurnState.busy, true);
 });
 
+function servicePauseHarness() {
+  const lesson = harness("suneung-2028-english");
+  const { context } = lesson;
+  const scheduled = [];
+  let released = 0;
+  context.document.body = { classList: { remove() {}, toggle() {} } };
+  Object.assign(context, {
+    conversationMode: true, autoSpeak: true, discardRecording: false,
+    nextRecordingTimer: 17, clearTimeout() {},
+    setTimeout(fn) { scheduled.push(fn); return scheduled.length; },
+    recorder: null,
+    resetMic(release) { if (release) released++; context.micButton.textContent = "🎙 음성 대화 시작"; },
+    startRecording() { scheduled.push("manual-start"); }
+  });
+  runInNewContext(["cancelScienceRecording", "pauseVoiceForServiceError", "scheduleRecording", "toggleConversation"].map(namedFunction).join("\n"), context);
+  return { ...lesson, scheduled, released: () => released };
+}
+
+test("credit exhaustion during English voice start pauses retries and can be resumed manually", async () => {
+  const { context, requests, pending, rendered, scheduled, released } = servicePauseHarness();
+  context.messages = [];
+  const asr = context.transcribeRecording({ type: "audio/webm" });
+  await flush();
+  pending[0].resolve({ ok: false, data: {
+    error: "AI 서비스 이용 한도로 수업이 잠시 중지되었습니다. 선생님에게 알려 주세요.",
+    code: "ai_credit_exhausted", retryable: false, pauseVoice: true
+  } });
+  await asr;
+  assert.equal(requests.length, 1);
+  assert.equal(context.conversationMode, false);
+  assert.equal(context.autoSpeak, false);
+  assert.equal(context.nextRecordingTimer, null);
+  assert.equal(released(), 1);
+  assert.deepEqual(scheduled, []);
+  assert.equal(context.messages.length, 0);
+  assert.equal(context.scienceTurnState.transcribing, false);
+  assert.equal(context.input.disabled, false);
+  assert.equal(context.micButton.disabled, false);
+  assert.match(context.connection.innerHTML, /AI 서비스 확인 필요/);
+  assert.ok(rendered.some(({text}) => /이용 한도/.test(text)));
+  assert.ok(!rendered.some(({text}) => /알아듣지|couldn't understand/i.test(text)));
+  await context.toggleConversation();
+  assert.equal(context.conversationMode, true);
+  assert.equal(context.connection.servicePaused, false);
+  assert.deepEqual(scheduled, ["manual-start"]);
+});
+
+test("a rejected English answer preserves the current question and retries without a phantom attempt", async () => {
+  const { context, nodes, requests, pending, scheduled } = servicePauseHarness();
+  const originalQuestion = question();
+  context.messages = [{ role: "assistant", content: originalQuestion }];
+  context.updateScienceAnswerControls(originalQuestion);
+  let assessments = 0;
+  context.recordAssessment = () => { assessments++; };
+  const failed = context.sendMessage("C", "voice");
+  await flush();
+  pending[0].resolve({ ok: false, data: { error: "서비스 이용 한도를 확인해 주세요.", code: "ai_credit_exhausted", pauseVoice: true } });
+  await failed;
+  assert.equal(context.messages.length, 1);
+  assert.equal(context.messages[0].content, originalQuestion);
+  assert.equal(context.lastAssistantText, originalQuestion);
+  assert.equal(assessments, 0);
+  assert.equal(context.scienceTurnState.question, 1);
+  assert.equal(nodes.get("science-answer-buttons").children.length, 5);
+  assert.deepEqual(scheduled, []);
+  const retry = context.sendMessage("C");
+  await flush();
+  assert.equal(requests[1].body.messages.filter(message => message.role === "user").length, 1);
+  pending[1].resolve({ ok: true, data: { text: question(2) } });
+  await retry;
+  assert.equal(context.connection.servicePaused, false);
+  assert.equal(context.scienceTurnState.question, 2);
+  assert.equal(assessments, 1);
+});
+
+test("successful Korean voice start in English reaches the teacher once and displays complete question one", async () => {
+  const { context, requests, pending } = harness("suneung-2028-english");
+  context.messages = [];
+  context.currentQuestionNumber = 0;
+  const start = context.transcribeRecording({ type: "audio/webm" });
+  await flush();
+  pending[0].resolve({ ok: true, data: { text: "안녕하세요. 영어 수업 시작해 주세요." } });
+  await flush();
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].body.inputMode, "voice");
+  assert.equal(requests[1].body.messages.at(-1).content, "안녕하세요. 영어 수업 시작해 주세요.");
+  pending[1].resolve({ ok: true, data: { text: question() } });
+  await start;
+  assert.equal(context.scienceTurnState.question, 1);
+  assert.match(context.lastAssistantText, /E\)/);
+  assert.equal(context.input.disabled, false);
+});
+
+test("a TTS billing failure pauses voice without replaying the question or discarding the accepted lesson", async () => {
+  const { context, rendered, scheduled } = servicePauseHarness();
+  const acceptedQuestion = question();
+  context.messages = [{ role: "assistant", content: acceptedQuestion }];
+  Object.assign(context, {
+    activeSpeechId: 0, currentAudio: null, currentSpeechResolve: null,
+    teacherVolume: 0.65, CustomEvent: class {}, window: { dispatchEvent() {} },
+    browserSpeak: async () => { assert.fail("billing failure must not start fallback audio"); },
+    fetch: async () => ({ ok: false, data: { error: "AI 서비스 이용 한도를 확인해 주세요.", pauseVoice: true } })
+  });
+  runInNewContext(["cleanLessonForSpeech", "splitSuneungGeneralSpeechParts", "speakText"].map(namedFunction).join("\n"), context);
+  await context.speakText(acceptedQuestion);
+  assert.equal(context.conversationMode, false);
+  assert.equal(context.autoSpeak, false);
+  assert.equal(context.messages[0].content, acceptedQuestion);
+  assert.equal(context.messages.length, 1);
+  assert.equal(rendered.filter(({text}) => /이용 한도/.test(text)).length, 1);
+  assert.deepEqual(scheduled, []);
+  assert.match(context.connection.innerHTML, /AI 서비스 확인 필요/);
+});
+
 test("general restart automatically starts one new lesson and invalidates the prior run", async () => {
   const { context, nodes, requests, pending } = harness();
   context.sessionRequest = async () => ({ courseRunId: "run-B" });

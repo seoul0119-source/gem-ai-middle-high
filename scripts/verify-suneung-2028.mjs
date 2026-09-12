@@ -9,12 +9,9 @@ import { createSessionToken, SESSION_COOKIE } from "../lib/student-session.js";
 // context. It neither enters a public classroom nor writes a student record.
 // The only permitted network destination is the configured AI provider, with
 // storage explicitly disabled. Responses, cookies and credentials are not logged.
-const DEADLINE_MS = 300_000;
 const TURN_DEADLINE_MS = 55_000;
-const CONCURRENCY = 3;
 const EXPECTED_COURSES = 13;
-const MAX_APPLICATION_TURNS = EXPECTED_COURSES * 3;
-const MAX_PROVIDER_REQUESTS = 170; // Expected 91; includes bounded review retries.
+let plan;
 const requestContext = new AsyncLocalStorage();
 const globalAbort = new AbortController();
 const realFetch = globalThis.fetch;
@@ -161,6 +158,40 @@ const FIXTURES = [
   }
 ];
 
+function selectPlan(args) {
+  let fixturesOnly = false;
+  let all = false;
+  let courseId;
+  for (const arg of args) {
+    if (arg === "--fixtures-only") {
+      check(!fixturesOnly, "duplicate_option");
+      fixturesOnly = true;
+    } else if (arg === "--all") {
+      check(!all, "duplicate_option");
+      all = true;
+    } else if (arg.startsWith("--course=")) {
+      check(courseId === undefined, "duplicate_option");
+      courseId = arg.slice("--course=".length);
+      check(Boolean(courseId), "course_selection_invalid");
+    } else {
+      throw new Error("build_2028_unknown_option");
+    }
+  }
+  check(!(all && courseId !== undefined), "conflicting_selection");
+  const selected = courseId === undefined ? FIXTURES : FIXTURES.filter(fixture => fixture.courseId === courseId);
+  check(selected.length > 0, "course_selection_invalid");
+  const focused = courseId !== undefined;
+  return {
+    fixturesOnly, fixtures: selected, focused,
+    maxApplicationTurns: selected.length * 3,
+    expectedProviderRequests: selected.length * 7,
+    // A release checks one course. A deliberate full audit retains all 13 cases.
+    maxProviderRequests: focused ? 14 : 170,
+    deadlineMs: focused ? 90_000 : 300_000,
+    concurrency: focused ? 1 : 3
+  };
+}
+
 function verifyQuestion(payload, number) {
   const headings = [...payload.text.matchAll(/문제\s*(\d+)\s*\/\s*10/g)];
   check(headings.length === 1 && Number(headings[0][1]) === number, "question_sequence_failed");
@@ -192,11 +223,11 @@ function syntheticLesson(courseId) {
     messages: [], lessonRecords: [], turn: 0 };
 }
 
-async function ask(lesson, content, step) {
+async function ask(lesson, content, step, inputMode = "text") {
   check(!globalAbort.signal.aborted, "verification_aborted");
   applicationTurns += 1;
   lesson.turn += 1;
-  check(applicationTurns <= MAX_APPLICATION_TURNS, "application_budget_exceeded");
+  check(applicationTurns <= plan.maxApplicationTurns, "application_budget_exceeded");
   originalConsole.log(`CSAT 2028 live turn: ${lesson.courseId}; step=${step}.`);
   lesson.messages.push({ role: "user", content });
   const captured = {
@@ -213,7 +244,7 @@ async function ask(lesson, content, step) {
       requestContext.run({ signal: abort.signal, course: lesson.courseId, step }, () => chatHandler({
         method: "POST", headers: { cookie: lesson.cookie }, body: {
           courseId: lesson.courseId, courseRunId: lesson.courseRunId, lessonSeed: lesson.lessonSeed,
-          inputMode: "text", messages: lesson.messages.map(message => ({ ...message })),
+          inputMode, messages: lesson.messages.map(message => ({ ...message })),
           learningProfile: { lessonRecords: lesson.lessonRecords.map(record => ({ ...record })) }, history: []
         }
       }, captured)),
@@ -236,7 +267,13 @@ async function ask(lesson, content, step) {
 }
 
 async function verifyStory(fixture) {
-  const fresh = await ask(syntheticLesson(fixture.courseId), "시작해 주세요.", "fresh_question");
+  // Simulate the Korean transcript received by the English classroom's voice
+  // path. This does not record audio or verify the speech-to-text provider.
+  const englishVoiceStart = fixture.courseId === "suneung-2028-english";
+  const fresh = await ask(syntheticLesson(fixture.courseId),
+    englishVoiceStart ? "안녕하세요. 영어 수업 시작해 주세요." : "시작해 주세요.",
+    englishVoiceStart ? "korean_voice_start_transcript" : "fresh_question",
+    englishVoiceStart ? "voice" : "text");
   check(!fresh.record, "start_graded_as_answer");
   verifyQuestion(fresh, 1);
   const fixtureLesson = syntheticLesson(fixture.courseId);
@@ -265,7 +302,7 @@ async function verifyLive() {
     try { body = JSON.parse(options.body); } catch { throw new Error("build_2028_provider_body_invalid"); }
     check(body.store === false, "provider_storage_not_disabled");
     providerRequests += 1;
-    check(providerRequests <= MAX_PROVIDER_REQUESTS, "provider_budget_exceeded");
+    check(providerRequests <= plan.maxProviderRequests, "provider_budget_exceeded");
     const review = body.text?.format?.name;
     if (Object.hasOwn(reviewCounts, review)) reviewCounts[review] += 1;
     const signals = [globalAbort.signal, requestContext.getStore()?.signal, options.signal].filter(Boolean);
@@ -273,6 +310,8 @@ async function verifyLive() {
   };
   const eventCodes = new Map([
     ["General CSAT turn rejected", "turn_rejected"],
+    ["General CSAT content rejected", "content_rejected"],
+    ["General CSAT review unavailable", "review_unavailable"],
     ["Out-of-sequence Suneung response rejected", "sequence_rejected"],
     ["Invalid or out-of-sequence Suneung record rejected", "record_rejected"],
     ["Incomplete general CSAT response rejected", "response_incomplete"],
@@ -292,12 +331,12 @@ async function verifyLive() {
     const status = Number.isInteger(args[1]) && args[1] >= 400 && args[1] <= 599 ? args[1] : 0;
     originalConsole.log(`CSAT 2028 diagnostic: ${context?.course || "general"}; step=${context?.step || "none"}; ${event}; reason=${safeReason}; HTTP=${status}.`);
   };
-  originalConsole.log("CSAT 2028 live verification: all 13 general courses; 39 synthetic application turns; no student records are written.");
+  originalConsole.log(`CSAT 2028 live verification: ${plan.fixtures.length} general course(s); ${plan.maxApplicationTurns} synthetic application turns; expected ${plan.expectedProviderRequests} provider requests; maximum ${plan.maxProviderRequests}; deadline ${plan.deadlineMs / 1000}s; no student records are written.`);
   let nextIndex = 0;
   const failures = [];
-  const workers = Array.from({ length: CONCURRENCY }, async () => {
-    while (nextIndex < FIXTURES.length && !globalAbort.signal.aborted) {
-      const fixture = FIXTURES[nextIndex++];
+  const workers = Array.from({ length: plan.concurrency }, async () => {
+    while (nextIndex < plan.fixtures.length && !globalAbort.signal.aborted) {
+      const fixture = plan.fixtures[nextIndex++];
       try { await verifyStory(fixture); }
       catch (error) {
         failures.push(error);
@@ -309,28 +348,33 @@ async function verifyLive() {
   });
   await Promise.allSettled(workers);
   if (failures.length) throw failures[0];
-  check(applicationTurns === MAX_APPLICATION_TURNS && providerRequests >= MAX_APPLICATION_TURNS, "live_request_count_mismatch");
-  check(reviewCounts.general_2028_question_review >= EXPECTED_COURSES
-    && reviewCounts.general_2028_turn_review >= MAX_APPLICATION_TURNS, "independent_review_coverage_missing");
-  originalConsole.log(`CSAT 2028 live verification passed: 13/13 courses; ${applicationTurns} application turns; ${providerRequests} real provider requests; ${reviewCounts.general_2028_question_review} question reviews; ${reviewCounts.general_2028_turn_review} turn reviews; ${applicationDiagnostics} application diagnostics.`);
+  check(applicationTurns === plan.maxApplicationTurns && providerRequests >= plan.expectedProviderRequests, "live_request_count_mismatch");
+  check(reviewCounts.general_2028_question_review >= plan.fixtures.length
+    && reviewCounts.general_2028_turn_review >= plan.maxApplicationTurns, "independent_review_coverage_missing");
+  originalConsole.log(`CSAT 2028 live verification passed: ${plan.fixtures.length}/${plan.fixtures.length} selected courses; ${applicationTurns} application turns; ${providerRequests} real provider requests; ${reviewCounts.general_2028_question_review} question reviews; ${reviewCounts.general_2028_turn_review} turn reviews; ${applicationDiagnostics} application diagnostics.`);
 }
 
-if (process.argv.includes("--fixtures-only")) {
+let deadline;
+try {
+  // Validate selection and the entire fixture inventory before inspecting any
+  // credentials or making calls. A typo must not silently run the paid full suite.
+  plan = selectPlan(process.argv.slice(2));
   verifyCoverage();
-  originalConsole.log("CSAT 2028 fixture coverage checked: 13/13 general courses. No live AI requests were made.");
-} else {
-  const deadline = setTimeout(() => {
-    globalAbort.abort();
-    originalConsole.error("CSAT 2028 live verification failed: build_2028_deadline_exceeded");
-    process.exit(1);
-  }, DEADLINE_MS);
-  try { await verifyLive(); }
-  catch (error) {
-    const code = /^build_2028_[a-z_]+$/.test(error?.message || "") ? error.message : "build_2028_request_failed";
-    originalConsole.error(`CSAT 2028 live verification failed: ${code}`);
-    process.exitCode = 1;
-  } finally {
-    globalAbort.abort(); clearTimeout(deadline); globalThis.fetch = realFetch;
-    for (const [method, original] of Object.entries(originalConsole)) console[method] = original;
+  if (plan.fixturesOnly) {
+    originalConsole.log(`CSAT 2028 fixture coverage checked: 13/13 general courses; selected=${plan.fixtures.map(fixture => fixture.courseId).join(",")}; application turns=${plan.maxApplicationTurns}; expected provider requests=${plan.expectedProviderRequests}; maximum=${plan.maxProviderRequests}; deadline=${plan.deadlineMs / 1000}s; concurrency=${plan.concurrency}. No live AI requests were made.`);
+  } else {
+    deadline = setTimeout(() => {
+      globalAbort.abort();
+      originalConsole.error("CSAT 2028 live verification failed: build_2028_deadline_exceeded");
+      process.exit(1);
+    }, plan.deadlineMs);
+    await verifyLive();
   }
+} catch (error) {
+  const code = /^build_2028_[a-z_]+$/.test(error?.message || "") ? error.message : "build_2028_request_failed";
+  originalConsole.error(`CSAT 2028 live verification failed: ${code}`);
+  process.exitCode = 1;
+} finally {
+  globalAbort.abort(); clearTimeout(deadline); globalThis.fetch = realFetch;
+  for (const [method, original] of Object.entries(originalConsole)) console[method] = original;
 }

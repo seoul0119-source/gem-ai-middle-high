@@ -168,10 +168,11 @@ test("wrong answers cannot acquire correct records and third attempts must final
 test("a reviewer outage never releases the unreviewed draft or a learning record", async () => {
   await withProvider([{ schema: "generate", text: question() }, { schema: turnReview, status: 429 }], async () => {
     const response = await room().ask("시작");
-    assert.equal(response.statusCode, 502);
+    assert.equal(response.statusCode, 429);
     assert.equal(response.payload.text, undefined);
     assert.equal(response.payload.record, undefined);
-    assert.match(response.payload.error, /정확성/);
+    assert.equal(response.payload.code, "ai_rate_limited");
+    assert.equal(response.payload.pauseVoice, true);
   });
 });
 

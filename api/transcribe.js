@@ -2,6 +2,7 @@ import { isActiveCourseRun, requireStudentSession } from "../lib/student-session
 import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import { SUNEUNG_COURSES } from "./suneung-courses.js";
 import { isGeneralSuneungCourse } from "../lib/suneung-general-flow.js";
+import { aiServiceUnavailable, providerAiServiceError } from "../lib/ai-service-error.js";
 
 const MAX_BASE64_LENGTH = 5_500_000;
 
@@ -154,25 +155,26 @@ export default async function handler(request, response) {
     let transcriptionModel = "gpt-transcribe";
     let { result, data } = await requestTranscription(transcriptionModel);
     const primaryTranscriptMissing = result.ok && !data?.text?.trim();
+    // A billing/rate-limit failure cannot be fixed by another model or another
+    // recording. Return it before considering the compatibility fallback.
+    let serviceError = !result.ok && providerAiServiceError(result.status, data);
+    if (serviceError) return sendJson(response, serviceError.status, serviceError.payload);
     if ((!result.ok && [400, 403, 404].includes(result.status)) || primaryTranscriptMissing) {
       console.warn(
         "GPT Transcribe fallback",
         primaryTranscriptMissing ? "empty_transcript" : result.status,
-        data?.error?.code,
-        data?.error?.param
+        "compatibility_retry"
       );
       transcriptionModel = "gpt-4o-transcribe";
       ({ result, data } = await requestTranscription(transcriptionModel));
     }
-    if (!result.ok || !data?.text?.trim()) {
-      console.error(
-        "OpenAI transcription error",
-        result.status,
-        data?.error?.code,
-        data?.error?.param,
-        data?.error?.message
-      );
-      return sendJson(response, 502, { error: isEnglishCourse
+    if (!result.ok) {
+      serviceError = providerAiServiceError(result.status, data) || aiServiceUnavailable();
+      console.warn("OpenAI transcription unavailable", result.status, serviceError.payload.code);
+      return sendJson(response, serviceError.status, serviceError.payload);
+    }
+    if (!data?.text?.trim()) {
+      return sendJson(response, 422, { error: isEnglishCourse
         ? "I couldn't understand your answer. Please say it again."
         : "목소리를 알아듣지 못했습니다. 다시 말해 주세요." });
     }
@@ -221,7 +223,8 @@ export default async function handler(request, response) {
 
     return sendJson(response, 200, { text: transcript });
   } catch (error) {
-    console.error("GEM transcription error", error);
-    return sendJson(response, 500, { error: "음성 인식 연결 중 문제가 발생했습니다." });
+    console.warn("GEM transcription unavailable");
+    const serviceError = aiServiceUnavailable();
+    return sendJson(response, serviceError.status, serviceError.payload);
   }
 }

@@ -264,7 +264,8 @@ test("provider failures and incomplete choices fail honestly without discarding 
     await room.ask("시작");
     queue.push({ status: 429 });
     const response = await room.ask("힌트 주세요");
-    assert.equal(response.statusCode, 502);
+    assert.equal(response.statusCode, 429);
+    assert.equal(response.payload.code, "ai_rate_limited");
     assert.equal(requests.length, 2);
     assert.equal(room.profile.lessonRecords.length, 0);
     queue.push({ text: question(1), incomplete: true }, { text: "자료의 시기를 확인해 보세요." });

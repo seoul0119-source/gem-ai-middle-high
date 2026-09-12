@@ -1638,12 +1638,12 @@
           const data = await readJsonResponse(response, COURSE.avatar
             ? AVATAR_TEXT.voiceUnavailable
             : "AI 음성 서버가 잠시 응답하지 않습니다.");
-          if (!response.ok || !data.audio) throw new Error(data.error || (COURSE.avatar
+          if (!response.ok || !data.audio) throw Object.assign(new Error(data.error || (COURSE.avatar
             ? AVATAR_TEXT.voiceUnavailable
-            : "음성 생성 실패"));
+            : "음성 생성 실패")), { pauseVoice: data.pauseVoice === true });
           return data;
         }).map((pending) => (IS_SUNEUNG && IS_MATH) || COURSE.generalSuneung
-          ? pending.catch(() => ({ failed: true }))
+          ? pending.catch((error) => { if (error.pauseVoice) throw error; return { failed: true }; })
           : pending));
 
         for (let partIndex = 0; partIndex < audioParts.length; partIndex += 1) {
@@ -1684,6 +1684,12 @@
         }
       } catch (error) {
         if (speechId !== activeSpeechId) return;
+        if (error.pauseVoice) {
+          pauseVoiceForServiceError();
+          addMessage("assistant", error.message);
+          setLoading(false);
+          return;
+        }
         console.warn("Natural voice fallback", error);
         if ((COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
           // Protected Integrated Science may speak only server-approved
@@ -2130,6 +2136,12 @@
           : "<strong>상태</strong> 수업 종료";
         return;
       }
+      if (connection.servicePaused && !loading) {
+        connection.innerHTML = COURSE.avatar
+          ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.checkConnection}`
+          : "<strong>상태</strong> AI 서비스 확인 필요 · 음성 대화 일시 중지";
+        return;
+      }
       connection.innerHTML = COURSE.avatar
         ? `<strong>${AVATAR_TEXT.status}</strong> ${loading ? AVATAR_TEXT.preparing : AVATAR_TEXT.inProgress}`
         : loading
@@ -2184,7 +2196,10 @@
         return;
       }
       addMessage("user", text);
-      messages.push({ role: "user", content: text });
+      const submittedMessage = { role: "user", content: text };
+      messages.push(submittedMessage);
+      let responseAccepted = false;
+      connection.servicePaused = false;
       setLoading(true);
       const answerSubmittedAt = Date.now();
       const isStarting = isLessonStartRequest(text);
@@ -2223,7 +2238,11 @@
         });
         const data = await readJsonResponse(response, COURSE.avatar ? AVATAR_TEXT.serverUnavailable : "AI 선생님 서버가 잠시 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
         if (guardedScience && !isCurrentScienceTurn(scienceTurn)) return;
-        if (!response.ok) throw new Error(data.error || (COURSE.avatar ? AVATAR_TEXT.connectionFailed : "수업 연결에 실패했습니다."));
+        if (!response.ok) {
+          if (data.pauseVoice === true) pauseVoiceForServiceError();
+          throw new Error(data.error || (COURSE.avatar ? AVATAR_TEXT.connectionFailed : "수업 연결에 실패했습니다."));
+        }
+        responseAccepted = true;
 
         typing.remove();
         const protectedText = COURSE.avatar && isStarting
@@ -2261,6 +2280,9 @@
         }
       } catch (error) {
         if (guardedScience && !isCurrentScienceTurn(scienceTurn)) return;
+        // A rejected API request was never graded. Retrying the same answer
+        // must not make the next request look like the second/third attempt.
+        if (!responseAccepted && messages.at(-1) === submittedMessage) messages.pop();
         typing.remove();
         addMessage("assistant", error.message || "수업 연결 중 문제가 발생했습니다.");
         connection.innerHTML = COURSE.avatar
@@ -2367,6 +2389,7 @@
         ? (COURSE.avatar ? AVATAR_TEXT.stopVoice : "■ 음성 대화 멈춤")
         : (COURSE.avatar ? AVATAR_TEXT.startVoice : "🎙 음성 대화 시작");
       if (conversationMode) {
+        connection.servicePaused = false;
         settleMobileLessonView();
         discardRecording = false;
         connection.innerHTML = COURSE.avatar
@@ -2436,6 +2459,18 @@
       micButton.textContent = conversationMode
         ? (COURSE.avatar ? AVATAR_TEXT.stopVoice : "■ 음성 대화 멈춤")
         : (COURSE.avatar ? AVATAR_TEXT.startVoice : "🎙 음성 대화 시작");
+    }
+
+    function pauseVoiceForServiceError() {
+      // Keep the current problem, earned attempts and course run intact.
+      // A human can resume after the service is restored; no automatic loop.
+      connection.servicePaused = true;
+      conversationMode = false;
+      autoSpeak = false;
+      document.body?.classList?.remove("voice-conversation");
+      cancelScienceRecording();
+      cancelCurrentSpeech();
+      voiceFailureNoticeShown = true;
     }
 
     function stopLessonMedia() {
@@ -2531,7 +2566,10 @@
           ? AVATAR_TEXT.recognitionUnavailable
           : "음성 인식 서버가 잠시 응답하지 않습니다. 잠시 후 다시 말해 주세요.");
         if (guardedScience && (!isCurrentScienceTurn(scienceTurn) || lessonManuallyEnded)) return;
-        if (!response.ok) throw new Error(data.error || "음성 인식 실패");
+        if (!response.ok) {
+          if (data.pauseVoice === true) pauseVoiceForServiceError();
+          throw Object.assign(new Error(data.error || "음성 인식 실패"), { pauseVoice: data.pauseVoice === true });
+        }
         voiceFailureNoticeShown = false;
         input.value = data.text;
         const recognitionStatusLabel = document.createElement("strong");
@@ -2560,7 +2598,7 @@
           // If an unexpected downstream exception escaped it, guarantee that
           // voice conversation mode still recovers instead of stopping here.
           scheduleRecording(1200);
-        } else if (!voiceFailureNoticeShown) {
+        } else if (error.pauseVoice || !voiceFailureNoticeShown) {
           addMessage("assistant", error.message || (COURSE.avatar
             ? AVATAR_TEXT.notUnderstood
             : "목소리를 알아듣지 못했습니다. 다시 말해 주세요."));
@@ -2574,7 +2612,7 @@
         } else {
           micButton.disabled = false;
         }
-        if (!input.disabled) connection.innerHTML = COURSE.avatar
+        if (!input.disabled && !connection.servicePaused) connection.innerHTML = COURSE.avatar
           ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.inProgress}`
           : "<strong>상태</strong> 수업 진행 중";
         // A successful answer is restarted by sendMessage after the teacher has

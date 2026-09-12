@@ -9,6 +9,7 @@ import {
 } from "../lib/suneung-science-safety.js";
 import { handleScienceTutor } from "../lib/suneung-science-tutor.js";
 import { requestSuneungResponse } from "../lib/suneung-ai-model.js";
+import { AiServiceError, providerAiServiceError } from "../lib/ai-service-error.js";
 import {
   classifyGeneralSuneungInput, generalAttemptCount, generalQuestionHeaders,
   isCompleteGeneralQuestion, isGeneralSuneungCourse, isSuneungConversationHelp,
@@ -135,10 +136,15 @@ async function verifyToeicCorrectChoice(apiKey, model, question) {
       })
     });
     const data = await result.json();
-    if (!result.ok) return null;
+    if (!result.ok) {
+      const serviceError = providerAiServiceError(result.status, data);
+      if (serviceError) throw new AiServiceError(serviceError);
+      return null;
+    }
     const verified = getOutputText(data)?.trim().match(/\b([A-D])\b/i);
     return verified?.[1]?.toUpperCase() || null;
   } catch (error) {
+    if (error instanceof AiServiceError) throw error;
     console.error("TOEIC answer verification error", error);
     return null;
   }
@@ -1509,6 +1515,8 @@ export default async function handler(request, response) {
         });
         const data = suneungResponse ? suneungResponse.data : await openAIResponse.json();
         if (!openAIResponse.ok) {
+          const serviceError = providerAiServiceError(openAIResponse.status, data);
+          if (serviceError) return sendJson(response, serviceError.status, serviceError.payload);
           console.error("OpenAI lesson error", openAIResponse.status, data?.error?.code);
           return sendJson(response, 502, { error: "AI 선생님 연결이 잠시 원활하지 않습니다." });
         }
@@ -1684,6 +1692,8 @@ export default async function handler(request, response) {
 
       const data = await openAIResponse.json();
       if (!openAIResponse.ok) {
+        const serviceError = providerAiServiceError(openAIResponse.status, data);
+        if (serviceError) return sendJson(response, serviceError.status, serviceError.payload);
         console.error("OpenAI API error", openAIResponse.status, data?.error?.code);
         return sendJson(response, 502, {
           error: "AI 선생님 연결이 잠시 원활하지 않습니다. 잠시 후 다시 시도해 주세요."
@@ -1708,6 +1718,7 @@ export default async function handler(request, response) {
     if (fallback) return sendJson(response, 200, { text: fallback });
     return sendJson(response, 502, { error: "새 단어를 준비하지 못했습니다. 새 수업을 시작해 주세요." });
   } catch (error) {
+    if (error instanceof AiServiceError) return sendJson(response, error.status, error.payload);
     if (error instanceof GeneralSuneungReviewError) {
       console.warn("General CSAT review unavailable", { reason: error.message });
       return sendJson(response, 502, {

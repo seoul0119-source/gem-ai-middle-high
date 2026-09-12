@@ -27,4 +27,6 @@ Preview deployments use Vercel environment variables and do not change productio
 
 설명은 내용 범위·정확성·정답 사전 공개 검토를 통과한 뒤에만 표시합니다. 서버가 학생·과목·수업 회차와 연결해 서명한 설명만 음성으로 읽거나 도전 횟수 복원에 사용할 수 있습니다. 연결 또는 검토 실패 시 미검토 문장을 보여 주지 않고 재요청을 안내하며 진도를 유지합니다. 모델 기반 검토는 완전한 정확성 보장이 아니므로 교사의 내용 확인이 필요합니다.
 
-Vercel 빌드에서는 `scripts/verify-suneung-tutor.mjs`가 실제 API로 질량 설명과 후속 대화를 확인합니다. 실제 학생 정보를 사용하지 않으며, 해당 배포 환경의 모델 접근·응답·서명 검증 실패 시 배포를 중단합니다. 이 검사에는 소량의 API 사용료가 발생합니다.
+Vercel 빌드는 전체 단위검사 후 `node scripts/verify-suneung-2028.mjs --course=suneung-2028-english`로 실제 영어 수업 시작, 문맥 질문, 알려진 정답의 채점과 2번 문제 출제를 확인합니다. 시작 요청은 한국어로 인식된 “안녕하세요. 영어 수업 시작해 주세요.”를 음성 입력 경로에 전달하며, 실제 녹음·음성 인식 서비스 검사는 아닙니다. 실제 학생 정보를 사용하거나 학습 기록을 저장하지 않습니다. 3번의 수업 요청에 기본 7번의 유료 AI 호출이 발생하며, 재시도를 포함해 최대 14번·전체 90초로 제한합니다. 실제 문제·채점의 독립 검토는 그대로 수행하고 실패하면 배포를 중단합니다.
+
+반복 배포 때 전체 과목의 유료 검사를 자동 실행하지 않도록 분리했습니다. 전체 감사가 필요하면 `node scripts/verify-suneung-2028.mjs --all`로 13개 교실·39번의 수업 요청을 검사합니다(기본 91번, 최대 170번의 유료 AI 호출·300초 제한). 기존 `node scripts/verify-suneung-tutor.mjs` 및 `node scripts/verify-suneung-general.mjs`도 수동 검증용으로 유지합니다. 이 검증들은 API 비용이 발생하므로 필요한 범위를 선택해 실행합니다. `node scripts/verify-suneung-2028.mjs --fixtures-only --course=suneung-2028-english`는 API 호출 없이 대상과 호출 상한만 확인합니다.
