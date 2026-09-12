@@ -618,7 +618,27 @@
         language
       };
     }
+    function suneungGeneralClientConfigs() {
+      const direct = {
+        "suneung-2027-korean-speech-writing":"국어 · 화법과 작문", "suneung-2027-korean-language-media":"국어 · 언어와 매체",
+        "suneung-2027-english":"영어", "suneung-2027-history":"한국사",
+        "suneung-2027-social-life-ethics":"사회탐구 · 생활과 윤리", "suneung-2027-social-ethics-thought":"사회탐구 · 윤리와 사상",
+        "suneung-2027-social-korean-geography":"사회탐구 · 한국지리", "suneung-2027-social-world-geography":"사회탐구 · 세계지리",
+        "suneung-2027-social-east-asian-history":"사회탐구 · 동아시아사", "suneung-2027-social-world-history":"사회탐구 · 세계사",
+        "suneung-2027-social-economics":"사회탐구 · 경제", "suneung-2027-social-politics-law":"사회탐구 · 정치와 법", "suneung-2027-social-society-culture":"사회탐구 · 사회·문화",
+        "suneung-2028-korean":"국어", "suneung-2028-english":"영어", "suneung-2028-history":"한국사", "suneung-2028-integrated-social":"통합사회"
+      };
+      const languages={german:"독일어Ⅰ",french:"프랑스어Ⅰ",spanish:"스페인어Ⅰ",chinese:"중국어Ⅰ",japanese:"일본어Ⅰ",russian:"러시아어Ⅰ",arabic:"아랍어Ⅰ",vietnamese:"베트남어Ⅰ",hanmun:"한문Ⅰ"};
+      for (const year of ["2027","2028"]) for (const [key,name] of Object.entries(languages)) direct[`suneung-${year}-second-${key}`]=`제2외국어/한문 · ${name}`;
+      return Object.fromEntries(Object.entries(direct).map(([id,name]) => {
+        const year=id.includes("-2027-") ? "2027" : "2028";
+        const subject=id.includes("-korean") ? "korean" : id.includes("-english") ? "english" : id.includes("-history") ? "history" : id.includes("-social") ? "social" : "second-language";
+        const track = subject === "second-language" ? id.split("-").at(-1) : subject === "korean" && year === "2027" ? (id.endsWith("speech-writing") ? "speech-writing" : "language-media") : subject === "social" && year === "2027" ? id.replace("suneung-2027-social-", "") : "";
+        return [id,{title:`${year}학년도 수능 ${name}`,subject:`수능 ${name}`,grade:`${year}학년도 수능 대비`,greeting:`${name} 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,placeholder:"시작, 답 또는 힌트를 입력하세요",voice:false,spokenReview:true,entrance:`/suneung.html#year=${year}&subject=${subject}${track ? `&track=${track}` : ""}`}];
+      }));
+    }
     const COURSE_CONFIGS = {
+      ...suneungGeneralClientConfigs(),
       "m1-english-word": {
         title: "중1 영어 단어 Lv.7",
         subject: "영어 단어",

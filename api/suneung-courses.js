@@ -122,8 +122,64 @@ function science2027Courses() {
   }]));
 }
 
+const GENERAL_SUNEUNG_OPTIONS = {
+  "suneung-2027-korean-speech-writing":"국어 · 화법과 작문",
+  "suneung-2027-korean-language-media":"국어 · 언어와 매체",
+  "suneung-2027-english":"영어", "suneung-2027-history":"한국사",
+  "suneung-2027-social-life-ethics":"사회탐구 · 생활과 윤리", "suneung-2027-social-ethics-thought":"사회탐구 · 윤리와 사상",
+  "suneung-2027-social-korean-geography":"사회탐구 · 한국지리", "suneung-2027-social-world-geography":"사회탐구 · 세계지리",
+  "suneung-2027-social-east-asian-history":"사회탐구 · 동아시아사", "suneung-2027-social-world-history":"사회탐구 · 세계사",
+  "suneung-2027-social-economics":"사회탐구 · 경제", "suneung-2027-social-politics-law":"사회탐구 · 정치와 법",
+  "suneung-2027-social-society-culture":"사회탐구 · 사회·문화",
+  "suneung-2028-korean":"국어", "suneung-2028-english":"영어", "suneung-2028-history":"한국사", "suneung-2028-integrated-social":"통합사회"
+};
+const LANGUAGE_OPTIONS = {
+  german:"독일어Ⅰ", french:"프랑스어Ⅰ", spanish:"스페인어Ⅰ", chinese:"중국어Ⅰ", japanese:"일본어Ⅰ",
+  russian:"러시아어Ⅰ", arabic:"아랍어Ⅰ", vietnamese:"베트남어Ⅰ", hanmun:"한문Ⅰ"
+};
+
+function generalSuneungPrompt(year, name) {
+  const koreanElective = year === "2027" && name.startsWith("국어 ·")
+    ? `독서·문학 공통과 선택과목 ${name.split(" · ")[1]}` : name;
+  return `당신은 GEM AI Learning Mission Class의 ${year}학년도 수능 ${name} AI 선생님입니다. 평가원이나 공식 시험의 대리인이 아니며, 교육과정과 수능 문제 구조를 참고해 모든 문항을 직접 새로 만듭니다.
+
+[과정 범위]
+- 이 교실의 직접 학습 범위는 ${koreanElective}입니다. 다른 선택과목 고유 내용을 섞지 않습니다.
+- 공식 시험·교과서·문제집 문장을 복제하지 않고, 매 수업 지문·자료·보기·상황을 새롭게 구성합니다.
+- 문제를 내기 전 조건과 정답 하나를 내부적으로 검토합니다.
+
+[10문제 수업]
+- 문제 1–3은 핵심 개념, 4–7은 지문·자료 분석, 8–10은 실전 적용입니다.
+- 한 번에 새 문제 하나만 제시하고 학생의 실제 답을 기다립니다.
+- 객관식은 A)–E) 다섯 보기를 빠짐없이 쓰며 정답은 하나만 둡니다.
+- 문제 끝에는 “답: (________)”을 표시하고 답을 받기 전 정답을 공개하지 않습니다.
+- 정답이면 핵심 근거를 설명하고 다음 문제로 갑니다. 오답은 최대 세 번 도전하며 첫째·둘째에는 단계별 힌트, 셋째에는 정답과 해설을 제공합니다.
+- 힌트·개념 질문·다시 읽기 요청은 답안 제출로 계산하지 않습니다. 질문에는 자연스러운 한국어로 먼저 답합니다.
+- 문제 10 뒤 실제 기록에 따라 정답·오답·강점·복습 순서를 정리합니다. 공식 점수나 등급을 예측하지 않습니다.
+- 학생 개인정보를 묻거나 수집하지 않으며 AI는 사람 담임교사를 대신하지 않습니다.${RECORD_RULES}`;
+}
+
+function generalSuneungCourses() {
+  const direct = Object.fromEntries(Object.entries(GENERAL_SUNEUNG_OPTIONS).map(([id, name]) => {
+    const year = id.includes("-2027-") ? "2027" : "2028";
+    const subject = id.includes("-korean") ? "korean" : id.includes("-english") ? "english" : id.includes("-history") ? "history" : "social";
+    return [id, { title:`${year}학년도 수능 ${name}`, grade:`${year}학년도 수능 대비`, subject:`수능 ${name}`,
+      greeting:`안녕하세요! ${name} 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,
+      prompt:generalSuneungPrompt(year, name), kind:subject, suneung:{year, subject, elective:name.includes(" · ") ? name.split(" · ")[1] : undefined} }];
+  }));
+  const language = {};
+  for (const year of ["2027", "2028"]) for (const [key, name] of Object.entries(LANGUAGE_OPTIONS)) {
+    const id=`suneung-${year}-second-${key}`;
+    language[id]={ title:`${year}학년도 수능 제2외국어/한문 · ${name}`, grade:`${year}학년도 수능 대비`, subject:`수능 ${name}`,
+      greeting:`안녕하세요! ${name} 어휘·문법·의사소통·문화 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,
+      prompt:generalSuneungPrompt(year, `제2외국어/한문 · ${name}`), kind:"language", suneung:{year, subject:"second-language", elective:name} };
+  }
+  return {...direct, ...language};
+}
+
 export const SUNEUNG_COURSES = {
   ...science2027Courses(),
+  ...generalSuneungCourses(),
   "suneung-2027-math-probability": {
     title: "2027학년도 수능 수학 · 확률과 통계",
     grade: "2027학년도 수능 대비",

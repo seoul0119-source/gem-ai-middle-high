@@ -113,7 +113,13 @@ function runSuneungUi(initialHash = "") {
     ["physics-1", "물리학Ⅰ"], ["physics-2", "물리학Ⅱ"],
     ["chemistry-1", "화학Ⅰ"], ["chemistry-2", "화학Ⅱ"],
     ["biology-1", "생명과학Ⅰ"], ["biology-2", "생명과학Ⅱ"],
-    ["earth-science-1", "지구과학Ⅰ"], ["earth-science-2", "지구과학Ⅱ"]
+    ["earth-science-1", "지구과학Ⅰ"], ["earth-science-2", "지구과학Ⅱ"],
+    ["speech-writing", "화법과 작문"], ["language-media", "언어와 매체"],
+    ["life-ethics", "생활과 윤리"], ["ethics-thought", "윤리와 사상"], ["korean-geography", "한국지리"],
+    ["world-geography", "세계지리"], ["east-asian-history", "동아시아사"], ["world-history", "세계사"],
+    ["economics", "경제"], ["politics-law", "정치와 법"], ["society-culture", "사회·문화"],
+    ["german", "독일어Ⅰ"], ["french", "프랑스어Ⅰ"], ["spanish", "스페인어Ⅰ"], ["chinese", "중국어Ⅰ"],
+    ["japanese", "일본어Ⅰ"], ["russian", "러시아어Ⅰ"], ["arabic", "아랍어Ⅰ"], ["vietnamese", "베트남어Ⅰ"], ["hanmun", "한문Ⅰ"]
   ].map(([track, label]) => createButton({ track }, false, label));
   const yearPolicy = { dataset:{}, textContent:"" };
   const selectionStatus = { textContent:"" };
@@ -123,6 +129,9 @@ function runSuneungUi(initialHash = "") {
   const launchGuide = { textContent:"" };
   const mathTrackOptions = { hidden:true };
   const scienceTrackOptions = { hidden:true };
+  const koreanTrackOptions = { hidden:true };
+  const socialTrackOptions = { hidden:true };
+  const languageTrackOptions = { hidden:true };
   const scienceGuardNotice = { hidden:true };
   const startLearning = createButton({}, true, "선택 후 AI 수업 시작 →");
   const location = { hash:initialHash, href:"", replace() {} };
@@ -142,6 +151,9 @@ function runSuneungUi(initialHash = "") {
         "launch-guide":launchGuide,
         "math-track-options":mathTrackOptions,
         "science-track-options":scienceTrackOptions,
+        "korean-track-options":koreanTrackOptions,
+        "social-track-options":socialTrackOptions,
+        "language-track-options":languageTrackOptions,
         "science-guard-notice":scienceGuardNotice,
         "start-learning":startLearning,
         student,
@@ -173,6 +185,9 @@ function runSuneungUi(initialHash = "") {
     launchGuide,
     mathTrackOptions,
     scienceTrackOptions,
+    koreanTrackOptions,
+    socialTrackOptions,
+    languageTrackOptions,
     scienceGuardNotice,
     startLearning,
     location
@@ -292,8 +307,8 @@ test("restores a saved 2028 year and subject selection", () => {
   assert.equal(ui.yearButtons[1].getAttribute("aria-pressed"), "true");
   assert.equal(social.getAttribute("aria-pressed"), "true");
   assert.equal(social.children.strong.textContent, "수능 통합사회");
-  assert.match(ui.selectionStatus.textContent, /선택 완료: 2028학년도 · 수능 통합사회/);
-  assert.match(ui.selectionStatus.textContent, /AI 학습 내용은 준비 중/);
+  assert.match(ui.selectionStatus.textContent, /학습 준비 완료: 2028학년도 · 수능 통합사회/);
+  assert.equal(ui.startLearning.disabled, false);
 });
 
 test("restores and safely resets a saved 2027 mathematics track", () => {
@@ -314,7 +329,9 @@ test("restores and safely resets a saved 2027 mathematics track", () => {
   social.click();
   assert.ok(ui.trackButtons.every((button) => button.getAttribute("aria-pressed") === "false"));
   assert.equal(ui.location.hash, "#year=2027&subject=social");
-  assert.equal(ui.learningLaunch.hidden, true);
+  assert.equal(ui.learningLaunch.hidden, false);
+  assert.equal(ui.socialTrackOptions.hidden, false);
+  assert.equal(ui.startLearning.disabled, true);
 });
 
 test("routes every 2027 mathematics elective to its own AI classroom", () => {
@@ -361,6 +378,28 @@ test("shows and routes every 2027 science inquiry entrance", () => {
     assert.equal(ui.startLearning.disabled, false);
     ui.startLearning.click();
     assert.equal(ui.location.href, `/learn.html?course=${courseId}`);
+  }
+});
+
+test("routes all remaining 2027 and 2028 Suneung subjects", () => {
+  const cases = [
+    ["2027","korean","speech-writing","suneung-2027-korean-speech-writing"],
+    ["2027","korean","language-media","suneung-2027-korean-language-media"],
+    ["2027","english","","suneung-2027-english"], ["2027","history","","suneung-2027-history"],
+    ...["life-ethics","ethics-thought","korean-geography","world-geography","east-asian-history","world-history","economics","politics-law","society-culture"].map(track => ["2027","social",track,`suneung-2027-social-${track}`]),
+    ["2028","korean","","suneung-2028-korean"], ["2028","english","","suneung-2028-english"],
+    ["2028","history","","suneung-2028-history"], ["2028","social","","suneung-2028-integrated-social"],
+    ...["2027","2028"].flatMap(year => ["german","french","spanish","chinese","japanese","russian","arabic","vietnamese","hanmun"].map(track => [year,"second-language",track,`suneung-${year}-second-${track}`]))
+  ];
+  for (const [year, subject, track, courseId] of cases) {
+    const ui=runSuneungUi();
+    ui.yearButtons[year === "2027" ? 0 : 1].click();
+    ui.subjectButtons.find(button => button.dataset.key === subject).click();
+    if (track) ui.trackButtons.find(button => button.dataset.track === track).click();
+    assert.equal(ui.startLearning.disabled, false, courseId);
+    ui.startLearning.click();
+    assert.equal(ui.location.href, `/learn.html?course=${courseId}`);
+    assert.ok(getCourse(courseId), `${courseId} server course must exist`);
   }
 });
 

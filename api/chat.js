@@ -15,7 +15,7 @@ const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 3000;
 const MAX_WORD_RETRIES = 3;
 const INTERACTIVE_COURSE_KINDS = new Set([
-  "math", "korean", "social", "history", "science", "english", "toefl", "toeic"
+  "math", "korean", "social", "history", "science", "english", "language", "toefl", "toeic"
 ]);
 const ANSWER_SLOT_RULE = `
 
@@ -230,7 +230,7 @@ export function buildSuneungSessionPlan(course, lessonSeed) {
   if (!course?.suneung) return null;
   const stages = Array.from({ length: 10 }, (_, index) => {
     const question = index + 1;
-    if (course.suneung.subject === "integrated-science") {
+    if (course.suneung.subject !== "math") {
       if (question <= 3) return "개념";
       if (question <= 7) return "자료 분석";
       return "실전";
@@ -266,6 +266,8 @@ export function sanitizeLearningProfile(profile, sessionPlan = null) {
     "측정과 단위", "정보와 신호", "원소와 주기성", "주기성", "화학 결합", "지구 시스템", "판 구조론",
     "운동량과 충격량", "생명 시스템", "물질대사", "유전자와 단백질", "산화와 환원", "산화 환원", "산과 염기",
     "에너지", "생태계", "기후 변화", "감염병", "빅데이터", "인공지능", "과학기술 윤리",
+    "독서", "문학", "화법과 작문", "언어와 매체", "어휘", "문법", "독해", "듣기", "의사소통", "문화",
+    "한국사", "생활과 윤리", "윤리와 사상", "한국지리", "세계지리", "동아시아사", "세계사", "경제", "정치와 법", "사회·문화", "통합사회",
     "개념", "계산", "조건 해석", "자료 해석", "시간 관리"
   ];
   const canonicalTopic = (value) => {
@@ -1421,7 +1423,7 @@ export default async function handler(request, response) {
             input: messages,
             max_output_tokens: course.suneung ? 5000 : course.kind === "toefl"
               ? 1200
-              : ["korean", "social", "history", "science", "english", "toeic"].includes(course.kind)
+              : ["korean", "social", "history", "science", "english", "language", "toeic"].includes(course.kind)
                 ? 900
                 : 650
         };
