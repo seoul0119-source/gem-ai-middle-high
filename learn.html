@@ -548,7 +548,7 @@
     <section id="science-answers" class="science-answers" aria-label="현재 과학 문제 답 선택" hidden>
       <p id="science-answer-help">E는 ‘알파벳 이’ 또는 ‘5번’으로 말하거나 아래 버튼을 누르세요. ‘이’나 ‘2번’으로 들리면 답을 다시 확인하며 도전 횟수는 줄지 않습니다.</p>
       <div id="science-answer-buttons" class="science-answer-buttons"></div>
-      <p>‘새 문제’는 현재 문제를 건너뜁니다. 힌트를 요청하면 같은 문제를 계속 풉니다.</p>
+      <p id="science-skip-help">‘새 문제’는 현재 문제를 건너뜁니다. 힌트를 요청하면 같은 문제를 계속 풉니다.</p>
       <p id="science-question-help">답은 A~E 보기 또는 계산한 값과 단위로 말해도 됩니다. ‘질량은 무엇인가요?’처럼 궁금한 점도 자유롭게 물어보세요. AI 선생님이 현재 문제와 대화 흐름을 참고해 설명합니다. ‘쉽게 설명해 주세요’, ‘예를 들어 주세요’라는 질문은 도전 횟수를 줄이지 않습니다.</p>
     </section>
 
@@ -629,12 +629,13 @@
         "suneung-2028-korean":"국어", "suneung-2028-english":"영어", "suneung-2028-history":"한국사", "suneung-2028-integrated-social":"통합사회"
       };
       const languages={german:"독일어Ⅰ",french:"프랑스어Ⅰ",spanish:"스페인어Ⅰ",chinese:"중국어Ⅰ",japanese:"일본어Ⅰ",russian:"러시아어Ⅰ",arabic:"아랍어Ⅰ",vietnamese:"베트남어Ⅰ",hanmun:"한문Ⅰ"};
+      const languageLocales={german:"de-DE",french:"fr-FR",spanish:"es-ES",chinese:"zh-CN",japanese:"ja-JP",russian:"ru-RU",arabic:"ar-SA",vietnamese:"vi-VN",hanmun:"ko-KR"};
       for (const year of ["2027","2028"]) for (const [key,name] of Object.entries(languages)) direct[`suneung-${year}-second-${key}`]=`제2외국어/한문 · ${name}`;
       return Object.fromEntries(Object.entries(direct).map(([id,name]) => {
         const year=id.includes("-2027-") ? "2027" : "2028";
-        const subject=id.includes("-korean") ? "korean" : id.includes("-english") ? "english" : id.includes("-history") ? "history" : id.includes("-social") ? "social" : "second-language";
+        const subject=/^suneung-\d{4}-korean(?:-|$)/.test(id) ? "korean" : /^suneung-\d{4}-english$/.test(id) ? "english" : /^suneung-\d{4}-history$/.test(id) ? "history" : /^suneung-\d{4}-(?:social-|integrated-social$)/.test(id) ? "social" : "second-language";
         const track = subject === "second-language" ? id.split("-").at(-1) : subject === "korean" && year === "2027" ? (id.endsWith("speech-writing") ? "speech-writing" : "language-media") : subject === "social" && year === "2027" ? id.replace("suneung-2027-social-", "") : "";
-        return [id,{title:`${year}학년도 수능 ${name}`,subject:`수능 ${name}`,grade:`${year}학년도 수능 대비`,greeting:`${name} 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,placeholder:"시작, 답 또는 힌트를 입력하세요",voice:false,spokenReview:true,entrance:`/suneung.html#year=${year}&subject=${subject}${track ? `&track=${track}` : ""}`}];
+        return [id,{title:`${year}학년도 수능 ${name}`,subject:`수능 ${name}`,grade:`${year}학년도 수능 대비`,greeting:`${name} 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,placeholder:"시작, 답 또는 힌트를 입력하세요",voice:false,spokenReview:true,generalSuneung:true,suneungSubject:subject,targetLanguage:subject === "second-language" ? languageLocales[track] : subject === "english" ? "en-US" : "ko-KR",entrance:`/suneung.html#year=${year}&subject=${subject}${track ? `&track=${track}` : ""}`}];
       }));
     }
     const COURSE_CONFIGS = {
@@ -817,12 +818,12 @@
     const COURSE = COURSE_CONFIGS[COURSE_ID];
     const IS_SUNEUNG = COURSE_ID.startsWith("suneung-");
     const IS_MATH = COURSE_ID.endsWith("-math") || COURSE_ID.includes("-math-");
-    const IS_KOREAN = COURSE_ID.endsWith("-korean");
-    const IS_SOCIAL = COURSE_ID.endsWith("-social");
-    const IS_HISTORY = COURSE_ID.endsWith("-history");
+    const IS_KOREAN = COURSE.generalSuneung ? COURSE.suneungSubject === "korean" : COURSE_ID.endsWith("-korean");
+    const IS_SOCIAL = COURSE.generalSuneung ? COURSE.suneungSubject === "social" : COURSE_ID.endsWith("-social");
+    const IS_HISTORY = COURSE.generalSuneung ? COURSE.suneungSubject === "history" : COURSE_ID.endsWith("-history");
     const IS_SCIENCE = COURSE_ID.endsWith("-science");
     const IS_ENGLISH = COURSE_ID.endsWith("-english") || COURSE_ID.endsWith("-en") || COURSE_ID === "toefl" || COURSE_ID === "toeic";
-    const IS_GENERATIVE_LESSON = IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
+    const IS_GENERATIVE_LESSON = Boolean(COURSE.generalSuneung) || IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
     const IS_VISUAL_LESSON = IS_GENERATIVE_LESSON;
     const IS_FRENCH = COURSE.language === "fr";
     const AVATAR_TEXT = IS_FRENCH ? {
@@ -1437,6 +1438,22 @@
     }
 
     function cleanLessonForSpeech(text) {
+      if (COURSE.generalSuneung) {
+        const visible = cleanForDisplay(text);
+        const hasChoices = /^[ \t]*\(?[A-E][).:：][ \t]+\S/m.test(visible);
+        const spoken = visible
+          .replace(/^\s*(?:활동|문제)\s*\d+\s*\/\s*10[^\n]*$/gim, "")
+          .replace(/^\s*(?:답|Answer)(?:\s*\d+)?\s*:\s*\([ _\u3000]{3,}\)\s*$/gim,
+            hasChoices ? "정답은 어느 보기인가요?" : "정답은 무엇인가요?")
+          .replace(/_{4,}/g, " 빈칸 ")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        const answerCue = /^\s*정답은 (어느 보기|무엇)인가요\?\s*$/m;
+        if (!answerCue.test(spoken)) return spoken;
+        const request = hasChoices || /정답은 어느 보기인가요\?/.test(spoken)
+          ? "정답은 어느 보기인가요?" : "정답은 무엇인가요?";
+        return `${spoken.replace(/^\s*정답은 (?:어느 보기|무엇)인가요\?\s*$/gm, "").trimEnd()}\n\n${request}`.trim();
+      }
       return cleanForDisplay(text)
         // TOEIC/TOEFL headings such as "[2/10] Listening Part 2 — ..."
         // remain visible on screen but are never spoken.
@@ -1472,7 +1489,9 @@
       const clean = cleanLessonForSpeech(text);
       if (!clean) return Promise.resolve();
 
-      const parts = clean.split(/\n+/).map((part) => part.trim()).filter(Boolean);
+      const parts = COURSE.generalSuneung
+        ? generalSuneungBrowserParts(clean)
+        : clean.split(/\n+/).map((part) => part.trim()).filter(Boolean);
       return new Promise((resolve) => {
         let settled = false;
         let partIndex = 0;
@@ -1489,15 +1508,16 @@
             finish();
             return;
           }
-          const part = parts[partIndex];
-          if (!part) {
+          const nextPart = parts[partIndex];
+          if (!nextPart) {
             finish();
             return;
           }
           partIndex += 1;
+          const part = COURSE.generalSuneung ? nextPart.text : nextPart;
           const latinCount = (part.match(/[A-Za-z]/g) || []).length;
           const koreanCount = (part.match(/[가-힣]/g) || []).length;
-          const language = COURSE.language === "fr"
+          const language = COURSE.generalSuneung ? nextPart.language : COURSE.language === "fr"
             ? "fr-FR"
             : (IS_SUNEUNG && IS_MATH ? "ko-KR" : (latinCount > koreanCount ? "en-US" : "ko-KR"));
           const utterance = new SpeechSynthesisUtterance(part);
@@ -1508,18 +1528,62 @@
           utterance.volume = teacherVolume;
           utterance.addEventListener("end", speakNextPart, { once: true });
           utterance.addEventListener("error", () => {
-            if (IS_SUNEUNG && IS_MATH) speakNextPart();
+            if ((IS_SUNEUNG && IS_MATH) || COURSE.generalSuneung) speakNextPart();
             else finish();
           }, { once: true });
           try {
             window.speechSynthesis.speak(utterance);
           } catch (_) {
-            finish();
+            if (COURSE.generalSuneung) speakNextPart();
+            else finish();
           }
         };
 
         speakNextPart();
       });
+    }
+
+    function splitSuneungGeneralSpeechParts(text, maxLength = 1200) {
+      // Never append options: every spoken A–E choice must exist on screen.
+      // Keep each option and the final question separate, then bound long
+      // passages/options instead of letting the speech API truncate D or E.
+      const sections = String(text || "").trim()
+        .split(/(?=^[ \t]*(?:\(?[A-E][).:：][ \t]+|정답은[ \t]+(?:어느[ \t]+보기|무엇)인가요\?))/gm);
+      const result = [];
+      for (const section of sections) {
+        let rest = section.trim();
+        while (rest.length > maxLength) {
+          const window = rest.slice(0, maxLength);
+          let end = Math.max(window.lastIndexOf("\n"), window.lastIndexOf(". "), window.lastIndexOf("。"), window.lastIndexOf(" "));
+          if (end < maxLength / 2) end = maxLength;
+          // Do not split a Unicode surrogate pair, even in an unspaced passage.
+          if (/[\uD800-\uDBFF]/.test(rest[end - 1])) end -= 1;
+          result.push(rest.slice(0, end).trim());
+          rest = rest.slice(end).trim();
+        }
+        if (rest) result.push(rest);
+      }
+      return result;
+    }
+
+    function generalSuneungBrowserParts(text) {
+      const names = { A:"에이", B:"비", C:"씨", D:"디", E:"알파벳 이" };
+      const result = [];
+      for (const line of splitSuneungGeneralSpeechParts(text, 180).flatMap((part) => part.split(/\n+/))) {
+        let body = line.trim();
+        if (!body) continue;
+        const option = body.match(/^\(?([A-E])[).:：][ \t]+(.+)$/);
+        if (option) {
+          result.push({ text: `${names[option[1]]} 선택지.`, language: "ko-KR" });
+          body = option[2];
+        }
+        const koreanCount = (body.match(/[가-힣]/g) || []).length;
+        const otherLetterCount = (body.match(/[^가-힣]/gu)?.join("").match(/\p{L}/gu) || []).length;
+        const language = COURSE.targetLanguage && COURSE.targetLanguage !== "ko-KR" && otherLetterCount > koreanCount
+          ? COURSE.targetLanguage : "ko-KR";
+        result.push({ text: body, language });
+      }
+      return result;
     }
 
     function splitSuneungMathSpeechParts(text) {
@@ -1559,6 +1623,8 @@
           // Each choice is an independent script; D must not remain at the
           // end of a long body/A-C clip. Never infer or append missing choices.
           speechParts = splitSuneungMathSpeechParts(clean);
+        } else if (COURSE.generalSuneung) {
+          speechParts = splitSuneungGeneralSpeechParts(clean);
         }
 
         // Prepare every planned clip first, then play the clips in order.
@@ -1576,7 +1642,7 @@
             ? AVATAR_TEXT.voiceUnavailable
             : "음성 생성 실패"));
           return data;
-        }).map((pending) => IS_SUNEUNG && IS_MATH
+        }).map((pending) => (IS_SUNEUNG && IS_MATH) || COURSE.generalSuneung
           ? pending.catch(() => ({ failed: true }))
           : pending));
 
@@ -1606,7 +1672,7 @@
             currentAudio.play().catch(finish);
           });
           } catch (error) {
-            if (!(IS_SUNEUNG && IS_MATH)) throw error;
+            if (!((IS_SUNEUNG && IS_MATH) || COURSE.generalSuneung)) throw error;
             if (speechId !== activeSpeechId) return;
             currentAudio?.pause();
             currentAudio = null;
@@ -1995,14 +2061,24 @@
     }
 
     function updateScienceAnswerControls(text = "", clear = false) {
-      if (!(COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) return;
+      if (!(COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) return;
       const panel = document.getElementById("science-answers");
       const buttons = document.getElementById("science-answer-buttons");
+      if (COURSE.generalSuneung) {
+        panel.setAttribute("aria-label", "현재 수능 문제 답 선택");
+        document.getElementById("science-skip-help").hidden = true;
+        document.getElementById("science-question-help").textContent = "답은 A~E 보기로 말하거나 버튼을 누르세요. ‘이 말은 무슨 뜻인가요?’, ‘힌트 주세요’처럼 궁금한 점도 자유롭게 질문할 수 있습니다. 질문은 답으로 채점하지 않습니다.";
+      }
       const questionMatches = [...String(text).matchAll(/문제\s*(\d+)\s*\/\s*10\b/g)];
       const lastQuestion = questionMatches[questionMatches.length - 1];
       const questionText = lastQuestion ? String(text).slice(lastQuestion.index) : "";
-      const options = [...questionText.matchAll(/^[ \t]*([A-E])[).:：][ \t]+(.+)$/gm)];
+      const options = [...questionText.matchAll(/^[ \t]*\(?([A-E])[).:：][ \t]+(.+)$/gm)];
       if (clear) {
+        scienceTurnState.question = 0;
+        scienceTurnState.key = "";
+        buttons.replaceChildren();
+      } else if (COURSE.generalSuneung && lastQuestion && Number(lastQuestion[1]) !== scienceTurnState.question && options.length !== 5) {
+        // A newly displayed question must never reuse earlier answer buttons.
         scienceTurnState.question = 0;
         scienceTurnState.key = "";
         buttons.replaceChildren();
@@ -2024,15 +2100,17 @@
           });
           buttons.appendChild(button);
         }
-        const skip = document.createElement("button");
-        skip.type = "button";
-        skip.className = "secondary";
-        skip.textContent = "새 문제 →";
-        skip.addEventListener("click", () => {
-          if (runId !== courseRunId || key !== scienceTurnState.key) return;
-          sendMessage("새 문제");
-        });
-        buttons.appendChild(skip);
+        if (!COURSE.generalSuneung) {
+          const skip = document.createElement("button");
+          skip.type = "button";
+          skip.className = "secondary";
+          skip.textContent = "새 문제 →";
+          skip.addEventListener("click", () => {
+            if (runId !== courseRunId || key !== scienceTurnState.key) return;
+            sendMessage("새 문제");
+          });
+          buttons.appendChild(skip);
+        }
       }
       panel.hidden = !scienceTurnState.question || lessonManuallyEnded;
       const disabled = scienceTurnState.busy || scienceTurnState.transcribing || scienceTurnState.restarting || lessonManuallyEnded;
@@ -2040,12 +2118,12 @@
     }
 
     function setLoading(loading) {
-      const scienceBusy = (COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))
+      const scienceBusy = (COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))
         && (scienceTurnState.busy || scienceTurnState.transcribing || scienceTurnState.restarting);
       input.disabled = loading || scienceBusy || lessonManuallyEnded;
       sendButton.disabled = loading || scienceBusy || lessonManuallyEnded;
       micButton.disabled = loading || scienceBusy || lessonManuallyEnded;
-      if ((COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) updateScienceAnswerControls();
+      if ((COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) updateScienceAnswerControls();
       if (lessonManuallyEnded) {
         connection.innerHTML = COURSE.avatar
           ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.ended}`
@@ -2062,6 +2140,20 @@
     function rememberGeneratedProblem(text) {
       if (!IS_GENERATIVE_LESSON) return;
       const clean = cleanForDisplay(text);
+      if (COURSE.generalSuneung) {
+        const questions = [...clean.matchAll(/문제\s*\d+\s*\/\s*10\b/gi)];
+        const lastQuestion = questions[questions.length - 1];
+        if (!lastQuestion) return;
+        const question = clean.slice(lastQuestion.index).replace(/도전\s*\d+\s*\/\s*3/g, "").trim();
+        const labels = [...question.matchAll(/^[ \t]*\(?([A-E])[).:：][ \t]+\S/gm)].map((match) => match[1]).join("");
+        // Explanations and hints may repeat the question number but are not
+        // new questions. Retain the actual stem/options for later lessons.
+        if (labels !== "ABCDE" || courseHistory.includes(question)) return;
+        courseHistory.push(question);
+        courseHistory = courseHistory.slice(-60);
+        saveLocalJson(courseHistoryStorageKey, courseHistory);
+        return;
+      }
       const match = clean.match(/(?:(?:문제|활동)|(?:problem|activity))\s*\d+\s*\/\s*10[\s\S]*/i);
       if (!match) return;
       const problem = match[0].slice(0, 700).trim();
@@ -2073,7 +2165,7 @@
 
     async function sendMessage(text, inputMode = "text") {
       if (lessonManuallyEnded) return;
-      const guardedScience = (COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID));
+      const guardedScience = (COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID));
       if (guardedScience && (scienceTurnState.busy || scienceTurnState.transcribing || scienceTurnState.restarting)) return;
       let scienceTurn = null;
       if (guardedScience) {
@@ -2110,7 +2202,9 @@
                 ? (isStarting ? "새 과학 자료와 문제를 만들고 검산하고 있습니다…" : "답의 과학적 근거를 확인하고 다음 문제를 준비하고 있습니다…")
                 : IS_ENGLISH
                   ? (isStarting ? "새 영어 활동과 문제를 만들고 검토하고 있습니다…" : "영어 답을 확인하고 다음 활동을 준비하고 있습니다…")
-                  : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
+                  : COURSE.generalSuneung
+                    ? (isStarting ? "새 수능 문제를 만들고 검토하고 있습니다…" : "질문과 답을 확인하고 다음 단계를 준비하고 있습니다…")
+                    : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
       const typing = addMessage("assistant", loadingText, "typing");
 
       try {
@@ -2142,7 +2236,7 @@
           ? cleanedAvatarText
           : ensureVisibleAnswerSlot(cleanedAvatarText);
         lastAssistantText = cleanForDisplay(answerReadyText);
-        lastAssistantProof = guardedScience && typeof data.scienceReplyProof === "string"
+        lastAssistantProof = guardedScience && !COURSE.generalSuneung && typeof data.scienceReplyProof === "string"
           ? data.scienceReplyProof : "";
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText,
@@ -2157,7 +2251,12 @@
         if (guardedScience && !isCurrentScienceTurn(scienceTurn)) return;
         trackCurrentQuestion(answerReadyText, data.record?.question);
         const lessonCompletionClaim = /(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|lesson (?:is )?(?:complete|completed|finished)|you (?:have |'ve )?completed (?:today's |this )?lesson/i.test(lastAssistantText);
-        if (lessonCompletionClaim && (!IS_SUNEUNG || hasCompletedCurrentSuneungLesson())) {
+        // General-course completion is a validated assessment event, not a
+        // particular sentence the teacher must happen to use in its reply.
+        const shouldFinish = COURSE.generalSuneung
+          ? Number(data.record?.question) === 10 && hasCompletedCurrentSuneungLesson()
+          : lessonCompletionClaim && (!IS_SUNEUNG || hasCompletedCurrentSuneungLesson());
+        if (shouldFinish) {
           await finishLesson(false);
         }
       } catch (error) {
@@ -2191,7 +2290,7 @@
     document.getElementById("restart").addEventListener("click", async () => {
       const restartButton = document.getElementById("restart");
       restartButton.disabled = true;
-      if ((COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
+      if ((COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
         lastAssistantProof = "";
         scienceTurnState.epoch += 1;
         scienceTurnState.revision += 1;
@@ -2240,12 +2339,12 @@
           : "<strong>상태</strong> 학생관리 연결 확인 필요";
       } finally {
         restartButton.disabled = false;
-        if ((COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
+        if ((COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
           scienceTurnState.restarting = false;
           setLoading(false);
         }
       }
-      if (restartSucceeded && (COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) await sendMessage("시작");
+      if (restartSucceeded && (COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) await sendMessage("시작");
     });
 
     speakButton.addEventListener("click", async () => {
@@ -2341,7 +2440,7 @@
 
     function stopLessonMedia() {
       lessonManuallyEnded = true;
-      if ((COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
+      if ((COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID))) {
         scienceTurnState.revision += 1;
         scienceTurnState.busy = false;
         scienceTurnState.transcribing = false;
@@ -2394,7 +2493,7 @@
     }
 
     async function transcribeRecording(blob, recordingTurn = null) {
-      const guardedScience = (COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID));
+      const guardedScience = (COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID));
       let scienceTurn = null;
       if (guardedScience) {
         if (lessonManuallyEnded || scienceTurnState.busy || scienceTurnState.transcribing || scienceTurnState.restarting) return;
@@ -2494,7 +2593,7 @@
         return;
       }
       recordingStarting = true;
-      const scienceRecordingTurn = (COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID)) ? scienceTurnSnapshot() : null;
+      const scienceRecordingTurn = (COURSE.generalSuneung || COURSE_ID === "suneung-2028-integrated-science" || /^suneung-2027-(?:physics|chemistry|biology|earth-science)-[12]$/.test(COURSE_ID)) ? scienceTurnSnapshot() : null;
       try {
         cancelCurrentSpeech();
         let stream = recordingStream;

@@ -1,7 +1,26 @@
 import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
 import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
+import { SUNEUNG_COURSES } from "./suneung-courses.js";
+import { isGeneralSuneungCourse } from "../lib/suneung-general-flow.js";
 
 const MAX_BASE64_LENGTH = 5_500_000;
+
+export function generalSuneungTranscriptionConfig(courseId = "") {
+  const course = SUNEUNG_COURSES[String(courseId || "")];
+  if (!isGeneralSuneungCourse(course)) return null;
+  const targetLanguage = course.targetLanguage || (course.suneung.subject === "english" ? "en-US" : "ko-KR");
+  const language = targetLanguage.split("-")[0];
+  const languages = [...new Set(["ko", language])];
+  return {
+    subject:course.suneung.subject,
+    languages,
+    // The fallback API accepts only one language hint. Omitting it for a
+    // bilingual classroom preserves Korean questions AND target-language answers.
+    fallbackLanguage:languages.length === 1 ? "ko" : null,
+    prompt:`GEM ${course.title} 수업에서 학생이 선생님과 대화합니다. 한국어 질문과 ${course.suneung.elective || course.subject} 원어 답변이 섞일 수 있습니다. 질문과 문장을 끝까지 그대로 받아쓰세요. 개념 질문, 힌트·설명 요청, 앞선 설명에 이어지는 질문과 답안 제출을 모두 보존하고, 질문을 답안으로 줄이지 마세요. A(에이), B(비), C(씨), D(디), E(알파벳 이), 1번부터 5번을 들린 그대로 적으세요. 숫자 2와 알파벳 E가 불분명하면 정답이나 보기 내용을 보고 추측하여 바꾸지 마세요. 원어 답변을 한국어나 영어로 번역하지 마세요. 들리지 않은 문장이나 지문의 정답을 만들어 내지 마세요.`,
+    keywords:["알파벳 E", "알파벳 이", "에이", "비", "씨", "디", "오번", "2번", "힌트", "설명", "예시", "다시 읽어 주세요"]
+  };
+}
 
 function sendJson(response, status, payload) {
   response.status(status).setHeader("Content-Type", "application/json; charset=utf-8");
@@ -45,10 +64,11 @@ export default async function handler(request, response) {
     );
     const questionContext = (problemStart >= 0 ? cleanContext.slice(problemStart) : cleanContext.slice(-360))
       .slice(0, 360);
+    const generalSuneung = generalSuneungTranscriptionConfig(courseId);
     const isMath = courseId.includes("math");
-    const isSocial = courseId.includes("social");
-    const isKorean = courseId.includes("korean");
-    const isHistory = courseId.includes("history");
+    const isSocial = generalSuneung ? generalSuneung.subject === "social" : courseId.includes("social");
+    const isKorean = generalSuneung ? generalSuneung.subject === "korean" : courseId.includes("korean");
+    const isHistory = generalSuneung ? generalSuneung.subject === "history" : courseId.includes("history");
     const isScience = courseId.includes("science");
     const isEnglishWord = courseId.includes("english-word");
     const isEnglishCourse = isEnglishWord
@@ -59,9 +79,9 @@ export default async function handler(request, response) {
     const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
     // 새 영어 과정은 한국어와 영어가 자연스럽게 섞이므로 언어를 강제로
     // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
-    const language = isFrenchAvatar ? "fr" : isEnglishWord || /^g[1-5]-math-en$/.test(courseId) ? "en" : isEnglishCourse ? null : "ko";
+    const language = generalSuneung ? generalSuneung.fallbackLanguage : isFrenchAvatar ? "fr" : isEnglishWord || /^g[1-5]-math-en$/.test(courseId) ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
-    const lessonPrompt = /^g[1-5]-math-en$/.test(courseId)
+    const lessonPrompt = generalSuneung ? generalSuneung.prompt : /^g[1-5]-math-en$/.test(courseId)
       ? "An elementary learner is answering a mathematics activity in English. Transcribe only the short spoken answer, including numbers or A, B, or C."
       : isFrenchAvatar
         ? "Un élève de l'école élémentaire répond en français à une activité de mathématiques. Transcris uniquement sa réponse courte en français, y compris les nombres ou les lettres A, B ou C."
@@ -98,8 +118,10 @@ export default async function handler(request, response) {
     if (isGuardedSuneungScienceCourse(courseId)) {
       courseKeywords.unshift("알파벳 E", "알파벳 이", "에이", "비", "씨", "디", "오번", "두 번째", "질량", "무게", "설명", "예시", "힌트", "새 문제");
     }
-    const contextKeywords = questionContext.match(/[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]{2,}|-?\d+(?:[.,]\d+)*/g) || [];
-    const keywords = [...new Set([...courseKeywords, ...contextKeywords])]
+    const contextKeywords = questionContext.match(generalSuneung
+      ? /[\p{L}\p{M}][\p{L}\p{M}\p{N}-]{1,}|-?\d+(?:[.,]\d+)*/gu
+      : /[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]{2,}|-?\d+(?:[.,]\d+)*/g) || [];
+    const keywords = [...new Set([...(generalSuneung?.keywords || []), ...courseKeywords, ...contextKeywords])]
       .filter((word) => word.length <= 30)
       .slice(0, 24);
 
@@ -110,7 +132,8 @@ export default async function handler(request, response) {
       form.append("response_format", "json");
       if (courseId !== "toeic") form.append("prompt", lessonPrompt);
       if (model === "gpt-transcribe") {
-        if (language) form.append("languages[]", language);
+        if (generalSuneung) generalSuneung.languages.forEach((hint) => form.append("languages[]", hint));
+        else if (language) form.append("languages[]", language);
         if (courseId !== "toeic") keywords.forEach((keyword) => form.append("keywords[]", keyword));
       } else if (language) {
         form.append("language", language);
@@ -173,6 +196,8 @@ export default async function handler(request, response) {
       || /들리지\s*않는\s*말을\s*추측/.test(transcript)
       || /같은\s*글자를\s*반복하지\s*마세요/.test(transcript)
       || /표현을\s*정확한\s*한국어/.test(transcript)
+      || /GEM.*수업에서 학생이 선생님과 대화합니다/.test(transcript)
+      || /질문과 문장을 끝까지 그대로 받아쓰세요|질문을 답안으로 줄이지 마세요/.test(transcript)
     );
     if (promptLeak) {
       return sendJson(response, 422, { error: isEnglishCourse
@@ -186,8 +211,8 @@ export default async function handler(request, response) {
       : 1;
     const abnormalRepetition = /(.)\1{7,}/u.test(compactTranscript)
       || (compactTranscript.length > 60 && uniqueRatio < 0.12)
-      || /^(감사합니다|고맙습니다|시청해\s*주셔서\s*감사합니다|자막\s*(?:제공|제작))\.?$/i.test(transcript)
-      || transcript.length > 320;
+      || (!generalSuneung && /^(감사합니다|고맙습니다|시청해\s*주셔서\s*감사합니다|자막\s*(?:제공|제작))\.?$/i.test(transcript))
+      || transcript.length > (generalSuneung ? 1000 : 320);
     if (abnormalRepetition) {
       return sendJson(response, 422, { error: isEnglishCourse
         ? "I couldn't recognize that clearly. Please give a short answer again."

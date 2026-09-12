@@ -2,6 +2,8 @@ import { isActiveCourseRun, requireStudentSession } from "../lib/student-session
 import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import { createScienceLessonEngine, isApprovedClosedSuneungScienceSpeechText } from "../lib/suneung-science-bank.js";
 import { isApprovedScienceReplySpeech } from "../lib/science-reply-proof.js";
+import { SUNEUNG_COURSES } from "./suneung-courses.js";
+import { isGeneralSuneungCourse } from "../lib/suneung-general-flow.js";
 
 const MAX_TEXT_LENGTH = 1800;
 const CIRCLED_TO_SPOKEN = {
@@ -39,6 +41,40 @@ export function isSuneungMathCourse(courseId = "") {
   return SUNEUNG_MATH_COURSE_PATTERN.test(String(courseId || ""));
 }
 
+export function isGeneralSuneungSpeechCourse(courseId = "") {
+  const course = SUNEUNG_COURSES[String(courseId || "")];
+  return isGeneralSuneungCourse(course);
+}
+
+// General CSAT passages must not pass through the math fraction/exponent
+// normalizer. Only the visual choice labels need a predictable spoken form.
+export function normalizeGeneralSuneungSpeech(value, courseId = "") {
+  if (!isGeneralSuneungSpeechCourse(courseId)) return String(value || "");
+  return String(value || "").replace(
+    /^\s*\(?([A-E])\s*(?:\)|[.:：])\s*(.+?)\s*$/gim,
+    (_, label, content) => {
+      const spokenLabel = label.toUpperCase() === "E" ? "알파벳 이" : KOREAN_CHOICE_LABELS[label.toUpperCase()];
+      return `${spokenLabel} 선택지, ${content}${/[.!?。？！]$/u.test(content) ? "" : "."}`;
+    }
+  );
+}
+
+export function generalSuneungSpeechInstructions(courseId = "") {
+  if (!isGeneralSuneungSpeechCourse(courseId)) return "";
+  const course = SUNEUNG_COURSES[courseId];
+  const languageNames = {
+    "de-DE":"German", "fr-FR":"French", "es-ES":"Spanish", "zh-CN":"Mandarin Chinese",
+    "ja-JP":"Japanese", "ru-RU":"Russian", "ar-SA":"Arabic", "vi-VN":"Vietnamese", "en-US":"American English"
+  };
+  const targetLanguage = course.targetLanguage || (course.suneung.subject === "english" ? "en-US" : "ko-KR");
+  const languageRule = languageNames[targetLanguage]
+    ? `Speak Korean directions, choice labels, hints, and explanations in natural Korean. Read ${languageNames[targetLanguage]} passages and answer choices in clear natural ${languageNames[targetLanguage]}, preserving their original words. Switch languages to match the input; do not translate either language or read foreign text as Korean phonetic spellings.`
+    : course.suneung.subject === "second-language"
+      ? "Speak Korean naturally. Read Classical Chinese characters with their Korean Hanja readings, not Mandarin pronunciation. Do not add a translation or explanation."
+      : "Speak in clear, natural Korean as a calm and encouraging Korean CSAT teacher.";
+  return `${languageRule} Read exactly and only the supplied text, at a measured pace. Preserve every supplied answer choice in its original order and pause briefly between choices. Never add, guess, omit, complete, or invent a choice, sentence, or answer. A single choice segment contains only that choice: do not invent the preceding or following letters. Say the Korean label ‘알파벳 이’ distinctly for E, not the number two. Do not read markdown symbols, visual blanks, answer boxes, metadata, or lesson counters. If the input ends with ‘정답은 어느 보기인가요?’ or ‘정답은 무엇인가요?’, read the question exactly as written and finish only after it. Do not add an answer-request question when it is absent, such as in a hint or explanation.`;
+}
+
 function latestSuneungQuestionSection(value) {
   const text = String(value || "");
   const headers = [...text.matchAll(/^\s*문제\s*\d+\s*\/\s*10\b/gim)];
@@ -69,7 +105,7 @@ export function prepareAnswerPromptForSpeech(value, courseId = "") {
 
   // Answer boxes are visual controls. Ordinary courses keep the established
   // behavior of not speaking them at all.
-  if (!isSuneungMathCourse(courseId)) {
+  if (!isSuneungMathCourse(courseId) && !isGeneralSuneungSpeechCourse(courseId)) {
     return text.replace(answerBoxLinePattern(), "").trimEnd();
   }
 
@@ -109,6 +145,10 @@ export function normalizeSuneungMathSpeech(value, courseId = "") {
 
 export function truncateSpeechText(value, courseId = "", maxLength = MAX_TEXT_LENGTH) {
   const text = String(value || "").trim();
+  // The general-course client segments passages and each A–E choice before
+  // requesting speech. Never silently discard later choices here. The API
+  // rejects an oversized unsplit segment explicitly below.
+  if (isGeneralSuneungSpeechCourse(courseId)) return text;
   const safeMaxLength = Number.isSafeInteger(maxLength) && maxLength > 0
     ? maxLength
     : MAX_TEXT_LENGTH;
@@ -164,8 +204,8 @@ export function cleanText(value, courseId = "") {
     .replace(/^\s*\d+\s*[.)]\s*(?:\.{2,}|…+|⋯+|_{2,}|[-–—]*)\s*$/gm, "");
 
   // Resolve the visual answer slot while its underscores are still intact.
-  // For Suneung math this creates the final spoken question; elsewhere it
-  // preserves the long-standing behavior of leaving visual controls silent.
+  // Math and general CSAT courses get a final spoken question; other courses
+  // preserve the long-standing behavior of leaving visual controls silent.
   output = prepareAnswerPromptForSpeech(output, courseId);
 
   // Bracketed TOEIC/TOEFL counters are useful visually, but sound unnatural
@@ -218,7 +258,7 @@ export function cleanText(value, courseId = "") {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  output = normalizeSuneungMathSpeech(output, courseId);
+  output = normalizeGeneralSuneungSpeech(normalizeSuneungMathSpeech(output, courseId), courseId);
   return truncateSpeechText(output, courseId);
 }
 
@@ -259,9 +299,15 @@ export default async function handler(request, response) {
   const isToeic = courseId === "toeic";
   const isSuneung = courseId.startsWith("suneung-");
   const isSuneungMath = isSuneungMathCourse(courseId);
+  const isGeneralSuneung = isGeneralSuneungSpeechCourse(courseId);
   const isEnglishAvatar = /^g[1-5]-math-en$/.test(courseId);
   const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
   const rawText = String(request.body?.text || "");
+  if (isGeneralSuneung && rawText.length > MAX_TEXT_LENGTH) {
+    return sendJson(response, 413, {
+      error:"긴 음성 내용은 보기와 문단 단위로 나누어 다시 요청해 주세요.", code:"speech_segment_too_long", maxLength:MAX_TEXT_LENGTH
+    });
+  }
   if (isGuardedSuneungScienceCourse(courseId)
     && !createScienceLessonEngine(student.courseRunId, courseId).isApprovedClosedSuneungScienceSpeechText(rawText)
     && !isApprovedClosedSuneungScienceSpeechText(rawText)
@@ -272,6 +318,11 @@ export default async function handler(request, response) {
   }
   const narrationCourse = isGuardedSuneungScienceCourse(courseId) ? "suneung-2028-math" : courseId;
   const input = numericChoiceScript(normalizeSuneungMathSpeech(cleanText(rawText, courseId), narrationCourse), narrationCourse);
+  if (isGeneralSuneung && input.length > MAX_TEXT_LENGTH) {
+    return sendJson(response, 413, {
+      error:"긴 음성 내용은 보기와 문단 단위로 나누어 다시 요청해 주세요.", code:"speech_segment_too_long", maxLength:MAX_TEXT_LENGTH
+    });
+  }
   if (!apiKey || !input) return sendJson(response, 400, { error: isEnglishAvatar
     ? "There is no text to speak."
     : isFrenchAvatar
@@ -290,6 +341,8 @@ export default async function handler(request, response) {
           ? "Speak only in clear natural American English as a warm elementary mathematics teacher. Never speak Korean. Read the multiplication sign as 'times', never as the Korean word '곱하기'. Do not read markdown symbols, visual blanks, answer boxes, or lesson counters."
           : isFrenchAvatar
             ? "Parle uniquement en français naturel, clair et chaleureux, comme un professeur de mathématiques de l'école élémentaire. Prononce le signe de multiplication comme « fois ». Ne parle ni coréen ni anglais. Ne lis pas les symboles Markdown, les champs de réponse, les blancs visuels ni les compteurs d'activités."
+          : isGeneralSuneung
+            ? generalSuneungSpeechInstructions(courseId)
           : isSuneung
             ? `Speak in clear, natural Korean as a calm and encouraging Korean CSAT teacher. Read mathematical expressions, scientific terms, units, and answer choices accurately and at a measured pace. Do not add, guess, or omit content. Never reveal an answer that is not present in the input. Do not read markdown symbols, visual blanks, answer boxes, metadata, or lesson counters.${isSuneungMath ? " Preserve every answer choice in its original order and pause briefly between choices. When the input ends with ‘정답은 어느 보기인가요?’ or ‘정답은 무엇인가요?’, read that final answer-request question exactly as written and finish only after it. Do not add either question when it is absent from the input, such as in a hint or explanation." : ""}`
           : isToeic

@@ -9,6 +9,11 @@ import {
 } from "../lib/suneung-science-safety.js";
 import { handleScienceTutor } from "../lib/suneung-science-tutor.js";
 import { requestSuneungResponse } from "../lib/suneung-ai-model.js";
+import {
+  classifyGeneralSuneungInput, generalAttemptCount, generalQuestionHeaders,
+  isCompleteGeneralQuestion, isGeneralSuneungCourse, isSuneungConversationHelp,
+  latestCompleteGeneralQuestion, normalizeGeneralProblem, validateGeneralSuneungTurn
+} from "../lib/suneung-general-flow.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -168,15 +173,23 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
 }
 
-function sanitizeMessages(messages) {
+function sanitizeMessages(messages, generalSuneung = false) {
   if (!Array.isArray(messages)) return null;
-
-  return messages
-    .slice(-MAX_MESSAGES)
+  let selected = messages.slice(-MAX_MESSAGES);
+  if (generalSuneung) {
+    // Long, repeated explanations must not evict the question being answered.
+    const anchorIndex = messages.findLastIndex(message => message?.role === "assistant" && isCompleteGeneralQuestion(String(message.content || "")));
+    const offset = Math.max(0, messages.length - MAX_MESSAGES);
+    if (anchorIndex >= 0 && anchorIndex < offset) {
+      const retry = messages.slice(anchorIndex + 1, offset).findLast(message => message?.role === "assistant" && /도전\s*[12]\s*\/\s*3/.test(message.content));
+      selected = [messages[anchorIndex], ...(retry ? [retry] : []), ...selected];
+    }
+  }
+  return selected
     .filter((message) => message && ["user", "assistant"].includes(message.role))
     .map((message) => ({
       role: message.role,
-      content: String(message.content || "").slice(0, MAX_MESSAGE_LENGTH)
+      content: String(message.content || "").slice(0, generalSuneung && message.role === "assistant" ? 16000 : MAX_MESSAGE_LENGTH)
     }))
     .filter((message) => message.content.trim());
 }
@@ -208,9 +221,9 @@ function getOutputText(data) {
     ?.trim();
 }
 
-function sanitizeHistory(history) {
+function sanitizeHistory(history, generalSuneung = false) {
   if (!Array.isArray(history)) return [];
-  return history.slice(-60).map((item) => String(item || "").slice(0, 500)).filter(Boolean);
+  return history.slice(-60).map((item) => String(item || "").slice(0, generalSuneung ? 16000 : 500)).filter(Boolean);
 }
 
 export function suneungMathStageForQuestion(question) {
@@ -256,7 +269,7 @@ export function buildSuneungSessionPlan(course, lessonSeed) {
   return { stages, scopes, commonCount, electiveCount, electiveQuestions };
 }
 
-export function sanitizeLearningProfile(profile, sessionPlan = null) {
+export function sanitizeLearningProfile(profile, sessionPlan = null, course = null) {
   if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
   const boundedCount = (value) => Math.max(0, Math.min(1000, Math.trunc(Number(value) || 0)));
   const allowedTopics = [
@@ -271,6 +284,11 @@ export function sanitizeLearningProfile(profile, sessionPlan = null) {
     "개념", "계산", "조건 해석", "자료 해석", "시간 관리"
   ];
   const canonicalTopic = (value) => {
+    // General humanities/language topics are not a math/science whitelist.
+    // Bound and clean labels; retain genuine subtopics used by these courses.
+    if (isGeneralSuneungCourse(course)) {
+      return String(value || "").replace(/[\[\]{}<>\r\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    }
     const compact = String(value || "").toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
     return allowedTopics.find((topic) => compact.includes(topic.replace(/[^a-z0-9가-힣]/gi, "").toLowerCase())) || "";
   };
@@ -398,7 +416,7 @@ function buildSuneungSessionRule(course, lessonSeed, learningProfile, messages =
     rule += `\n\n[이번 2027 수학 세션 배분 — 최우선]\n10문제 중 공통 수학Ⅰ·수학Ⅱ ${sessionPlan.commonCount}문제와 선택 ${course.suneung.elective} ${sessionPlan.electiveCount}문제를 정확히 구성하세요. 번호별 범위는 다음과 같으며 바꾸면 안 됩니다: ${scopeSchedule}. 다른 선택과목의 고유 내용은 절대로 출제하지 마세요.`;
   }
 
-  const profile = sanitizeLearningProfile(learningProfile, sessionPlan);
+  const profile = sanitizeLearningProfile(learningProfile, sessionPlan, course);
   const latestUserText = [...messages].reverse().find((message) => message?.role === "user")?.content;
   const isLessonStart = isKoreanLessonStartRequest(latestUserText);
   const currentQuestion = expectedSuneungQuestion(messages, profile)
@@ -636,18 +654,21 @@ export function hasInvalidSuneungSequence(
   sessionPlan,
   expectedRecordQuestion,
   isLessonStart,
-  record = null
+  record = null,
+  allowConversationHelp = false
 ) {
   if (!course?.suneung || !sessionPlan) return false;
   const output = String(text || "");
   const completionClaim = /(?:오늘의|이번)\s+.+수업을\s+마쳤|수업\s+종료|학습을\s+마쳤|학습\s*완료/.test(output);
   if (completionClaim && record?.question !== 10) return true;
 
-  const headers = [...output.matchAll(/^\s*문제\s*(\d+)\s*\/\s*10\s*[—-]\s*([^\r\n]+)$/gim)]
-    .map((match) => ({ question:Number(match[1]), tail:match[2] }));
+  const headers = isGeneralSuneungCourse(course) ? generalQuestionHeaders(output)
+    : [...output.matchAll(/^\s*문제\s*(\d+)\s*\/\s*10\s*[—-]\s*([^\r\n]+)$/gim)]
+      .map((match) => ({ question:Number(match[1]), tail:match[2] }));
   if (!headers.length) {
     if (record?.question === 10) return false;
     if (isLessonStart || record?.question) return true;
+    if (allowConversationHelp) return false;
     if (expectedRecordQuestion >= 1 && expectedRecordQuestion <= 10) {
       const allowedSameQuestionFeedback = /(?:도전\s*[12]\s*\/\s*3|힌트|음성.{0,30}(?:정확|분명|전달|인식)|답(?:만)?\s*(?:짧게\s*)?다시)/.test(output);
       return !allowedSameQuestionFeedback;
@@ -668,7 +689,7 @@ export function hasInvalidSuneungSequence(
           : /실전/.test(stagePart);
     if (!stageMatches) return true;
 
-    if (course.suneung.year === "2027") {
+    if (course.suneung.year === "2027" && course.suneung.subject === "math") {
       const coursePart = compactSuneungHeaderPart(header.tail.split("·")[1]);
       const expectedScope = sessionPlan.scopes[header.question - 1];
       if (expectedScope === "elective") {
@@ -1257,7 +1278,8 @@ export default async function handler(request, response) {
     });
   }
 
-  const messages = sanitizeMessages(request.body?.messages);
+  const generalSuneung = isGeneralSuneungCourse(course);
+  const messages = sanitizeMessages(request.body?.messages, generalSuneung);
   if (!messages || messages.length === 0) {
     return sendJson(response, 400, { error: "수업 메시지를 입력해 주세요." });
   }
@@ -1289,19 +1311,24 @@ export default async function handler(request, response) {
 
   try {
     if (INTERACTIVE_COURSE_KINDS.has(course.kind)) {
-      const history = sanitizeHistory(request.body?.history);
+      const history = sanitizeHistory(request.body?.history, generalSuneung);
+      // Compare against full retained passages, but bound the model's history
+      // context separately so long Korean texts cannot exhaust its token limit.
+      const promptHistory = generalSuneung ? history.slice(-20).map(item => item.length > 2200
+        ? `${item.slice(0, 1800)}\n[…]\n${item.slice(-400)}` : item) : history;
       const historyRule = history.length
         ? course.language === "en"
           ? `\n\n[Previous activities — do not repeat]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\nReject any new activity that uses the same task structure with only different numbers, objects, names, or word order. Choose a different activity family.`
           : course.language === "fr"
             ? `\n\n[Activités précédentes — ne pas répéter]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\nN'utilise pas la même structure en changeant seulement les nombres, les objets ou l'ordre des mots. Choisis une autre famille d'activité.`
-            : `\n\n[과거 문제 기록 — 재출제 금지]\n${history.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
+            : `\n\n[과거 문제 기록 — 재출제 금지]\n${promptHistory.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n위 문제들과 같은 유형·문장 구조에 숫자만 바꾼 문제도 피하세요.`
         : "";
-      const signatures = new Set(history.map(normalizeProblem).filter(Boolean));
+      const signatures = new Set(history.map(generalSuneung ? normalizeGeneralProblem : normalizeProblem).filter(Boolean));
       const suneungSessionPlan = buildSuneungSessionPlan(course, request.body?.lessonSeed);
       const suneungLearningProfile = sanitizeLearningProfile(
         request.body?.learningProfile,
-        suneungSessionPlan
+        suneungSessionPlan,
+        course
       );
       const suneungSessionRule = buildSuneungSessionRule(
         course,
@@ -1309,7 +1336,7 @@ export default async function handler(request, response) {
         request.body?.learningProfile,
         messages
       );
-      const schoolEnglishAnswerRule = course.kind === "english"
+      const schoolEnglishAnswerRule = course.kind === "english" && !generalSuneung
         ? SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE
         : "";
       const voiceRule = request.body?.inputMode === "voice"
@@ -1328,6 +1355,25 @@ export default async function handler(request, response) {
         : 0;
       const koreanLessonStart = koreanStartRequested
         && (!course.suneung || isFreshSuneungStart(messages, suneungLearningProfile));
+      const activeQuestionText = generalSuneung
+        ? latestCompleteGeneralQuestion(messages, activeSuneungQuestion)?.text || "" : "";
+      const generalInput = generalSuneung
+        ? (koreanLessonStart ? { intent: "start" } : classifyGeneralSuneungInput(latestUserMessage?.content, {
+          inputMode: request.body?.inputMode, questionText: activeQuestionText
+        })) : null;
+      const conversationalHelp = generalInput?.intent === "help"
+        || (course.suneung?.year === "2028" && course.suneung.subject === "math"
+          && isSuneungConversationHelp(latestUserMessage?.content));
+      const previousGeneralAttempts = generalSuneung ? generalAttemptCount(messages, activeSuneungQuestion) : 0;
+      if (generalInput?.intent === "clarify") {
+        return sendJson(response, 200, {
+          text: "음성 답안 확인: ‘알파벳 E(5번)’와 ‘숫자 2번(B)’ 중 어느 답인가요? 아래 선택지 버튼으로 답하거나 ‘알파벳 이’, ‘알파벳 비’라고 말해 주세요. 아직 채점하지 않았으며 도전 횟수는 그대로입니다.",
+          pendingChoice: true
+        });
+      }
+      if (generalSuneung && suneungLearningProfile?.lessonRecords?.length === 10) {
+        return sendJson(response, 200, { text: "이번 수업의 10문제를 모두 마쳤습니다. ‘새 수업’을 누르면 새로운 문제로 시작합니다." });
+      }
       if (course.suneung && koreanStartRequested && !koreanLessonStart) {
         const questionLabel = activeSuneungQuestion >= 1 && activeSuneungQuestion <= 10
           ? `${activeSuneungQuestion}번`
@@ -1358,7 +1404,7 @@ export default async function handler(request, response) {
         : "";
       const koreanHint = isKoreanHintRequest(messages, course);
 
-      if (isSchoolEnglishNoAnswerRequest(messages)) {
+      if (isSchoolEnglishNoAnswerRequest(messages) && !generalSuneung) {
         const noAnswerText = course.language === "en"
           ? "Understood. I will not reveal the answer. Please solve the current question yourself."
           : "알겠습니다. 정답은 미리 말하지 않겠습니다. 현재 문제를 직접 풀어 보세요.";
@@ -1370,7 +1416,7 @@ export default async function handler(request, response) {
         const explanation = buildSafeGrade3Hint(messages, course.language);
         return sendJson(response, 200, { text: `${visual}\n\n${explanation}` });
       }
-      if (koreanHint) {
+      if (koreanHint && !conversationalHelp && !generalSuneung) {
         return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind) });
       }
 
@@ -1388,8 +1434,18 @@ export default async function handler(request, response) {
         ? `\n\n[TOEIC 독립 채점 검증 — 최우선 규칙]\n별도 검증기가 현재 문제를 다시 풀어 확인한 정답 선택지는 ${toeicCorrectChoice}입니다. 학생이 제출한 선택지는 ${toeicStudentChoice}입니다. 따라서 학생 답은 ${toeicShouldBeCorrect ? "정답" : "오답"}입니다. 이 판정을 절대로 뒤집지 마세요. ${toeicShouldBeCorrect ? "정답이라고 채점하고 짧은 근거를 말한 뒤 다음 새 문제 하나를 제시하세요." : "정답이라고 칭찬하거나 다음 문제로 넘어가지 마세요. 정답 선택지를 공개하지 말고 현재 문제에 맞는 짧은 힌트만 준 뒤 다시 답을 기다리세요."}`
         : "";
 
+      const generalTurnRule = conversationalHelp
+        ? `\n\n[이번 요청은 개념 질문 또는 힌트 — 채점하지 않음]\n학생이 실제로 물은 내용을 현재 지문·선택지와 대화 맥락에 맞춰 자연스럽게 설명하세요. 같은 질문이나 힌트를 반복하면 다른 예와 한 단계 더 구체적인 도움을 주세요. 정답 선택지를 직접 알려주거나 맞음/틀림을 판정하지 마세요. 새 문제, 문제 번호 제목, 도전 횟수, GEM_RECORD를 출력하지 마세요. 설명 뒤 현재 문제의 답을 기다리세요.`
+        : generalInput?.intent === "answer"
+          ? `\n\n[이번 요청은 답안 제출 — 반드시 채점]\n학생이 명확히 선택한 답은 ${generalInput.choice}입니다. 현재 ${activeSuneungQuestion}번 문제이며 이전 오답 시도는 ${previousGeneralAttempts}회입니다. 이번 시도는 ${previousGeneralAttempts + 1}회입니다. 현재 문제를 풀어 이 선택지를 반드시 채점하세요. 맞으면 짧은 설명과 GEM_RECORD(correct, attempts=${previousGeneralAttempts + 1})를 출력한 뒤 다음 문제 하나를 제시하세요. 틀리면 ${previousGeneralAttempts < 2 ? `정답을 공개하지 말고 정확히 ‘도전 ${previousGeneralAttempts + 1}/3’과 문제별 힌트를 쓰고 같은 문제에서 기다리세요. GEM_RECORD를 쓰지 마세요.` : "세 번째 오답이므로 정답과 풀이를 설명하고 GEM_RECORD(incorrect, attempts=3)를 출력한 뒤 다음 문제 하나를 제시하세요."} 10번 완료 시 다음 문제 없이 최종 복습으로 끝내세요. ‘서버에서 채점합니다’라고 말하며 채점을 미루지 마세요.`
+          : "";
+
+      let lastGeneralRejection = "";
       for (let attempt = 0; attempt < 3; attempt += 1) {
         let formatRepairRule = "";
+        if (generalSuneung && lastGeneralRejection) {
+          formatRepairRule += `\n\n[직전 응답 검증 실패 — 수정할 항목]\n검증 결과: ${lastGeneralRejection}. 학생 요청을 바꾸지 말고 이 오류를 수정하세요. 질문·힌트는 설명만 하고 채점/새 문제/GEM_RECORD 없이 현재 문제에 머뭅니다. 답안 제출은 이번 시도 횟수로 채점하고, 정답 또는 세 번째 오답이면 해당 문제의 GEM_RECORD와 다음 번호의 완전한 A–E 문제 하나를 함께 출력합니다. 10번 완료 시 기록과 요약만 출력합니다. 미완성 출력은 지문을 간결하게 줄여 다섯 선택지까지 반드시 완성하세요.`;
+        }
         if (attempt > 0 && !course.suneung) {
           formatRepairRule += course.language === "en"
             ? `\n\n[Multiple-choice format repair]\nEvery multiple-choice activity must contain three complete choices labeled A), B), and C). Write meaningful text after every label. Never output an empty label such as “C)” or “C answer”. Verify that exactly one choice is correct before responding.`
@@ -1403,7 +1459,7 @@ export default async function handler(request, response) {
         if (course.kind === "toeic" && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\nTOEIC Part 5·6 문장 또는 지문에서 학생이 채울 위치에는 반드시 키보드의 일반 밑줄 문자(_) 8개인 “________”을 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 문제 맨 아래에는 별도로 정확히 “답: (________)”을 표시하세요. Part 1 사진 묘사형 문제라면 선택지보다 먼저 [TOEIC 그림 시작]과 [TOEIC 그림 끝] 사이에 장소, 인물, 행동, 배경 네 줄을 반드시 넣으세요. “사진:”이라는 설명문만 쓰지 마세요. 빈칸이나 그림 블록이 없는 후보는 출력하지 마세요.`;
         }
-        if (course.kind === "english" && attempt > 0) {
+        if (course.kind === "english" && !generalSuneung && attempt > 0) {
           formatRepairRule = `\n\n[형식 오류 재생성]\n중1-고3 영어의 빈칸·문장 완성·지문 완성·알맞은 단어 또는 표현 넣기 문제에서는 학생이 채울 실제 위치에 키보드의 일반 밑줄 문자(_) 8개인 “________”을 반드시 표시하세요. 공백만 두거나 완성 단어·정답을 쓰지 마세요. 모든 활동과 문제 맨 아래에는 문제 유형과 관계없이 별도로 정확히 “답: (________)”을 표시하세요. 표시가 하나라도 빠진 후보는 출력하지 마세요.`;
         }
         if (guardedSuneungScience && attempt > 0) {
@@ -1419,7 +1475,7 @@ export default async function handler(request, response) {
         }
         const requestBody = {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
+            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule,
             input: messages,
             max_output_tokens: course.suneung ? 5000 : course.kind === "toefl"
               ? 1200
@@ -1440,6 +1496,11 @@ export default async function handler(request, response) {
           return sendJson(response, 502, { error: "AI 선생님 연결이 잠시 원활하지 않습니다." });
         }
         const text = getOutputText(data);
+        if (generalSuneung && data.status === "incomplete") {
+          lastGeneralRejection = "incomplete_response";
+          console.warn("Incomplete general CSAT response rejected", { attempt: attempt + 1, reason: data.incomplete_details?.reason });
+          continue;
+        }
         if (!text) continue;
         if (guardedSuneungScience && containsExcludedSuneungScienceContent(text)) {
           console.warn("Excluded Suneung integrated-science content rejected", attempt + 1);
@@ -1470,11 +1531,11 @@ export default async function handler(request, response) {
           console.warn("TOEIC Part 1 without a renderable scene rejected", attempt + 1);
           continue;
         }
-        if (course.kind === "english" && !hasRequiredSchoolEnglishBlank(text)) {
+        if (course.kind === "english" && !generalSuneung && !hasRequiredSchoolEnglishBlank(text)) {
           console.warn("Grade 7-12 English completion question without a visible blank rejected", attempt + 1);
           continue;
         }
-        if (course.kind === "english" && hasPrematureSchoolEnglishAnswer(text)) {
+        if (course.kind === "english" && !generalSuneung && hasPrematureSchoolEnglishAnswer(text)) {
           console.warn("Grade 7-12 English premature answer disclosure rejected", attempt + 1);
           continue;
         }
@@ -1495,19 +1556,20 @@ export default async function handler(request, response) {
           continue;
         }
         if (hasIncompleteSuneungChoiceSet(text, course)) {
+          if (generalSuneung) lastGeneralRejection = "missing_or_empty_A_to_E_choice";
           console.warn("Incomplete Suneung five-choice set rejected", attempt + 1);
           continue;
         }
-        if (hasIncompleteChoiceSet(text)) {
+        if (!generalSuneung && hasIncompleteChoiceSet(text)) {
           console.warn("Incomplete multiple-choice set rejected", attempt + 1);
           continue;
         }
-        if (hasOrphanChoiceLabel(text)) {
+        if (!generalSuneung && hasOrphanChoiceLabel(text)) {
           console.warn("Orphan multiple-choice label rejected", attempt + 1);
           continue;
         }
         const answerReadyText = normalizeHistorySequenceLabels(
-          ensureAnswerSlot(text, course.kind, course.language, grade3Hint),
+          conversationalHelp ? text : ensureAnswerSlot(text, course.kind, course.language, grade3Hint),
           request.body?.courseId
         );
         const extracted = course.suneung
@@ -1518,8 +1580,28 @@ export default async function handler(request, response) {
           })
           : { text: answerReadyText, record: null };
         if (course.suneung && /\[GEM_RECORD\]/i.test(answerReadyText) && !extracted.record) {
+          if (generalSuneung) lastGeneralRejection = "invalid_record_question_or_required_fields";
           console.warn("Invalid or out-of-sequence Suneung record rejected", attempt + 1);
           continue;
+        }
+        if (conversationalHelp && !generalSuneung && validateGeneralSuneungTurn({
+          text: extracted.text, record: extracted.record, intent: "help", currentQuestion: activeSuneungQuestion
+        })) {
+          console.warn("CSAT concept explanation attempted to grade or advance", attempt + 1);
+          continue;
+        }
+        if (generalSuneung) {
+          const invalidReason = validateGeneralSuneungTurn({
+            text: extracted.text, record: extracted.record, intent: generalInput.intent,
+            currentQuestion: activeSuneungQuestion, start: koreanLessonStart,
+            completed: suneungLearningProfile?.lessonRecords?.length === 10,
+            previousAttempts: previousGeneralAttempts
+          });
+          if (invalidReason) {
+            lastGeneralRejection = invalidReason;
+            console.warn("General CSAT turn rejected", { attempt: attempt + 1, reason: invalidReason });
+            continue;
+          }
         }
         if (hasInvalidSuneungSequence(
           extracted.text,
@@ -1527,21 +1609,27 @@ export default async function handler(request, response) {
           suneungSessionPlan,
           expectedRecordQuestion,
           koreanLessonStart,
-          extracted.record
+          extracted.record,
+          conversationalHelp
         )) {
+          if (generalSuneung) lastGeneralRejection = "invalid_question_number_or_stage";
           console.warn("Out-of-sequence Suneung response rejected", attempt + 1);
           continue;
         }
-        const signature = normalizeProblem(extracted.text);
-        if (!signature || !signatures.has(signature)) {
+        const signature = generalSuneung ? normalizeGeneralProblem(extracted.text) : normalizeProblem(extracted.text);
+        if ((generalSuneung && !koreanLessonStart && !extracted.record) || !signature || !signatures.has(signature)) {
           return sendJson(response, 200, {
             text: extracted.text,
+            ...(generalSuneung ? { teacherModel: suneungResponse.model } : {}),
             ...(extracted.record ? { record: extracted.record } : {})
           });
         }
         console.warn("Duplicate lesson problem rejected", attempt + 1);
+        if (generalSuneung) lastGeneralRejection = "duplicate_question_choose_new_passage_and_scenario";
       }
-      return sendJson(response, 502, { error: "새 문제를 다시 준비해 주세요." });
+      return sendJson(response, 502, { error: generalSuneung
+        ? "AI 응답 형식을 확인하지 못했습니다. 현재 문제와 도전 횟수는 유지됩니다. 같은 답 또는 질문을 다시 보내 주세요."
+        : "새 문제를 다시 준비해 주세요." });
     }
 
     const usedWords = collectUsedWords(messages);

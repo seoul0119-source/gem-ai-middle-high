@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node scripts/verify-suneung-tutor.mjs",
+  "buildCommand": "node --test tests/*.test.mjs && node scripts/verify-suneung-tutor.mjs && node scripts/verify-suneung-general.mjs",
   "outputDirectory": ".",
   "rewrites": [
     {

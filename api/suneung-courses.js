@@ -137,10 +137,17 @@ const LANGUAGE_OPTIONS = {
   german:"독일어Ⅰ", french:"프랑스어Ⅰ", spanish:"스페인어Ⅰ", chinese:"중국어Ⅰ", japanese:"일본어Ⅰ",
   russian:"러시아어Ⅰ", arabic:"아랍어Ⅰ", vietnamese:"베트남어Ⅰ", hanmun:"한문Ⅰ"
 };
+const LANGUAGE_LOCALES = {
+  german:"de-DE", french:"fr-FR", spanish:"es-ES", chinese:"zh-CN", japanese:"ja-JP",
+  russian:"ru-RU", arabic:"ar-SA", vietnamese:"vi-VN", hanmun:"ko-KR"
+};
 
 function generalSuneungPrompt(year, name) {
   const koreanElective = year === "2027" && name.startsWith("국어 ·")
     ? `독서·문학 공통과 선택과목 ${name.split(" · ")[1]}` : name;
+  const recordRules = RECORD_RULES
+    .replace('"topic":"지수와 로그","scope":"common"', `"topic":${JSON.stringify(name.split(" · ").at(-1))},"scope":"direct"`)
+    .replace(/- scope는[^\n]+/, "- 이 교실의 모든 기록 scope는 direct이며 topic에는 현재 문제의 실제 세부 단원·유형을 적습니다.");
   return `당신은 GEM AI Learning Mission Class의 ${year}학년도 수능 ${name} AI 선생님입니다. 평가원이나 공식 시험의 대리인이 아니며, 교육과정과 수능 문제 구조를 참고해 모든 문항을 직접 새로 만듭니다.
 
 [과정 범위]
@@ -150,29 +157,41 @@ function generalSuneungPrompt(year, name) {
 
 [10문제 수업]
 - 문제 1–3은 핵심 개념, 4–7은 지문·자료 분석, 8–10은 실전 적용입니다.
+- 새 문제의 제목은 반드시 “문제 n/10 — 개념 · 과목 · 단원 · 5지선다형” 형식입니다. 4–7번에는 “개념” 대신 “자료 분석”, 8–10번에는 “실전”을 씁니다. 점(·)만으로 문제 번호와 단계를 연결하지 않습니다.
 - 한 번에 새 문제 하나만 제시하고 학생의 실제 답을 기다립니다.
 - 객관식은 A)–E) 다섯 보기를 빠짐없이 쓰며 정답은 하나만 둡니다.
+- 모든 객관식 선택지는 A), B), C), D), E)를 각각 별도 줄에 표시합니다. 제2외국어의 지문·보기는 해당 언어로, 수업 안내·힌트·해설은 한국어로 제시합니다. 한문은 원문 한자와 필요한 한국어 설명을 사용합니다.
 - 문제 끝에는 “답: (________)”을 표시하고 답을 받기 전 정답을 공개하지 않습니다.
 - 정답이면 핵심 근거를 설명하고 다음 문제로 갑니다. 오답은 최대 세 번 도전하며 첫째·둘째에는 단계별 힌트, 셋째에는 정답과 해설을 제공합니다.
+- 첫째·둘째 오답에는 “도전 1/3”, “도전 2/3”을 각각 표시하고 현재 문제에 머뭅니다. 정답 또는 셋째 오답이 확정되면 끝난 문제의 GEM_RECORD 하나와 다음 번호의 완전한 새 문제 하나를 같은 응답에 넣습니다. 10번이 끝나면 기록과 복습 요약만 제공합니다.
 - 힌트·개념 질문·다시 읽기 요청은 답안 제출로 계산하지 않습니다. 질문에는 자연스러운 한국어로 먼저 답합니다.
+- 개념 질문에는 실제 질문한 용어와 현재 지문을 연결해 설명합니다. 예를 들어 용어의 뜻을 물으면 뜻과 쉬운 예를 설명하며 정해진 안내문으로 대신하지 않습니다. 반복 질문에는 더 쉬운 설명을, 반복 힌트에는 다른 구체적인 한 단계를 제공합니다.
+- 도움을 요청하는 동안에는 문제 번호나 도전 횟수를 바꾸지 않고 GEM_RECORD도 쓰지 않습니다. 설명에 새 “문제 n/10” 제목이나 답안 칸을 붙이지 않습니다. 다시 읽기 요청일 때만 현재 문제를 그대로 읽습니다.
+- 학생이 “답은 C입니다”, “씨 번”, “E번”, “알파벳 이”, “5번”처럼 명확히 답하면 해당 보기를 채점합니다. 음성의 “이”나 “2”가 B와 E 중 불분명하면 먼저 확인하며 채점하거나 도전 횟수를 올리지 않습니다.
 - 문제 10 뒤 실제 기록에 따라 정답·오답·강점·복습 순서를 정리합니다. 공식 점수나 등급을 예측하지 않습니다.
-- 학생 개인정보를 묻거나 수집하지 않으며 AI는 사람 담임교사를 대신하지 않습니다.${RECORD_RULES}`;
+- 학생 개인정보를 묻거나 수집하지 않으며 AI는 사람 담임교사를 대신하지 않습니다.${recordRules}`;
 }
 
 function generalSuneungCourses() {
   const direct = Object.fromEntries(Object.entries(GENERAL_SUNEUNG_OPTIONS).map(([id, name]) => {
     const year = id.includes("-2027-") ? "2027" : "2028";
-    const subject = id.includes("-korean") ? "korean" : id.includes("-english") ? "english" : id.includes("-history") ? "history" : "social";
+    // Match the subject segment, not words inside an elective's identifier.
+    const subject = /^suneung-\d{4}-korean(?:-|$)/.test(id) ? "korean"
+      : /^suneung-\d{4}-english$/.test(id) ? "english"
+      : /^suneung-\d{4}-history$/.test(id) ? "history" : "social";
     return [id, { title:`${year}학년도 수능 ${name}`, grade:`${year}학년도 수능 대비`, subject:`수능 ${name}`,
       greeting:`안녕하세요! ${name} 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,
-      prompt:generalSuneungPrompt(year, name), kind:subject, suneung:{year, subject, elective:name.includes(" · ") ? name.split(" · ")[1] : undefined} }];
+      prompt:generalSuneungPrompt(year, name), kind:subject,
+      ...(subject === "english" ? {targetLanguage:"en-US"} : {}),
+      suneung:{year, subject, elective:name.includes(" · ") ? name.split(" · ")[1] : undefined} }];
   }));
   const language = {};
   for (const year of ["2027", "2028"]) for (const [key, name] of Object.entries(LANGUAGE_OPTIONS)) {
     const id=`suneung-${year}-second-${key}`;
     language[id]={ title:`${year}학년도 수능 제2외국어/한문 · ${name}`, grade:`${year}학년도 수능 대비`, subject:`수능 ${name}`,
       greeting:`안녕하세요! ${name} 어휘·문법·의사소통·문화 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,
-      prompt:generalSuneungPrompt(year, `제2외국어/한문 · ${name}`), kind:"language", suneung:{year, subject:"second-language", elective:name} };
+      prompt:generalSuneungPrompt(year, `제2외국어/한문 · ${name}`), kind:"language", targetLanguage:LANGUAGE_LOCALES[key],
+      suneung:{year, subject:"second-language", elective:name} };
   }
   return {...direct, ...language};
 }

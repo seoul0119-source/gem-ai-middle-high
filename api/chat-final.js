@@ -211,7 +211,7 @@ function collectMessageActivities(messages) {
 export default async function handler(request, response) {
   const courseId = String(request.body?.courseId || "");
   const course = getCourse(courseId);
-  if (course?.kind !== "english") return chatHandler(request, response);
+  if (course?.kind !== "english" || course.suneung) return chatHandler(request, response);
 
   // This wrapper can answer a no-answer request before the shared chat handler
   // runs, so it must enforce the same signed course-run boundary itself.
