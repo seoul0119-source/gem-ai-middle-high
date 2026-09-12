@@ -38,3 +38,24 @@ test("both exam years define native target locales without changing Korean instr
     assert.equal(SUNEUNG_COURSES[`suneung-${year}-english`].targetLanguage, "en-US");
   }
 });
+
+test("every remaining 2028 classroom has an explicit integrated curriculum scope", () => {
+  const direct = {
+    "suneung-2028-korean":["독서", "문학", "화법과 작문", "문법과 매체"],
+    "suneung-2028-english":["어휘와 문법", "빈칸 추론", "글의 순서", "장문 독해"],
+    "suneung-2028-history":["전근대", "개항기", "독립운동", "대한민국"],
+    "suneung-2028-integrated-social":["인권과 헌법", "시장", "사회정의", "세계화"]
+  };
+  for (const [id, terms] of Object.entries(direct)) {
+    const prompt = SUNEUNG_COURSES[id].prompt;
+    assert.match(prompt, /2028학년도 세부 학습 범위/);
+    assert.match(prompt, /2022 개정 교육과정의 통합형 체제/);
+    for (const term of terms) assert.match(prompt, new RegExp(term), `${id}: ${term}`);
+  }
+  for (const key of ["german", "french", "spanish", "chinese", "japanese", "russian", "arabic", "vietnamese", "hanmun"]) {
+    const prompt = SUNEUNG_COURSES[`suneung-2028-second-${key}`].prompt;
+    for (const term of ["어휘의 문맥 이해", "의사소통 기능", "문법과 문장 구조", "문화 이해"]) {
+      assert.match(prompt, new RegExp(term), `${key}: ${term}`);
+    }
+  }
+});

@@ -136,8 +136,8 @@ function verifyHelp(payload, expectedTerms = null) {
 
 const FIXTURES = [
   {
-    name: "2027 Korean",
-    courseId: "suneung-2027-korean-speech-writing",
+    name: "2028 Korean",
+    courseId: "suneung-2028-korean",
     question: `문제 1/10 — 개념 · 국어 · 화법과 작문 · 5지선다형
 다음은 학생이 발표를 준비하며 세운 계획이다.
 

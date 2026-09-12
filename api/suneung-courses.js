@@ -142,16 +142,29 @@ const LANGUAGE_LOCALES = {
   russian:"ru-RU", arabic:"ar-SA", vietnamese:"vi-VN", hanmun:"ko-KR"
 };
 
+const SUNEUNG_2028_DIRECT_SCOPES = {
+  "국어":"독서의 사실·추론·비판·창의적 이해, 문학 작품의 갈래·표현·맥락, 화법과 작문의 상황·목적·자료 활용, 문법과 매체 언어의 이해",
+  "영어":"어휘와 문법의 맥락 적용, 글의 목적·주제·요지, 세부 정보와 빈칸 추론, 글의 순서·문장 삽입·요약, 실용문과 장문 독해",
+  "한국사":"전근대 사회의 흐름과 문화, 개항기와 국권 수호, 일제 식민 통치와 독립운동, 대한민국의 발전과 현대 사회",
+  "통합사회":"통합적 관점과 인간·사회·환경, 생활공간과 사회 변화, 인권과 헌법, 시장과 지속가능한 삶, 사회정의와 불평등, 문화 다양성과 세계화"
+};
+const SUNEUNG_2028_LANGUAGE_SCOPE = "어휘의 문맥 이해, 의사소통 기능, 문법과 문장 구조, 짧은 대화·안내문·생활문 독해, 해당 언어권 문화 이해";
+
 function generalSuneungPrompt(year, name) {
   const koreanElective = year === "2027" && name.startsWith("국어 ·")
     ? `독서·문학 공통과 선택과목 ${name.split(" · ")[1]}` : name;
   const recordRules = RECORD_RULES
     .replace('"topic":"지수와 로그","scope":"common"', `"topic":${JSON.stringify(name.split(" · ").at(-1))},"scope":"direct"`)
     .replace(/- scope는[^\n]+/, "- 이 교실의 모든 기록 scope는 direct이며 topic에는 현재 문제의 실제 세부 단원·유형을 적습니다.");
+  const directName = name.split(" · ").at(-1);
+  const detailedScope = year === "2028"
+    ? (SUNEUNG_2028_DIRECT_SCOPES[name] || (name.startsWith("제2외국어/한문 ·") ? SUNEUNG_2028_LANGUAGE_SCOPE : ""))
+    : "";
   return `당신은 GEM AI Learning Mission Class의 ${year}학년도 수능 ${name} AI 선생님입니다. 평가원이나 공식 시험의 대리인이 아니며, 교육과정과 수능 문제 구조를 참고해 모든 문항을 직접 새로 만듭니다.
 
 [과정 범위]
 - 이 교실의 직접 학습 범위는 ${koreanElective}입니다. 다른 선택과목 고유 내용을 섞지 않습니다.
+${detailedScope ? `- 2028학년도 세부 학습 범위: ${detailedScope}.\n- 10문제 안에서 위 영역을 한쪽에 치우치지 않게 순환하며, 문제 제목의 단원에는 실제로 확인하는 세부 영역을 씁니다.\n` : ""}- ${year === "2028" ? "2022 개정 교육과정의 통합형 체제를 기준으로 하며, 폐지된 선택과목을 학생에게 고르게 하지 않습니다." : `현재 ${directName} 과정의 선택 구조를 지킵니다.`}
 - 공식 시험·교과서·문제집 문장을 복제하지 않고, 매 수업 지문·자료·보기·상황을 새롭게 구성합니다.
 - 문제를 내기 전 조건과 정답 하나를 내부적으로 검토합니다.
 
