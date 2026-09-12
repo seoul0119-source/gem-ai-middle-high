@@ -34,7 +34,8 @@ async function verifyTutor() {
     id:"BUILD_CHECK",
     session:"build-check",
     courseId:COURSE_ID,
-    courseRunId:"science-v2:build-check",
+    // Exactly reproduces the reported ruler question: 9.3 cm - 2.9 cm.
+    courseRunId:"science-v2:numeric-content-1448123",
     startedAt:new Date(now).toISOString(),
     exp:Math.floor(now / 1000) + 3600
   };
@@ -62,11 +63,23 @@ async function verifyTutor() {
   const second = await handleScienceTutor(options());
   const secondExample = reviewedExample(engine, student, second, ["질량", "무게", "중력"]);
 
+  requireCheck(engine.questions[0].choices["ABCDE".indexOf(engine.questions[0].answer)] === "6.4 cm",
+    "build_tutor_answer_fixture_changed");
+  rawMessages.push(
+    { role:"assistant", content:second.text, scienceReplyProof:second.scienceReplyProof },
+    { role:"user", content:"정답은 6.4cm입니다." }
+  );
+  const answered = await handleScienceTutor({ ...options(), inputMode:"voice" });
+  requireCheck(answered.record?.question === 1 && answered.record?.outcome === "correct"
+    && answered.record?.attempts === 1, "build_tutor_answer_not_graded");
+  requireCheck(/문제 2\/10/.test(answered.text), "build_tutor_next_question_missing");
+  requireCheck(answered.teacherModel === undefined, "build_tutor_grading_called_ai");
+
   for (const [index, example] of [firstExample, secondExample].entries()) {
     console.log(`CSAT synthetic example ${index + 1}; actual model: ${example.model}`);
     console.log(example.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ""));
   }
-  console.log("CSAT live tutor verification passed: both explanations reviewed; signed question 1, attempt 1; no grading or progress change.");
+  console.log("CSAT live tutor verification passed: both explanations reviewed; signed question 1, attempt 1 preserved during help; spoken 6.4 cm graded correctly and advanced to question 2.");
 }
 
 const deadline = setTimeout(() => {
