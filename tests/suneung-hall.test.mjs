@@ -671,7 +671,7 @@ test("enables local progress, timed records, voice review, and Suneung return ro
   assert.match(speechSource, /const isSuneung = courseId\.startsWith\("suneung-"\)/);
   assert.match(speechSource, /calm and encouraging Korean CSAT teacher/);
   assert.match(learnHtml, /location\.href = COURSE\.entrance \|\| "\/"/);
-  assert.equal((learnHtml.match(/entrance:\s*"\/suneung\.html#year=/g) || []).length, 5);
+  assert.equal((learnHtml.match(/entrance:\s*"\/suneung\.html#year=/g) || []).length, 13);
 });
 
 test("restores lesson readiness after a successful session restart", async () => {

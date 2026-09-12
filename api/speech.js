@@ -1,5 +1,5 @@
 import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
-import { GUARDED_SUNEUNG_SCIENCE_COURSE_ID } from "../lib/suneung-science-safety.js";
+import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import { createScienceLessonEngine, isApprovedClosedSuneungScienceSpeechText } from "../lib/suneung-science-bank.js";
 import { isApprovedScienceReplySpeech } from "../lib/science-reply-proof.js";
 
@@ -262,15 +262,15 @@ export default async function handler(request, response) {
   const isEnglishAvatar = /^g[1-5]-math-en$/.test(courseId);
   const isFrenchAvatar = /^g[1-5]-math-fr$/.test(courseId);
   const rawText = String(request.body?.text || "");
-  if (courseId === GUARDED_SUNEUNG_SCIENCE_COURSE_ID
-    && !createScienceLessonEngine(student.courseRunId).isApprovedClosedSuneungScienceSpeechText(rawText)
+  if (isGuardedSuneungScienceCourse(courseId)
+    && !createScienceLessonEngine(student.courseRunId, courseId).isApprovedClosedSuneungScienceSpeechText(rawText)
     && !isApprovedClosedSuneungScienceSpeechText(rawText)
     && !isApprovedScienceReplySpeech({ student, text:rawText, proof:request.body?.scienceReplyProof })) {
     return sendJson(response, 400, {
       error:"승인된 통합과학 수업 내용만 음성으로 들을 수 있습니다."
     });
   }
-  const narrationCourse = courseId === GUARDED_SUNEUNG_SCIENCE_COURSE_ID ? "suneung-2028-math" : courseId;
+  const narrationCourse = isGuardedSuneungScienceCourse(courseId) ? "suneung-2028-math" : courseId;
   const input = numericChoiceScript(normalizeSuneungMathSpeech(cleanText(rawText, courseId), narrationCourse), narrationCourse);
   if (!apiKey || !input) return sendJson(response, 400, { error: isEnglishAvatar
     ? "There is no text to speak."

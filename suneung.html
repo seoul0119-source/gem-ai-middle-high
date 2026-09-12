@@ -526,6 +526,16 @@
         <button class="math-track-choice" type="button" data-track="calculus" aria-pressed="false">미적분</button>
         <button class="math-track-choice" type="button" data-track="geometry" aria-pressed="false">기하</button>
       </div>
+      <div id="science-track-options" class="math-track-options" role="group" aria-label="2027학년도 수능 과학탐구 선택과목" hidden>
+        <button class="math-track-choice" type="button" data-track="physics-1" aria-pressed="false">물리학Ⅰ</button>
+        <button class="math-track-choice" type="button" data-track="physics-2" aria-pressed="false">물리학Ⅱ</button>
+        <button class="math-track-choice" type="button" data-track="chemistry-1" aria-pressed="false">화학Ⅰ</button>
+        <button class="math-track-choice" type="button" data-track="chemistry-2" aria-pressed="false">화학Ⅱ</button>
+        <button class="math-track-choice" type="button" data-track="biology-1" aria-pressed="false">생명과학Ⅰ</button>
+        <button class="math-track-choice" type="button" data-track="biology-2" aria-pressed="false">생명과학Ⅱ</button>
+        <button class="math-track-choice" type="button" data-track="earth-science-1" aria-pressed="false">지구과학Ⅰ</button>
+        <button class="math-track-choice" type="button" data-track="earth-science-2" aria-pressed="false">지구과학Ⅱ</button>
+      </div>
       <p id="science-guard-notice" class="science-guard-notice" hidden>
         GEM 신앙 교육 원칙에 따라 생물의 기원·계통 및 우주 기원과 관련된 공식 범위 일부는 제공하지 않습니다. 따라서 이 과정은 공식 통합과학 전 범위 과정이 아닙니다.
       </p>
@@ -565,6 +575,7 @@
     const learningLaunch = document.getElementById("learning-launch");
     const launchGuide = document.getElementById("launch-guide");
     const mathTrackOptions = document.getElementById("math-track-options");
+    const scienceTrackOptions = document.getElementById("science-track-options");
     const scienceGuardNotice = document.getElementById("science-guard-notice");
     const startLearningButton = document.getElementById("start-learning");
     let selectedYear = "";
@@ -583,6 +594,12 @@
           social:{ label:"수능 사회탐구", detail:"사회 9개 과목 중 선택 · 탐구 전체 최대 2개" },
           science:{ label:"수능 과학탐구", detail:"과학 8개 과목 중 선택 · 탐구 전체 최대 2개" },
           "second-language":{ label:"수능 제2외국어/한문", detail:"선택 영역 · 9개 과목 중 1개 · 30문항 40분" }
+        },
+        science: {
+          "physics-1":"suneung-2027-physics-1", "physics-2":"suneung-2027-physics-2",
+          "chemistry-1":"suneung-2027-chemistry-1", "chemistry-2":"suneung-2027-chemistry-2",
+          "biology-1":"suneung-2027-biology-1", "biology-2":"suneung-2027-biology-2",
+          "earth-science-1":"suneung-2027-earth-science-1", "earth-science-2":"suneung-2027-earth-science-2"
         }
       },
       "2028": {
@@ -644,10 +661,12 @@
       const subjectKey = selectedSubjectButton?.dataset.key;
       const route = courseRoutes[selectedYear]?.[subjectKey];
       const is2027Math = selectedYear === "2027" && subjectKey === "math";
+      const is2027Science = selectedYear === "2027" && subjectKey === "science";
       const is2028Science = selectedYear === "2028" && subjectKey === "science";
       learningLaunch.hidden = !route;
       mathTrackOptions.hidden = !is2027Math;
-      scienceGuardNotice.hidden = !is2028Science;
+      if (scienceTrackOptions) scienceTrackOptions.hidden = !is2027Science;
+      scienceGuardNotice.hidden = !(is2027Science || is2028Science);
       startLearningButton.disabled = !selectedCourseId();
 
       if (!route) return;
@@ -655,6 +674,10 @@
         launchGuide.textContent = selectedTrack
           ? `수학Ⅰ·수학Ⅱ 공통과 선택한 ${trackButtons.find((button) => button.dataset.track === selectedTrack)?.textContent || "선택과목"}을 10문제로 공부합니다.`
           : "수학Ⅰ·수학Ⅱ와 함께 응시할 선택과목을 하나 골라 주세요.";
+      } else if (is2027Science) {
+        launchGuide.textContent = selectedTrack
+          ? `선택한 ${trackButtons.find((button) => button.dataset.track === selectedTrack)?.textContent || "과학탐구"}를 개념 3·자료 분석 4·실전 3문제로 공부합니다.`
+          : "물리학Ⅰ·Ⅱ, 화학Ⅰ·Ⅱ, 생명과학Ⅰ·Ⅱ, 지구과학Ⅰ·Ⅱ 중 한 과목을 골라 주세요.";
       } else if (is2028Science) {
         launchGuide.textContent = "허용된 통합과학 범위에서 개념 3·자료 분석 4·실전 3문제를 한 문제씩 공부합니다.";
       } else {
@@ -713,7 +736,7 @@
     }
 
     function selectTrack(button, updateHash = true) {
-      if (selectedYear !== "2027" || selectedSubjectButton?.dataset.key !== "math") return;
+      if (selectedYear !== "2027" || !["math", "science"].includes(selectedSubjectButton?.dataset.key)) return;
       selectedTrack = button.dataset.track;
       trackButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
       updateLearningLaunch();
@@ -763,3 +786,5 @@
   </script>
 </body>
 </html>
+      } else if (selectedYear === "2027" && selectedSubjectButton.dataset.key === "science" && !selectedTrack) {
+        selectionStatus.textContent = "2027학년도 수능 과학탐구 선택 완료 · 아래에서 공부할 과학탐구 과목을 골라 주세요.";

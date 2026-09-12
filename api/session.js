@@ -1,7 +1,8 @@
 import { getCourse } from "./courses.js";
 import { randomUUID } from "node:crypto";
-import { SCIENCE_VARIANT_PREFIX, scienceVariants } from "../lib/suneung-science-variants.js";
-import { CLOSED_SUNEUNG_SCIENCE_QUESTIONS } from "../lib/suneung-science-bank.js";
+import { SCIENCE_VARIANT_PREFIX } from "../lib/suneung-science-variants.js";
+import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
+import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import {
   clearStudentSession,
   readStudentSession,
@@ -11,16 +12,20 @@ import {
 } from "../lib/student-session.js";
 
 function scienceRunHistory(student) {
-  return [...new Set([...(student.scienceRunHistory || []), student.courseId === "suneung-2028-integrated-science" ? student.courseRunId : ""])]
+  return [...new Set([...(student.scienceRunHistory || []), isGuardedSuneungScienceCourse(student.courseId) ? student.courseRunId : ""])]
     .filter(id => typeof id === "string" && id.startsWith(SCIENCE_VARIANT_PREFIX) && id.length <= 80).slice(-20);
 }
 
 function newCourseRunId(courseId, student) {
-  if (courseId !== "suneung-2028-integrated-science") return randomUUID();
-  const recentStems = new Set(scienceRunHistory(student).map(seed => scienceVariants(CLOSED_SUNEUNG_SCIENCE_QUESTIONS, seed)[0].stem));
+  if (!isGuardedSuneungScienceCourse(courseId)) return randomUUID();
+  const openingSignature = seed => {
+    const first = createScienceLessonEngine(seed, courseId).questions[0];
+    return JSON.stringify([first.stem, first.choices]);
+  };
+  const recentOpenings = new Set(scienceRunHistory(student).map(openingSignature));
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const seed = SCIENCE_VARIANT_PREFIX + randomUUID();
-    if (!recentStems.has(scienceVariants(CLOSED_SUNEUNG_SCIENCE_QUESTIONS, seed)[0].stem)) return seed;
+    if (!recentOpenings.has(openingSignature(seed))) return seed;
   }
   throw new Error("새 문제를 준비하지 못했습니다. 잠시 후 새 수업을 다시 눌러 주세요.");
 }

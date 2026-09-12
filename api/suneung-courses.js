@@ -1,4 +1,5 @@
 import { CLOSED_SUNEUNG_SCIENCE_GREETING } from "../lib/suneung-science-bank.js";
+import { SUNEUNG_2027_SCIENCE_COURSES } from "../lib/suneung-science-safety.js";
 
 const RECORD_RULES = `
 
@@ -109,7 +110,20 @@ const SUNEUNG_2028_INTEGRATED_SCIENCE_PROMPT = `당신은 GEM AI Learning Missio
 - 10번 뒤 정답·오답 수, 강점, 취약 주제와 다음 복습 순서를 기록에 근거해 정리하되 공식 점수·등급을 예측하지 않습니다.
 - 개인정보를 묻거나 수집하지 않으며 AI는 사람 담임교사를 대신하지 않습니다.${RECORD_RULES}`;
 
+function science2027Courses() {
+  return Object.fromEntries(Object.entries(SUNEUNG_2027_SCIENCE_COURSES).map(([id, name]) => [id, {
+    title:`2027학년도 수능 과학탐구 · ${name} · GEM 범위`,
+    grade:"2027학년도 수능 대비",
+    subject:`수능 과학탐구(${name})`,
+    greeting:`안녕하세요! GEM 신앙 교육 원칙에 따른 ${name} 범위에서 새 문제 10개를 한 문제씩 공부합니다. ‘시작’이라고 입력해 주세요.`,
+    prompt:SUNEUNG_2028_INTEGRATED_SCIENCE_PROMPT.replaceAll("2028학년도 수능 통합과학", `2027학년도 수능 과학탐구 ${name}`),
+    kind:"science",
+    suneung:{ year:"2027", subject:"science", elective:name, guarded:true }
+  }]));
+}
+
 export const SUNEUNG_COURSES = {
+  ...science2027Courses(),
   "suneung-2027-math-probability": {
     title: "2027학년도 수능 수학 · 확률과 통계",
     grade: "2027학년도 수능 대비",
