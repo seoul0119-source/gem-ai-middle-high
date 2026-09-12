@@ -14,6 +14,10 @@ import {
   isCompleteGeneralQuestion, isGeneralSuneungCourse, isSuneungConversationHelp,
   latestCompleteGeneralQuestion, normalizeGeneralProblem, normalizeGeneralSuneungDisplay, validateGeneralSuneungTurn
 } from "../lib/suneung-general-flow.js";
+import {
+  GeneralSuneungReviewError, isReviewedGeneralSuneungCourse, reviewGeneralSuneungTurn,
+  solveGeneralSuneungQuestion, verifiedGeneralGradeRejection
+} from "../lib/suneung-general-review.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -1364,6 +1368,9 @@ export default async function handler(request, response) {
         ? (koreanLessonStart ? { intent: "start" } : classifyGeneralSuneungInput(latestUserMessage?.content, {
           inputMode: request.body?.inputMode, questionText: activeQuestionText
         })) : null;
+      const reviewedGeneralSuneung = isReviewedGeneralSuneungCourse(course);
+      // The full 2028 review/generation/retry chain shares one deadline.
+      const generalReviewSignal = reviewedGeneralSuneung ? AbortSignal.timeout(55_000) : null;
       const conversationalHelp = generalInput?.intent === "help"
         || (course.suneung?.year === "2028" && course.suneung.subject === "math"
           && isSuneungConversationHelp(latestUserMessage?.content));
@@ -1437,6 +1444,13 @@ export default async function handler(request, response) {
         ? `\n\n[TOEIC 독립 채점 검증 — 최우선 규칙]\n별도 검증기가 현재 문제를 다시 풀어 확인한 정답 선택지는 ${toeicCorrectChoice}입니다. 학생이 제출한 선택지는 ${toeicStudentChoice}입니다. 따라서 학생 답은 ${toeicShouldBeCorrect ? "정답" : "오답"}입니다. 이 판정을 절대로 뒤집지 마세요. ${toeicShouldBeCorrect ? "정답이라고 채점하고 짧은 근거를 말한 뒤 다음 새 문제 하나를 제시하세요." : "정답이라고 칭찬하거나 다음 문제로 넘어가지 마세요. 정답 선택지를 공개하지 말고 현재 문제에 맞는 짧은 힌트만 준 뒤 다시 답을 기다리세요."}`
         : "";
 
+      const verifiedGeneralChoice = reviewedGeneralSuneung && generalInput?.intent === "answer"
+        ? await solveGeneralSuneungQuestion({ course, questionText: activeQuestionText, apiKey, signal: generalReviewSignal })
+        : null;
+      const independentGeneralGradeRule = verifiedGeneralChoice
+        ? `\n\n[2028 수능 독립 정답 검토]\n학생의 답안과 교사의 기존 판정을 보지 않은 검토자가 현재 문제를 직접 풀었습니다. 검토된 정답은 ${verifiedGeneralChoice}, 학생 답은 ${generalInput.choice}이므로 이번 답은 ${verifiedGeneralChoice === generalInput.choice ? "정답" : "오답"}입니다. 이 판정과 일치하는 근거로 설명하고 기록하세요. 첫째·둘째 오답에서는 검토된 정답을 공개하지 않습니다.`
+        : "";
+
       const generalTurnRule = conversationalHelp
         ? `\n\n[이번 요청은 개념 질문 또는 힌트 — 채점하지 않음]\n학생이 실제로 물은 내용을 현재 지문·선택지와 대화 맥락에 맞춰 자연스럽게 설명하세요. 같은 질문이나 힌트를 반복하면 다른 예와 한 단계 더 구체적인 도움을 주세요. 정답 선택지를 직접 알려주거나 맞음/틀림을 판정하지 마세요. 새 문제, 문제 번호 제목, 도전 횟수, GEM_RECORD를 출력하지 마세요. 설명 뒤 현재 문제의 답을 기다리세요.`
         : generalInput?.intent === "answer"
@@ -1478,7 +1492,7 @@ export default async function handler(request, response) {
         }
         const requestBody = {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule,
+            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule + independentGeneralGradeRule,
             input: messages,
             max_output_tokens: course.suneung ? 5000 : course.kind === "toefl"
               ? 1200
@@ -1487,7 +1501,7 @@ export default async function handler(request, response) {
                 : 650
         };
         const suneungResponse = course.suneung
-          ? await requestSuneungResponse(requestBody, { apiKey, signal: AbortSignal.timeout(55_000) }) : null;
+          ? await requestSuneungResponse(requestBody, { apiKey, signal: generalReviewSignal || AbortSignal.timeout(55_000) }) : null;
         const openAIResponse = suneungResponse || await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -1622,6 +1636,19 @@ export default async function handler(request, response) {
         }
         const signature = generalSuneung ? normalizeGeneralProblem(extracted.text) : normalizeProblem(extracted.text);
         if ((generalSuneung && !koreanLessonStart && !extracted.record) || !signature || !signatures.has(signature)) {
+          if (reviewedGeneralSuneung) {
+            const gradeRejection = verifiedGeneralGradeRejection({ intent: generalInput.intent, choice: generalInput.choice,
+              correctChoice: verifiedGeneralChoice, record: extracted.record, previousAttempts: previousGeneralAttempts });
+            const qualityRejection = gradeRejection || await reviewGeneralSuneungTurn({ course,
+              currentQuestion: activeQuestionText, messages, text: extracted.text, record: extracted.record,
+              intent: generalInput.intent, choice: generalInput.choice, correctChoice: verifiedGeneralChoice,
+              previousAttempts: previousGeneralAttempts, apiKey, signal: generalReviewSignal });
+            if (qualityRejection) {
+              lastGeneralRejection = qualityRejection;
+              console.warn("General CSAT content rejected", { attempt: attempt + 1, reason: qualityRejection });
+              continue;
+            }
+          }
           return sendJson(response, 200, {
             text: extracted.text,
             ...(generalSuneung ? { teacherModel: suneungResponse.model } : {}),
@@ -1681,6 +1708,14 @@ export default async function handler(request, response) {
     if (fallback) return sendJson(response, 200, { text: fallback });
     return sendJson(response, 502, { error: "새 단어를 준비하지 못했습니다. 새 수업을 시작해 주세요." });
   } catch (error) {
+    if (error instanceof GeneralSuneungReviewError) {
+      console.warn("General CSAT review unavailable", { reason: error.message });
+      return sendJson(response, 502, {
+        error: error.message === "current_question_invalid"
+          ? "현재 문제의 조건이나 정답을 확정할 수 없어 채점하지 않았습니다. 도전 횟수와 기록은 유지됩니다. ‘새 수업’으로 새 문제를 시작해 주세요."
+          : "문제와 설명의 정확성을 확인하는 연결이 잠시 원활하지 않습니다. 현재 문제와 도전 횟수는 유지됩니다. 잠시 후 다시 보내 주세요."
+      });
+    }
     console.error("GEM chat error", error);
     return sendJson(response, 500, {
       error: "수업 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."

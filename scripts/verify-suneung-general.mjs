@@ -10,7 +10,7 @@ import { createSessionToken, SESSION_COOKIE } from "../lib/student-session.js";
 const DEADLINE_MS = 180_000;
 const REQUEST_DEADLINE_MS = 55_000;
 const MAX_APPLICATION_TURNS = 11;
-const MAX_PROVIDER_REQUESTS = 24; // Includes bounded format/model retries.
+const MAX_PROVIDER_REQUESTS = 48; // Includes 2028 independent reviews and bounded retries.
 const requestContext = new AsyncLocalStorage();
 const globalAbort = new AbortController();
 const realFetch = globalThis.fetch;
@@ -244,6 +244,8 @@ async function verifyGeneralCourses() {
   // Emit only allowlisted event/reason codes; never exception messages, raw
   // provider data, request headers, cookies, proofs, student text or traces.
   const eventCodes = new Map([
+    ["General CSAT content rejected", "content_rejected"],
+    ["General CSAT review unavailable", "review_unavailable"],
     ["General CSAT turn rejected", "turn_rejected"],
     ["Out-of-sequence Suneung response rejected", "sequence_rejected"],
     ["Invalid or out-of-sequence Suneung record rejected", "record_rejected"],

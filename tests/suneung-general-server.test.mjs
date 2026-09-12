@@ -29,10 +29,20 @@ async function withProvider(callback) {
   const savedFetch = globalThis.fetch;
   const savedKey = process.env.OPENAI_API_KEY;
   process.env.OPENAI_API_KEY = "general-csat-server-regression-key";
-  const queue = [], requests = [];
+  const queue = [], requests = [], reviewRequests = [];
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "https://api.openai.com/v1/responses");
     const body = JSON.parse(options.body);
+    // These tests exercise flow and formatting. Independent semantic judgments
+    // are explicit model fixtures; adversarial verdicts are tested separately.
+    const schema = body.text?.format?.name;
+    if (schema === "general_2028_question_review" || schema === "general_2028_turn_review") {
+      reviewRequests.push(body);
+      const verdict = schema === "general_2028_question_review"
+        ? { valid: true, correct_choice: "C", reason: "none" }
+        : { question_valid: true, feedback_valid: true, reason: "none" };
+      return { ok: true, status: 200, json: async () => ({ status: "completed", output_text: JSON.stringify(verdict) }) };
+    }
     requests.push(body);
     assert.ok(queue.length, `unexpected extra AI call: ${body.input.at(-1)?.content}`);
     const reply = queue.shift();
@@ -43,7 +53,7 @@ async function withProvider(callback) {
         : { output_text: reply.text }) }
       : { error: { code: reply.code || "rate_limit_exceeded" } } };
   };
-  try { await callback({ queue, requests }); }
+  try { await callback({ queue, requests, reviewRequests }); }
   finally { globalThis.fetch = savedFetch;
     if (savedKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = savedKey; }
 }

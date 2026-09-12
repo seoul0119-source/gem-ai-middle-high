@@ -734,9 +734,19 @@
       } else if (is2027Social) {
         launchGuide.textContent = selectedTrack ? "선택한 사회탐구 과목을 개념·자료 분석·실전 10문제로 공부합니다." : "공부할 사회탐구 과목을 하나 골라 주세요.";
       } else if (isSecondLanguage) {
-        launchGuide.textContent = selectedTrack ? "선택한 언어의 어휘·문법·의사소통·문화를 10문제로 공부합니다." : "제2외국어 또는 한문 과목을 하나 골라 주세요.";
+        launchGuide.textContent = selectedYear === "2028" && selectedTrack === "hanmun"
+          ? "한자의 음과 뜻·한자 어휘·성어·한문 문장 독해를 10문제로 공부합니다."
+          : selectedTrack ? "선택한 언어의 어휘·문법·의사소통·문화를 10문제로 공부합니다." : "제2외국어 또는 한문 과목을 하나 골라 주세요.";
       } else if (is2028Science) {
         launchGuide.textContent = "허용된 통합과학 범위에서 개념 3·자료 분석 4·실전 3문제를 한 문제씩 공부합니다.";
+      } else if (selectedYear === "2028" && subjectKey !== "math") {
+        const subjectGuides = {
+          korean:"화법과 언어·독서와 작문·문학의 지문과 보기를 읽고 개념·자료 분석·실전 적용을 10문제로 공부합니다.",
+          english:"영어 어휘·문법·독해와 듣기 대본을 활용해 10문제를 공부합니다. 대본을 볼 수 있는 학습용 연습입니다.",
+          history:"한국사의 시대 흐름·사료·문화·독립운동·대한민국의 발전을 10문제로 공부합니다.",
+          social:"통합사회1·2의 인간·사회·환경·인권·시장·정의·문화·평화를 10문제로 공부합니다."
+        };
+        launchGuide.textContent = subjectGuides[subjectKey] || "선택한 과목의 개념·자료 분석·실전 적용을 10문제로 공부합니다.";
       } else {
         launchGuide.textContent = "대수·미적분Ⅰ·확률과 통계를 개념 3·유형 4·실전 3문제로 공부합니다.";
       }

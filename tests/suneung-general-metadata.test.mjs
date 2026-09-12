@@ -41,10 +41,10 @@ test("both exam years define native target locales without changing Korean instr
 
 test("every remaining 2028 classroom has an explicit integrated curriculum scope", () => {
   const direct = {
-    "suneung-2028-korean":["독서", "문학", "화법과 작문", "문법과 매체"],
-    "suneung-2028-english":["어휘와 문법", "빈칸 추론", "글의 순서", "장문 독해"],
+    "suneung-2028-korean":["독서와 작문", "문학", "화법과 언어"],
+    "suneung-2028-english":["어휘와 문법", "빈칸 추론", "글의 순서", "장문 독해", "듣기", "대본과 음성", "학습용 연습"],
     "suneung-2028-history":["전근대", "개항기", "독립운동", "대한민국"],
-    "suneung-2028-integrated-social":["인권과 헌법", "시장", "사회정의", "세계화"]
+    "suneung-2028-integrated-social":["통합사회1", "통합적 관점", "인간·사회·환경과 행복", "자연환경과 인간", "문화와 다양성", "생활공간과 사회", "통합사회2", "인권 보장과 헌법", "사회정의와 불평등", "시장경제와 지속가능발전", "세계화와 평화", "미래와 지속가능한 삶"]
   };
   for (const [id, terms] of Object.entries(direct)) {
     const prompt = SUNEUNG_COURSES[id].prompt;
@@ -52,10 +52,30 @@ test("every remaining 2028 classroom has an explicit integrated curriculum scope
     assert.match(prompt, /2022 개정 교육과정의 통합형 체제/);
     for (const term of terms) assert.match(prompt, new RegExp(term), `${id}: ${term}`);
   }
-  for (const key of ["german", "french", "spanish", "chinese", "japanese", "russian", "arabic", "vietnamese", "hanmun"]) {
+  for (const key of ["german", "french", "spanish", "chinese", "japanese", "russian", "arabic", "vietnamese"]) {
     const prompt = SUNEUNG_COURSES[`suneung-2028-second-${key}`].prompt;
     for (const term of ["어휘의 문맥 이해", "의사소통 기능", "문법과 문장 구조", "문화 이해"]) {
       assert.match(prompt, new RegExp(term), `${key}: ${term}`);
     }
   }
+});
+
+test("2028 Hanmun has a classical-language scope instead of modern foreign conversation", () => {
+  const course = SUNEUNG_COURSES["suneung-2028-second-hanmun"];
+  for (const term of ["한자의 음과 뜻", "한자 어휘와 짜임", "성어", "허사", "한문 문장 구조와 독해", "한국 한자음"]) {
+    assert.ok(course.prompt.includes(term), term);
+  }
+  assert.doesNotMatch(course.prompt, /세부 학습 범위:.*의사소통 기능/);
+  assert.doesNotMatch(course.greeting, /의사소통/);
+});
+
+test("2028 task clarity and independent content criteria do not alter 2027 prompts", () => {
+  for (const [id, course] of general) {
+    if (course.suneung.year === "2028") {
+      for (const term of ["화자·소유자", "판단 기준", "의도적으로 틀린 문장", "성조", "실제 사료", "9개 과목 중 1개"]) {
+        assert.ok(course.prompt.includes(term), `${id}: ${term}`);
+      }
+    } else assert.doesNotMatch(course.prompt, /발문·선택지·정답 검토/, id);
+  }
+  assert.doesNotMatch(SUNEUNG_COURSES["suneung-2028-korean"].prompt, /문법과 매체|화법과 작문의/);
 });

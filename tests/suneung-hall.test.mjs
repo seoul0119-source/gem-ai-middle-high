@@ -423,6 +423,19 @@ test("routes 2028 mathematics and guarded integrated science to working classroo
   assert.equal(scienceUi.location.href, "/learn.html?course=suneung-2028-integrated-science");
 });
 
+test("2028 general entrances describe their actual subject, including a separate Hanmun scope", () => {
+  const subjects = {korean:"화법과 언어",english:"듣기 대본",history:"독립운동",social:"통합사회1·2"};
+  for (const [subject, label] of Object.entries(subjects)) {
+    const ui = runSuneungUi(`#year=2028&subject=${subject}`);
+    assert.match(ui.launchGuide.textContent, new RegExp(label));
+    assert.doesNotMatch(ui.launchGuide.textContent, /대수|미적분|확률과 통계/);
+    assert.equal(ui.startLearning.disabled, false);
+  }
+  const hanmun = runSuneungUi("#year=2028&subject=second-language&track=hanmun");
+  assert.match(hanmun.launchGuide.textContent, /한자의 음과 뜻/);
+  assert.doesNotMatch(hanmun.launchGuide.textContent, /의사소통/);
+});
+
 test("registers matching browser and server definitions for all new classrooms", () => {
   const courseIds = [
     "suneung-2027-math-probability",
