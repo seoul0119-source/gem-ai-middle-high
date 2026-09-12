@@ -162,14 +162,20 @@ function responseCapture() {
   };
 }
 
-test("authenticated chat-final gives chemistry help without generation and speech accepts only approved explanation", async () => {
+test("authenticated chat-final generates contextual chemistry help and speech accepts only its signed explanation", async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
   process.env.OPENAI_API_KEY = "science-help-route-test-key";
   let generationCalls = 0;
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (_url, options) => {
     generationCalls += 1;
-    throw new Error("science concept explanations must not call external generation");
+    const body = JSON.parse(options.body);
+    const value = body.text.format.name === "science_tutor_review"
+      ? { allowed_scope:true, valid_tutoring:true }
+      : { reply:generationCalls === 1
+        ? "화학 결합은 원자들이 전자를 주고받거나 공유하면서 서로 연결되는 현상입니다. 원자 사이에 작용하는 전기적 힘과 관련이 있습니다."
+        : "예를 들어 물 분자에서는 수소 원자와 산소 원자가 전자를 공유하며 화학 결합을 이룹니다." };
+    return { ok:true, status:200, json:async () => ({ status:"completed", output_text:JSON.stringify(value) }) };
   };
   try {
     const courseRunId = "science-v2:help-api";
@@ -188,19 +194,23 @@ test("authenticated chat-final gives chemistry help without generation and speec
         body:{ courseId, courseRunId, messages:room.messages, learningProfile:room.profile, inputMode:"voice" }
       }, response);
       assert.equal(response.statusCode, 200, JSON.stringify(response.payload));
-      room.messages.push({ role:"assistant", content:response.payload.text });
+      room.messages.push({ role:"assistant", content:response.payload.text,
+        scienceReplyProof:response.payload.scienceReplyProof });
       return response.payload;
     }
     const explanation = await chat("화학 결합에 대해서 설명해 주세요.");
-    assertSupport(room.engine, explanation);
+    assert.equal(explanation.record, undefined);
+    assert.match(explanation.text, /문제 3\/10[\s\S]*도전 1\/3/);
+    assert.equal(typeof explanation.scienceReplyProof, "string");
     assert.match(explanation.text, /결합/);
     const followup = await chat("예를 들어 주세요.");
-    assertSupport(room.engine, followup);
+    assert.equal(followup.record, undefined);
+    assert.equal(typeof followup.scienceReplyProof, "string");
     assert.match(followup.text, /결합/);
     const blocked = await chat("화학 진화에 대해서도 설명해 주세요");
     assert.match(blocked.text, /해당 주제를 다루지 않습니다/);
     assert.equal(blocked.record, undefined);
-    assert.equal(generationCalls, 0);
+    assert.equal(generationCalls, 4, "two teacher replies each receive a separate content review");
 
     let speechCalls = 0;
     globalThis.fetch = async (_url, options) => {
@@ -212,7 +222,8 @@ test("authenticated chat-final gives chemistry help without generation and speec
     };
     const text = room.engine.projectClosedSuneungScienceSpeechText(explanation.text);
     const approved = responseCapture();
-    await speechHandler({ method:"POST", headers, body:{ courseId, courseRunId, text } }, approved);
+    await speechHandler({ method:"POST", headers,
+      body:{ courseId, courseRunId, text, scienceReplyProof:explanation.scienceReplyProof } }, approved);
     assert.equal(approved.statusCode, 200, JSON.stringify(approved.payload));
     assert.equal(approved.payload.mimeType, "audio/mpeg");
     assert.equal(speechCalls, 1);
@@ -220,7 +231,8 @@ test("authenticated chat-final gives chemistry help without generation and speec
     const tampered = responseCapture();
     await speechHandler({
       method:"POST", headers,
-      body:{ courseId, courseRunId, text:`${text}\n임의로 덧붙인 설명입니다.` }
+      body:{ courseId, courseRunId, text:`${text}\n임의로 덧붙인 설명입니다.`,
+        scienceReplyProof:explanation.scienceReplyProof }
     }, tampered);
     assert.equal(tampered.statusCode, 400);
     assert.equal(speechCalls, 1, "unapproved additions must be rejected before TTS");

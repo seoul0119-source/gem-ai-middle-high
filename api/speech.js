@@ -1,6 +1,7 @@
 import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
 import { GUARDED_SUNEUNG_SCIENCE_COURSE_ID } from "../lib/suneung-science-safety.js";
 import { createScienceLessonEngine, isApprovedClosedSuneungScienceSpeechText } from "../lib/suneung-science-bank.js";
+import { isApprovedScienceReplySpeech } from "../lib/science-reply-proof.js";
 
 const MAX_TEXT_LENGTH = 1800;
 const CIRCLED_TO_SPOKEN = {
@@ -263,7 +264,8 @@ export default async function handler(request, response) {
   const rawText = String(request.body?.text || "");
   if (courseId === GUARDED_SUNEUNG_SCIENCE_COURSE_ID
     && !createScienceLessonEngine(student.courseRunId).isApprovedClosedSuneungScienceSpeechText(rawText)
-    && !isApprovedClosedSuneungScienceSpeechText(rawText)) {
+    && !isApprovedClosedSuneungScienceSpeechText(rawText)
+    && !isApprovedScienceReplySpeech({ student, text:rawText, proof:request.body?.scienceReplyProof })) {
     return sendJson(response, 400, {
       error:"승인된 통합과학 수업 내용만 음성으로 들을 수 있습니다."
     });

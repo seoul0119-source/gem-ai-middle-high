@@ -597,8 +597,8 @@ test("blocks excluded integrated-science content in questions, explanations, and
   assert.equal(containsExcludedSuneungScienceContent("생물의 적응을 설명하시오"), true);
   assert.equal(containsExcludedSuneungScienceContent(SAFE_SCIENCE_REDIRECT), false);
   assert.doesNotMatch(SAFE_SCIENCE_REDIRECT, /다음 문제/);
-  assert.match(chatSource, /guardedSuneungScience[\s\S]*?containsExcludedSuneungScienceContent\(latestSubmittedMessage\.content\)[\s\S]*?SAFE_SCIENCE_REDIRECT/);
-  assert.match(chatSource, /containsExcludedSuneungScienceContent\(text\)[\s\S]*?continue;/);
+  // Input/output enforcement is exercised through authenticated chat-final
+  // requests in suneung-science-tutor.test.mjs, including rejected reviews.
   assert.match(suneungHtml, /공식 통합과학 전 범위 과정이 아닙니다/);
 });
 

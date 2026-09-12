@@ -7,7 +7,8 @@ import {
   containsExcludedSuneungScienceContent,
   isGuardedSuneungScienceCourse
 } from "../lib/suneung-science-safety.js";
-import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
+import { handleScienceTutor } from "../lib/suneung-science-tutor.js";
+import { requestSuneungResponse } from "../lib/suneung-ai-model.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_MESSAGES = 40;
@@ -1260,32 +1261,21 @@ export default async function handler(request, response) {
   }
 
   const guardedSuneungScience = isGuardedSuneungScienceCourse(request.body?.courseId);
-  const handleClosedSuneungScienceLesson = guardedSuneungScience
-    ? createScienceLessonEngine(student.courseRunId).handleClosedSuneungScienceLesson : null;
-  const latestSubmittedMessage = messages[messages.length - 1];
-  if (guardedSuneungScience
-    && latestSubmittedMessage?.role === "user"
-    && containsExcludedSuneungScienceContent(latestSubmittedMessage.content)) {
-    const safeClosedResponse = handleClosedSuneungScienceLesson({
-      courseId:requestedCourseId,
-      messages,
-      learningProfile:request.body?.learningProfile,
-      blockedInput:true
-    });
-    return sendJson(response, 200, safeClosedResponse || { text:SAFE_SCIENCE_REDIRECT });
-  }
-
-  // This guarded course is deliberately closed and deterministic: every
-  // question, hint, grade, record, and summary comes from the reviewed bank.
-  // Keep it before every OpenAI credential check and network call so no input
-  // can reach a generative path, including input that a semantic filter misses.
+  // Grading stays deterministic; natural questions use a contextual AI
+  // teacher. Only reviewed and signed explanations may be spoken or restore
+  // question state on a subsequent request.
   if (guardedSuneungScience) {
-    return sendJson(response, 200, handleClosedSuneungScienceLesson({
-      courseId:requestedCourseId,
-      messages,
-      learningProfile:request.body?.learningProfile,
-      inputMode:request.body?.inputMode === "voice" ? "voice" : "text"
-    }));
+    try {
+      const result = await handleScienceTutor({ student, messages,
+        rawMessages: request.body?.messages,
+        learningProfile: request.body?.learningProfile,
+        inputMode: request.body?.inputMode === "voice" ? "voice" : "text"
+      });
+      return sendJson(response, 200, result);
+    } catch (error) {
+      console.error("Science AI explanation unavailable", error?.name, error?.message);
+      return sendJson(response, 502, { error: "AI 선생님의 설명을 지금 불러오지 못했습니다. 잠시 후 같은 질문을 다시 보내 주세요. 문제와 도전 횟수는 유지됩니다." });
+    }
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -1425,21 +1415,24 @@ export default async function handler(request, response) {
             formatRepairRule += `\n문제 1–3은 개념, 4–7은 자료 분석, 8–10은 실전으로 고정합니다. 서버가 지정한 번호와 GEM_RECORD question/stage/scope를 바꾸지 마세요.`;
           }
         }
-        const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const requestBody = {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
             instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule,
             input: messages,
-            max_output_tokens: course.kind === "toefl"
+            max_output_tokens: course.suneung ? 5000 : course.kind === "toefl"
               ? 1200
               : ["korean", "social", "history", "science", "english", "toeic"].includes(course.kind)
                 ? 900
                 : 650
-          })
+        };
+        const suneungResponse = course.suneung
+          ? await requestSuneungResponse(requestBody, { apiKey, signal: AbortSignal.timeout(55_000) }) : null;
+        const openAIResponse = suneungResponse || await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody)
         });
-        const data = await openAIResponse.json();
+        const data = suneungResponse ? suneungResponse.data : await openAIResponse.json();
         if (!openAIResponse.ok) {
           console.error("OpenAI lesson error", openAIResponse.status, data?.error?.code);
           return sendJson(response, 502, { error: "AI 선생님 연결이 잠시 원활하지 않습니다." });

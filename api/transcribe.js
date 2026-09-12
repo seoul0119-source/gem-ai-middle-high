@@ -74,7 +74,7 @@ export default async function handler(request, response) {
             ? "한국 중고등학생의 한국사 문제에 대한 짧은 답변입니다. 인물, 시대, 사건, 제도와 연도를 정확히 받아쓰세요."
             : isScience
               ? (courseId === "suneung-2028-integrated-science"
-                ? "과학 객관식 문제에서 학생이 A(에이), B(비), C(씨), D(디), E(알파벳 이), 1번부터 5번, 또는 힌트를 말합니다. 들린 답만 받아쓰세요. 정답을 추측하거나 답을 바꾸지 마세요."
+                ? "수능 통합과학 학생이 선생님과 대화합니다. 학생은 답을 말하거나, 개념의 뜻을 질문하거나, 설명·힌트·예시를 요청하고 앞선 설명에 이어 질문할 수 있습니다. 질문과 문장을 끝까지 그대로 받아쓰세요. A(에이), B(비), C(씨), D(디), E(알파벳 이) 및 1번부터 5번 답안도 들린 그대로 적으세요. 질문을 답안으로 줄이지 마세요. 정답을 추측하거나 답을 바꾸지 마세요."
                 : "한국 중고등학생의 과학 문제에 대한 짧은 답변입니다. 과학 용어, 수치, 단위와 실험 조건을 정확히 받아쓰세요.")
               : isEnglishCourse
                 ? "A Korean learner is answering an English lesson. Transcribe only the spoken Korean or English answer."
@@ -95,7 +95,7 @@ export default async function handler(request, response) {
                 ? ["Reading", "Listening", "Speaking", "Writing", "grammar", "vocabulary", "TOEFL", "TOEIC"]
                 : [];
     if (courseId === "suneung-2028-integrated-science") {
-      courseKeywords.unshift("알파벳 E", "알파벳 이", "에이", "비", "씨", "디", "오번", "두 번째", "힌트", "새 문제");
+      courseKeywords.unshift("알파벳 E", "알파벳 이", "에이", "비", "씨", "디", "오번", "두 번째", "질량", "무게", "설명", "예시", "힌트", "새 문제");
     }
     const contextKeywords = questionContext.match(/[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]{2,}|-?\d+(?:[.,]\d+)*/g) || [];
     const keywords = [...new Set([...courseKeywords, ...contextKeywords])]
