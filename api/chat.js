@@ -1283,7 +1283,8 @@ export default async function handler(request, response) {
     return sendJson(response, 200, handleClosedSuneungScienceLesson({
       courseId:requestedCourseId,
       messages,
-      learningProfile:request.body?.learningProfile
+      learningProfile:request.body?.learningProfile,
+      inputMode:request.body?.inputMode === "voice" ? "voice" : "text"
     }));
   }
 

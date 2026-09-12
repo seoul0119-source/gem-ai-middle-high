@@ -1,5 +1,7 @@
 import { getCourse } from "./courses.js";
 import { randomUUID } from "node:crypto";
+import { SCIENCE_VARIANT_PREFIX, scienceVariants } from "../lib/suneung-science-variants.js";
+import { CLOSED_SUNEUNG_SCIENCE_QUESTIONS } from "../lib/suneung-science-bank.js";
 import {
   clearStudentSession,
   readStudentSession,
@@ -8,6 +10,20 @@ import {
   setStudentSession
 } from "../lib/student-session.js";
 
+function scienceRunHistory(student) {
+  return [...new Set([...(student.scienceRunHistory || []), student.courseId === "suneung-2028-integrated-science" ? student.courseRunId : ""])]
+    .filter(id => typeof id === "string" && id.startsWith(SCIENCE_VARIANT_PREFIX) && id.length <= 80).slice(-20);
+}
+
+function newCourseRunId(courseId, student) {
+  if (courseId !== "suneung-2028-integrated-science") return randomUUID();
+  const recentStems = new Set(scienceRunHistory(student).map(seed => scienceVariants(CLOSED_SUNEUNG_SCIENCE_QUESTIONS, seed)[0].stem));
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const seed = SCIENCE_VARIANT_PREFIX + randomUUID();
+    if (!recentStems.has(scienceVariants(CLOSED_SUNEUNG_SCIENCE_QUESTIONS, seed)[0].stem)) return seed;
+  }
+  throw new Error("새 문제를 준비하지 못했습니다. 잠시 후 새 수업을 다시 눌러 주세요.");
+}
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6LIvJEhy9KXQbpTghGRaAXtjL03HltJF7Lb4leU6v_q0bkoBsjMkhN-Q8laeT27zDdQ/exec";
 
 function sendJson(response, status, payload) {
@@ -209,6 +225,7 @@ async function trackEnd(student) {
 }
 
 async function createFreshCourseSession(student, courseId, course) {
+  const courseRunId = newCourseRunId(courseId, student);
   if (student.courseId && !student.endedAt) {
     // Closing a previous page may already have ended this sheet row. Starting
     // the new page must still succeed if that best-effort end was duplicated.
@@ -224,7 +241,8 @@ async function createFreshCourseSession(student, courseId, course) {
     // Keep the signed cookie's original login boundary across course runs.
     authenticatedAt: student.authenticatedAt ?? student.iat,
     courseId,
-    courseRunId: randomUUID(),
+    courseRunId,
+    scienceRunHistory: scienceRunHistory(student),
     startedAt: new Date().toISOString(),
     endedAt: null,
     trackingMessage: tracking.message
@@ -281,12 +299,14 @@ export default async function handler(request, response) {
         active = await createFreshCourseSession(student, courseId, course);
         trackingMessage = active.trackingMessage;
       } else if (!student.courseId || !student.startedAt) {
+        const courseRunId = newCourseRunId(courseId, student);
         const tracking = await trackStart(student, courseId, course);
         trackingMessage = tracking.message;
         active = {
           ...student,
           courseId,
-          courseRunId: randomUUID(),
+          courseRunId,
+          scienceRunHistory: scienceRunHistory(student),
           startedAt: new Date().toISOString(),
           endedAt: null
         };

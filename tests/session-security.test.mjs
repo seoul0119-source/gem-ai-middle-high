@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { CLOSED_SUNEUNG_SCIENCE_QUESTIONS } from "../lib/suneung-science-bank.js";
+import { scienceVariants } from "../lib/suneung-science-variants.js";
 import sessionHandler, { isPositiveTrackingResponse } from "../api/session.js";
 import {
   createSessionToken,
@@ -257,4 +259,36 @@ test("keeps the login boundary when a fresh tracked course row is created", asyn
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test("science start and restart keep versioned keys and avoid the previous twenty opening problems", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const action = new URL(url).searchParams.get("action");
+    return { ok:true, text:async () => action === "start"
+      ? "<html><body>수업 시작 기록이 저장되었습니다.</body></html>"
+      : action === "end" ? "<html><body>수업이 종료되었습니다.</body></html>"
+      : '<html><body><a href="https://gem-ai-middle-high.vercel.app/class.html?id=R260001&name=student&session=22222222-2222-4222-8222-222222222222">입장</a></body></html>' };
+  };
+  const courseId = "suneung-2028-integrated-science";
+  let student = {};
+  const stems = [];
+  try {
+    for (let run = 0; run < 30; run += 1) {
+      const response = makeResponse();
+      await sessionHandler(signedRequest({ action:run ? "restart" : "start", courseId }, student), response);
+      assert.equal(response.statusCode, 200, response.body);
+      const payload = JSON.parse(response.body);
+      assert.match(payload.courseRunId, /^science-v2:[0-9a-f-]{36}$/i);
+      const stem = scienceVariants(CLOSED_SUNEUNG_SCIENCE_QUESTIONS, payload.courseRunId)[0].stem;
+      assert.equal(stems.slice(-20).includes(stem), false);
+      stems.push(stem);
+      const cookie = response.headers.get("set-cookie");
+      assert.ok(Buffer.byteLength(cookie) < 4096);
+      student = decodeToken(cookie.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))[1]);
+      assert.equal(student.courseRunId, payload.courseRunId);
+      assert.equal(student.scienceRunHistory.length, Math.min(run, 20));
+    }
+  } finally { globalThis.fetch = originalFetch; }
 });

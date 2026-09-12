@@ -73,7 +73,9 @@ export default async function handler(request, response) {
           : isHistory
             ? "한국 중고등학생의 한국사 문제에 대한 짧은 답변입니다. 인물, 시대, 사건, 제도와 연도를 정확히 받아쓰세요."
             : isScience
-              ? "한국 중고등학생의 과학 문제에 대한 짧은 답변입니다. 과학 용어, 수치, 단위와 실험 조건을 정확히 받아쓰세요."
+              ? (courseId === "suneung-2028-integrated-science"
+                ? "과학 객관식 문제에서 학생이 A(에이), B(비), C(씨), D(디), E(알파벳 이), 1번부터 5번, 또는 힌트를 말합니다. 들린 답만 받아쓰세요. 정답을 추측하거나 답을 바꾸지 마세요."
+                : "한국 중고등학생의 과학 문제에 대한 짧은 답변입니다. 과학 용어, 수치, 단위와 실험 조건을 정확히 받아쓰세요.")
               : isEnglishCourse
                 ? "A Korean learner is answering an English lesson. Transcribe only the spoken Korean or English answer."
                 : "A Korean student is repeating one English word or a short sentence.";
@@ -92,6 +94,9 @@ export default async function handler(request, response) {
               : isEnglishCourse
                 ? ["Reading", "Listening", "Speaking", "Writing", "grammar", "vocabulary", "TOEFL", "TOEIC"]
                 : [];
+    if (courseId === "suneung-2028-integrated-science") {
+      courseKeywords.unshift("알파벳 E", "알파벳 이", "에이", "비", "씨", "디", "오번", "두 번째", "힌트", "새 문제");
+    }
     const contextKeywords = questionContext.match(/[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]{2,}|-?\d+(?:[.,]\d+)*/g) || [];
     const keywords = [...new Set([...courseKeywords, ...contextKeywords])]
       .filter((word) => word.length <= 30)
@@ -163,6 +168,7 @@ export default async function handler(request, response) {
       || /물질.*원자.*분자.*힘.*운동.*에너지/.test(transcript)
       || /Korean learner.*answering an English lesson/i.test(transcript)
       || /Transcribe only the spoken/i.test(transcript)
+      || /들린 답만 받아쓰세요|정답을 추측하거나 답을 바꾸지 마세요/.test(transcript)
       || /들리지\s*않는\s*말을\s*추측/.test(transcript)
       || /같은\s*글자를\s*반복하지\s*마세요/.test(transcript)
       || /표현을\s*정확한\s*한국어/.test(transcript)
