@@ -61,6 +61,7 @@ function syntheticLesson(courseId) {
     courseRunId,
     cookie: `${SESSION_COOKIE}=${token}`,
     lessonSeed: randomUUID(),
+    turn: 0,
     messages: [],
     lessonRecords: []
   };
@@ -68,6 +69,8 @@ function syntheticLesson(courseId) {
 
 async function ask(lesson, content) {
   applicationTurns += 1;
+  lesson.turn += 1;
+  originalConsole.log(`CSAT live turn: ${lesson.courseId}; turn=${lesson.turn}.`);
   requireCheck(applicationTurns <= MAX_APPLICATION_TURNS, "application_budget_exceeded");
   lesson.messages.push({ role: "user", content });
   const captured = responseCapture();
@@ -81,7 +84,7 @@ async function ask(lesson, content) {
   });
   try {
     await Promise.race([
-      requestContext.run({ signal: abort.signal }, () => chatHandler({
+      requestContext.run({ signal: abort.signal, course: lesson.courseId, turn: lesson.turn }, () => chatHandler({
         method: "POST",
         headers: { cookie: lesson.cookie },
         body: {
@@ -99,7 +102,10 @@ async function ask(lesson, content) {
   } finally {
     clearTimeout(timeout);
   }
-  requireCheck(captured.statusCode === 200 && !captured.payload?.error, "handler_response_failed");
+  if (captured.statusCode !== 200 || captured.payload?.error) {
+    originalConsole.error(`CSAT live handler failed: ${lesson.courseId}; turn=${lesson.turn}; HTTP=${captured.statusCode}.`);
+    throw new Error("build_general_handler_response_failed");
+  }
   const payload = captured.payload;
   requireCheck(typeof payload?.text === "string" && payload.text.trim().length > 30, "empty_reply");
   requireCheck(!/새 문제를 다시 준비해 주세요|질문에 나온 핵심어를 지문에서 찾아|답안을 확인하지 못했습니다/.test(payload.text),
@@ -235,10 +241,31 @@ async function verifyGeneralCourses() {
     return realFetch(input, { ...options, signal: AbortSignal.any(signals) });
   };
 
-  // Application diagnostics can contain exception objects. Keep only a count,
-  // never raw provider data, request headers, cookies, proofs, or stack traces.
+  // Emit only allowlisted event/reason codes; never exception messages, raw
+  // provider data, request headers, cookies, proofs, student text or traces.
+  const eventCodes = new Map([
+    ["General CSAT turn rejected", "turn_rejected"],
+    ["Out-of-sequence Suneung response rejected", "sequence_rejected"],
+    ["Invalid or out-of-sequence Suneung record rejected", "record_rejected"],
+    ["Incomplete general CSAT response rejected", "response_incomplete"],
+    ["Incomplete Suneung five-choice set rejected", "choices_incomplete"],
+    ["Duplicate lesson problem rejected", "duplicate_question"],
+    ["OpenAI lesson error", "provider_error"],
+    ["GEM chat error", "handler_exception"],
+    ["CSAT preferred model unavailable; using supported fallback", "model_fallback"]
+  ]);
   for (const method of ["log", "warn", "error", "info"]) {
-    console[method] = () => { applicationDiagnostics += 1; };
+    console[method] = (...args) => {
+      applicationDiagnostics += 1;
+      const context = requestContext.getStore();
+      const event = eventCodes.get(args[0]);
+      if (!event) return;
+      const reason = args[1]?.reason;
+      const safeReason = typeof reason === "string" && /^[a-z_]{1,100}$/.test(reason) ? reason : "none";
+      const status = Number.isInteger(args[1]) && args[1] >= 400 && args[1] <= 599 ? args[1] : 0;
+      const providerCode = event === "provider_error" && /^[a-z_]{1,80}$/.test(String(args[2] || "")) ? args[2] : "none";
+      originalConsole.log(`CSAT build diagnostic: ${context?.course || "general"}; turn=${context?.turn || 0}; ${event}; reason=${safeReason}; HTTP=${status}; providerCode=${providerCode}.`);
+    };
   }
   originalConsole.log("CSAT live general verification: 3 synthetic course stories; no student records are written.");
   const results = await Promise.allSettled(FIXTURES.map(async fixture => {
