@@ -255,8 +255,8 @@ test("closed engine handles hints and arbitrary non-answer text without discussi
     messages:[{ role:"assistant", content:start.text }, { role:"user", content:arbitrary }],
     learningProfile:{ lessonRecords:[] }
   });
-  assert.match(unclear.text, /다른 내용은 다루지 않고 현재 문제를 계속/);
-  assert.match(unclear.text, /A~E 또는 1~5/);
+  assert.match(unclear.text, /어떤 부분이 궁금한지/);
+  assert.match(unclear.text, /질문은 답안으로 채점하지 않습니다/);
   assert.doesNotMatch(unclear.text, new RegExp(arbitrary));
 
   const assistantEnded = handleClosedSuneungScienceLesson({
