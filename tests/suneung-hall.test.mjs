@@ -109,7 +109,11 @@ function runSuneungUi(initialHash = "") {
     ["science", "수능 과학탐구"], ["second-language", "수능 제2외국어/한문"]
   ].map(([key, subject]) => createButton({ key, subject }, true));
   const trackButtons = [
-    ["probability", "확률과 통계"], ["calculus", "미적분"], ["geometry", "기하"]
+    ["probability", "확률과 통계"], ["calculus", "미적분"], ["geometry", "기하"],
+    ["physics-1", "물리학Ⅰ"], ["physics-2", "물리학Ⅱ"],
+    ["chemistry-1", "화학Ⅰ"], ["chemistry-2", "화학Ⅱ"],
+    ["biology-1", "생명과학Ⅰ"], ["biology-2", "생명과학Ⅱ"],
+    ["earth-science-1", "지구과학Ⅰ"], ["earth-science-2", "지구과학Ⅱ"]
   ].map(([track, label]) => createButton({ track }, false, label));
   const yearPolicy = { dataset:{}, textContent:"" };
   const selectionStatus = { textContent:"" };
@@ -118,6 +122,7 @@ function runSuneungUi(initialHash = "") {
   const learningLaunch = { hidden:true };
   const launchGuide = { textContent:"" };
   const mathTrackOptions = { hidden:true };
+  const scienceTrackOptions = { hidden:true };
   const scienceGuardNotice = { hidden:true };
   const startLearning = createButton({}, true, "선택 후 AI 수업 시작 →");
   const location = { hash:initialHash, href:"", replace() {} };
@@ -136,6 +141,7 @@ function runSuneungUi(initialHash = "") {
         "learning-launch":learningLaunch,
         "launch-guide":launchGuide,
         "math-track-options":mathTrackOptions,
+        "science-track-options":scienceTrackOptions,
         "science-guard-notice":scienceGuardNotice,
         "start-learning":startLearning,
         student,
@@ -166,6 +172,7 @@ function runSuneungUi(initialHash = "") {
     learningLaunch,
     launchGuide,
     mathTrackOptions,
+    scienceTrackOptions,
     scienceGuardNotice,
     startLearning,
     location
@@ -330,6 +337,27 @@ test("routes every 2027 mathematics elective to its own AI classroom", () => {
     trackButton.click();
     assert.equal(trackButton.getAttribute("aria-pressed"), "true");
     assert.equal(ui.location.hash, `#year=2027&subject=math&track=${track}`);
+    assert.equal(ui.startLearning.disabled, false);
+    ui.startLearning.click();
+    assert.equal(ui.location.href, `/learn.html?course=${courseId}`);
+  }
+});
+
+test("shows and routes every 2027 science inquiry entrance", () => {
+  const destinations = {
+    "physics-1":"suneung-2027-physics-1", "physics-2":"suneung-2027-physics-2",
+    "chemistry-1":"suneung-2027-chemistry-1", "chemistry-2":"suneung-2027-chemistry-2",
+    "biology-1":"suneung-2027-biology-1", "biology-2":"suneung-2027-biology-2",
+    "earth-science-1":"suneung-2027-earth-science-1", "earth-science-2":"suneung-2027-earth-science-2"
+  };
+  for (const [track, courseId] of Object.entries(destinations)) {
+    const ui = runSuneungUi();
+    ui.yearButtons[0].click();
+    ui.subjectButtons.find(button => button.dataset.key === "science").click();
+    assert.equal(ui.learningLaunch.hidden, false);
+    assert.equal(ui.scienceTrackOptions.hidden, false);
+    assert.equal(ui.startLearning.disabled, true);
+    ui.trackButtons.find(button => button.dataset.track === track).click();
     assert.equal(ui.startLearning.disabled, false);
     ui.startLearning.click();
     assert.equal(ui.location.href, `/learn.html?course=${courseId}`);

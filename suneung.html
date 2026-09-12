@@ -594,12 +594,6 @@
           social:{ label:"수능 사회탐구", detail:"사회 9개 과목 중 선택 · 탐구 전체 최대 2개" },
           science:{ label:"수능 과학탐구", detail:"과학 8개 과목 중 선택 · 탐구 전체 최대 2개" },
           "second-language":{ label:"수능 제2외국어/한문", detail:"선택 영역 · 9개 과목 중 1개 · 30문항 40분" }
-        },
-        science: {
-          "physics-1":"suneung-2027-physics-1", "physics-2":"suneung-2027-physics-2",
-          "chemistry-1":"suneung-2027-chemistry-1", "chemistry-2":"suneung-2027-chemistry-2",
-          "biology-1":"suneung-2027-biology-1", "biology-2":"suneung-2027-biology-2",
-          "earth-science-1":"suneung-2027-earth-science-1", "earth-science-2":"suneung-2027-earth-science-2"
         }
       },
       "2028": {
@@ -623,6 +617,12 @@
           probability:"suneung-2027-math-probability",
           calculus:"suneung-2027-math-calculus",
           geometry:"suneung-2027-math-geometry"
+        },
+        science: {
+          "physics-1":"suneung-2027-physics-1", "physics-2":"suneung-2027-physics-2",
+          "chemistry-1":"suneung-2027-chemistry-1", "chemistry-2":"suneung-2027-chemistry-2",
+          "biology-1":"suneung-2027-biology-1", "biology-2":"suneung-2027-biology-2",
+          "earth-science-1":"suneung-2027-earth-science-1", "earth-science-2":"suneung-2027-earth-science-2"
         }
       },
       "2028": {
@@ -695,6 +695,8 @@
         selectionStatus.textContent = `${examPlans[selectedYear].label} 체제가 적용되었습니다. 공부할 수능 과목을 선택해 주세요.`;
       } else if (selectedYear === "2027" && selectedSubjectButton.dataset.key === "math" && !selectedTrack) {
         selectionStatus.textContent = "2027학년도 수능 수학 선택 완료 · 아래에서 확률과 통계, 미적분, 기하 중 한 과목을 골라 주세요.";
+      } else if (selectedYear === "2027" && selectedSubjectButton.dataset.key === "science" && !selectedTrack) {
+        selectionStatus.textContent = "2027학년도 수능 과학탐구 선택 완료 · 아래에서 공부할 과학탐구 과목을 골라 주세요.";
       } else if (selectedCourseId()) {
         selectionStatus.textContent = `학습 준비 완료: ${examPlans[selectedYear].label} · ${selectedSubjectButton.dataset.subject}${selectedTrack ? ` · ${trackButtons.find((button) => button.dataset.track === selectedTrack)?.textContent || ""}` : ""}`;
       } else {
@@ -786,5 +788,3 @@
   </script>
 </body>
 </html>
-      } else if (selectedYear === "2027" && selectedSubjectButton.dataset.key === "science" && !selectedTrack) {
-        selectionStatus.textContent = "2027학년도 수능 과학탐구 선택 완료 · 아래에서 공부할 과학탐구 과목을 골라 주세요.";
