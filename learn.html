@@ -602,6 +602,7 @@
     </div>
   </div>
 
+  <script src="/elementary-catalog.js"></script>
   <script>
     function elementaryMathConfig(language, level, label) {
       const french = language === "fr";
@@ -812,6 +813,7 @@
       "h2-science": { title: "고2 과학 Lv.11 시험판", subject: "과학", grade: "고등학교 2학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고2 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false },
       "h3-science": { title: "고3 과학 Lv.12 시험판", subject: "과학", grade: "고등학교 3학년", greeting: "안녕하세요! “시작”이라고 입력하면 새로운 고3 과학 자료와 문제 10개를 시작합니다.", placeholder: "시작, 답 또는 힌트를 입력하세요", voice: false }
     };
+    Object.assign(COURSE_CONFIGS, globalThis.GEM_ELEMENTARY_CONFIGS || {});
     const requestedCourse = new URLSearchParams(location.search).get("course");
     const COURSE_ID = COURSE_CONFIGS[requestedCourse] ? requestedCourse : "m1-english-word";
     let lessonSeed = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
@@ -823,7 +825,7 @@
     const IS_HISTORY = COURSE.generalSuneung ? COURSE.suneungSubject === "history" : COURSE_ID.endsWith("-history");
     const IS_SCIENCE = COURSE_ID.endsWith("-science");
     const IS_ENGLISH = COURSE_ID.endsWith("-english") || COURSE_ID.endsWith("-en") || COURSE_ID === "toefl" || COURSE_ID === "toeic";
-    const IS_GENERATIVE_LESSON = Boolean(COURSE.generalSuneung) || IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
+    const IS_GENERATIVE_LESSON = Boolean(COURSE.elementary) || Boolean(COURSE.generalSuneung) || IS_MATH || IS_KOREAN || IS_SOCIAL || IS_HISTORY || IS_SCIENCE || IS_ENGLISH;
     const IS_VISUAL_LESSON = IS_GENERATIVE_LESSON;
     const IS_FRENCH = COURSE.language === "fr";
     const AVATAR_TEXT = IS_FRENCH ? {
@@ -2219,6 +2221,8 @@
                   ? (isStarting ? "새 영어 활동과 문제를 만들고 검토하고 있습니다…" : "영어 답을 확인하고 다음 활동을 준비하고 있습니다…")
                   : COURSE.generalSuneung
                     ? (isStarting ? "새 수능 문제를 만들고 검토하고 있습니다…" : "질문과 답을 확인하고 다음 단계를 준비하고 있습니다…")
+                    : COURSE.elementary
+                      ? (isStarting ? "새 문제를 준비하고 있습니다…" : "답과 설명을 확인하고 있습니다…")
                     : (isStarting ? "첫 단어를 준비하고 있습니다…" : "발음을 확인하고 다음 단어를 준비하고 있습니다…");
       const typing = addMessage("assistant", loadingText, "typing");
 

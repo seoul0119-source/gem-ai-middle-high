@@ -227,7 +227,8 @@ test("keeps every existing classroom destination", () => {
   }
 
   const elementaryEntrance = 'href="https://sites.google.com/view/gem-ai-school/home"';
-  assert.equal(classHtml.split(elementaryEntrance).length - 1, 1, "Elementary entrance must remain exactly once");
+  assert.equal(classHtml.split(elementaryEntrance).length - 1, 0, "Legacy GPT entrance is replaced by the 32 native classrooms");
+  assert.equal([...classHtml.matchAll(/data-href="\/learn\.html\?course=e[1-6]-/g)].length, 32);
 });
 
 test("offers 2027 and 2028 exam-year choices before the subjects", () => {

@@ -1,3 +1,4 @@
+import { ELEMENTARY_COURSES } from "../lib/elementary-courses.js";
 import { SUNEUNG_COURSES } from "./suneung-courses.js";
 
 const MIDDLE_1_WORD_PROMPT = `당신은 영어 기초를 확장하는 중학교 1학년 수준의 학습자를 위한 친절하고 차분한 영어 단어 튜터입니다.
@@ -1105,6 +1106,7 @@ const ELEMENTARY_FRENCH_MATH = {
 };
 
 export const COURSES = {
+  ...ELEMENTARY_COURSES,
   "m1-english-word": {
     title: "중1 영어 단어 Lv.7",
     grade: "중학교 1학년",

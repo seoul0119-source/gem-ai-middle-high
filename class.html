@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GEM AI CLASS 중·고등 학습관</title>
+<title>GEM AI CLASS 초·중·고 학습관</title>
 
 <style>
 *{
@@ -142,6 +142,12 @@ header p{
     box-shadow:0 5px 18px rgba(23,61,112,.08);
 }
 
+.elementary-grade { margin-top:12px; border:1px solid #c9def5; border-radius:12px; background:#fff; overflow:hidden; text-align:left; scroll-margin-top:20px; }
+.elementary-grade summary { padding:18px; font-size:18px; font-weight:bold; color:#173d70; cursor:pointer; }
+.elementary-grade .subjects { padding:0 14px 14px; }
+.elementary-grade .subject { background:#117656; font-size:16px; }
+.elementary-grade .subject:hover { background:#09553d; }
+.elementary-route .elementary-note { margin:16px 0 0; font-size:14px; }
 .elementary-route h2{ margin:0 0 8px; color:#173d70; }
 .elementary-route p{ margin:0 0 17px; color:#52657e; line-height:1.6; }
 .elementary-link{
@@ -216,8 +222,52 @@ footer{
 
     <section class="elementary-route" aria-labelledby="elementary-title">
         <h2 id="elementary-title">초등학교 1~6학년</h2>
-        <p>기존 GEM AI 한국어반 학습 홈페이지로 이동합니다.</p>
-        <a class="elementary-link" href="https://sites.google.com/view/gem-ai-school/home">🏫 초1~6 한국어 CLASS 입장</a>
+        <p>학년을 누르고 과목을 선택하세요. AI 선생님과 말하거나 글로 공부합니다.</p>
+        <details class="elementary-grade" id="elementary-grade-1" open><summary>초등학교 1학년 · 4과목</summary><div class="subjects">
+          <button class="subject" data-href="/learn.html?course=e1-korean">📘 초1 국어 Lv.1</button>
+          <button class="subject" data-href="/learn.html?course=e1-math">📐 초1 수학 Lv.1</button>
+          <button class="subject" data-href="/learn.html?course=e1-english">🔤 초1 영어 Lv.1</button>
+          <button class="subject" data-href="/learn.html?course=e1-integrated">🌱 초1 통합교과 Lv.1</button>
+        </div></details>
+        <details class="elementary-grade" id="elementary-grade-2"><summary>초등학교 2학년 · 4과목</summary><div class="subjects">
+          <button class="subject" data-href="/learn.html?course=e2-korean">📘 초2 국어 Lv.2</button>
+          <button class="subject" data-href="/learn.html?course=e2-math">📐 초2 수학 Lv.2</button>
+          <button class="subject" data-href="/learn.html?course=e2-english">🔤 초2 영어 Lv.2</button>
+          <button class="subject" data-href="/learn.html?course=e2-integrated">🌱 초2 통합교과 Lv.2</button>
+        </div></details>
+        <details class="elementary-grade" id="elementary-grade-3"><summary>초등학교 3학년 · 6과목</summary><div class="subjects">
+          <button class="subject" data-href="/learn.html?course=e3-korean">📘 초3 국어 Lv.3</button>
+          <button class="subject" data-href="/learn.html?course=e3-math">📐 초3 수학 Lv.3</button>
+          <button class="subject" data-href="/learn.html?course=e3-english">🔤 초3 영어 Lv.3</button>
+          <button class="subject" data-href="/learn.html?course=e3-social">🌏 초3 사회 Lv.3</button>
+          <button class="subject" data-href="/learn.html?course=e3-science">🔬 초3 과학 Lv.3</button>
+          <button class="subject" data-href="/learn.html?course=e3-ethics">🤝 초3 도덕 Lv.3</button>
+        </div></details>
+        <details class="elementary-grade" id="elementary-grade-4"><summary>초등학교 4학년 · 6과목</summary><div class="subjects">
+          <button class="subject" data-href="/learn.html?course=e4-korean">📘 초4 국어 Lv.4</button>
+          <button class="subject" data-href="/learn.html?course=e4-math">📐 초4 수학 Lv.4</button>
+          <button class="subject" data-href="/learn.html?course=e4-english">🔤 초4 영어 Lv.4</button>
+          <button class="subject" data-href="/learn.html?course=e4-social">🌏 초4 사회 Lv.4</button>
+          <button class="subject" data-href="/learn.html?course=e4-science">🔬 초4 과학 Lv.4</button>
+          <button class="subject" data-href="/learn.html?course=e4-ethics">🤝 초4 도덕 Lv.4</button>
+        </div></details>
+        <details class="elementary-grade" id="elementary-grade-5"><summary>초등학교 5학년 · 6과목</summary><div class="subjects">
+          <button class="subject" data-href="/learn.html?course=e5-korean">📘 초5 국어 Lv.5</button>
+          <button class="subject" data-href="/learn.html?course=e5-math">📐 초5 수학 Lv.5</button>
+          <button class="subject" data-href="/learn.html?course=e5-english">🔤 초5 영어 Lv.5</button>
+          <button class="subject" data-href="/learn.html?course=e5-social">🌏 초5 사회 Lv.5</button>
+          <button class="subject" data-href="/learn.html?course=e5-science">🔬 초5 과학 Lv.5</button>
+          <button class="subject" data-href="/learn.html?course=e5-ethics">🤝 초5 도덕 Lv.5</button>
+        </div></details>
+        <details class="elementary-grade" id="elementary-grade-6"><summary>초등학교 6학년 · 6과목</summary><div class="subjects">
+          <button class="subject" data-href="/learn.html?course=e6-korean">📘 초6 국어 Lv.6</button>
+          <button class="subject" data-href="/learn.html?course=e6-math">📐 초6 수학 Lv.6</button>
+          <button class="subject" data-href="/learn.html?course=e6-english">🔤 초6 영어 Lv.6</button>
+          <button class="subject" data-href="/learn.html?course=e6-social">🌏 초6 사회 Lv.6</button>
+          <button class="subject" data-href="/learn.html?course=e6-science">🔬 초6 과학 Lv.6</button>
+          <button class="subject" data-href="/learn.html?course=e6-ethics">🤝 초6 도덕 Lv.6</button>
+        </div></details>
+        <p class="elementary-note">초1·초2 영어는 기초 체험 과정입니다.</p>
     </section>
 
     <section class="subjects">
@@ -295,6 +345,12 @@ document.getElementById("logout").addEventListener("click", async () => {
     location.replace("/");
 });
 
+function restoreElementaryGrade(){
+    const target = document.getElementById(location.hash.slice(1));
+    if(target?.classList.contains("elementary-grade")) target.open = true;
+}
+window.addEventListener("hashchange", restoreElementaryGrade);
+restoreElementaryGrade();
 loadStudentSession();
 </script>
 

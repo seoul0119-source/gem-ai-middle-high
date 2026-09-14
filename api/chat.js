@@ -1349,6 +1349,9 @@ export default async function handler(request, response) {
         request.body?.learningProfile,
         messages
       );
+      const elementaryRule = course.elementary
+        ? `\n\n[초등 현재 수업 경계]\n반드시 초등학교 ${course.elementaryGrade}학년 수준으로만 답합니다. 새 수업 식별자: ${student.courseRunId}. 첫 영역은 이 식별자를 참고해 학년별 범위에서 다양하게 고르고, 이전 문제와 겹치지 않도록 순환합니다. 힌트·뜻·다시 설명 요청은 현재 문제의 문맥에 맞는 쉬운 한 단계만 안내하고 시도 횟수를 늘리거나 다음 문제로 넘어가지 않습니다. 다른 학교급 지침이나 어휘 예시가 있어도 초등 범위를 우선합니다.`
+        : "";
       const schoolEnglishAnswerRule = course.kind === "english" && !generalSuneung
         ? SCHOOL_ENGLISH_ANSWER_PROTECTION_RULE
         : "";
@@ -1432,7 +1435,7 @@ export default async function handler(request, response) {
         const explanation = buildSafeGrade3Hint(messages, course.language);
         return sendJson(response, 200, { text: `${visual}\n\n${explanation}` });
       }
-      if (koreanHint && !conversationalHelp && !generalSuneung) {
+      if (koreanHint && !conversationalHelp && !generalSuneung && !course.elementary) {
         return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind) });
       }
 
@@ -1498,7 +1501,7 @@ export default async function handler(request, response) {
         }
         const requestBody = {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule + independentGeneralGradeRule,
+            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule + independentGeneralGradeRule + elementaryRule,
             input: messages,
             max_output_tokens: course.suneung ? 5000 : course.kind === "toefl"
               ? 1200
