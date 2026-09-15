@@ -19,6 +19,9 @@
     "api/session.js": {
       "includeFiles": "*.html",
       "maxDuration": 60
+    },
+    "api/review-tutor.js": {
+      "maxDuration": 60
     }
   }
 }
