@@ -4,7 +4,7 @@
   "outputDirectory": ".",
   "routes": [
     {
-      "src": "/(class|learn|learn-fr|english|suneung|international-en|international-fr|emma-test)(?:\\.html)?/?",
+      "src": "/(class|learn|learn-fr|english|suneung|international-en|international-fr|emma-test|materials)(?:\\.html)?/?",
       "dest": "/api/session?page=$1"
     },
     {
@@ -21,7 +21,7 @@
       "maxDuration": 60
     },
     "api/review-tutor.js": {
-      "maxDuration": 60
+      "maxDuration": 180
     }
   }
 }
