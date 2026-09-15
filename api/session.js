@@ -1,3 +1,4 @@
+import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
 import { randomUUID } from "node:crypto";
 import { SCIENCE_VARIANT_PREFIX } from "../lib/suneung-science-variants.js";
@@ -255,6 +256,9 @@ async function createFreshCourseSession(student, courseId, course) {
 }
 
 export default async function handler(request, response) {
+  if ((request.method === "GET" || request.method === "HEAD") && request.query?.page !== undefined) {
+    return serveStudentPage(request, response);
+  }
   if (request.method === "GET") {
     const student = readStudentSession(request);
     if (!student) return sendJson(response, 401, { error: "등록된 학생 ID로 먼저 입장해 주세요." });

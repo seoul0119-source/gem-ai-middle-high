@@ -21,9 +21,9 @@ function responseCapture() {
 
 test("the deployed /api/chat rewrite reaches the closed Suneung science engine", async () => {
   const vercelConfig = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
-  assert.deepEqual(vercelConfig.rewrites.find((rewrite) => rewrite.source === "/api/chat"), {
-    source:"/api/chat",
-    destination:"/api/chat-final"
+  assert.deepEqual(vercelConfig.routes.find((route) => route.src === "/api/chat"), {
+    src:"/api/chat",
+    dest:"/api/chat-final"
   });
 
   const previousKey = process.env.OPENAI_API_KEY;
