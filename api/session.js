@@ -1,3 +1,4 @@
+import { issueClassroomPass, verifyClassroomPass } from "../lib/classroom-pass.js";
 import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
 import { randomUUID } from "node:crypto";
@@ -331,6 +332,11 @@ export default async function handler(request, response) {
   const action = String(body.action || "login");
 
   try {
+    if (action === "verify-classroom-pass") {
+      const pass = verifyClassroomPass(body.ticket, body.audience);
+      return sendJson(response, pass ? 200 : 401, pass ? {success:true, pass} : {error:"Invalid entry pass"});
+    }
+
     if (action === "register") {
       const student = await registerStudent(body);
       return sendJson(response, 200, { success: true, student });
@@ -350,6 +356,10 @@ export default async function handler(request, response) {
 
     const student = requireStudentSession(request, response);
     if (!student) return;
+
+    if (action === "classroom-pass") {
+      return sendJson(response, 200, {ticket:issueClassroomPass(student, body.classroom)});
+    }
 
     if (action === "start") {
       // Resolve the requested course before ending or starting any sheet row.

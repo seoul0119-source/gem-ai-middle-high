@@ -1187,6 +1187,27 @@
       parentRegistrationContinue.textContent = copy.continueLabel;
     }
 
+    async function enterClassroom(destination) {
+      const classrooms = {
+        "https://gem-english-middle-school-math.seoul0119.chatgpt.site": "en",
+        "https://gem-french-middle-school-math.seoul0119.chatgpt.site": "fr"
+      };
+      const target = new URL(destination, location.origin);
+      const classroom = classrooms[target.origin];
+      if (!classroom) { location.replace(destination); return; }
+      try {
+        const response = await fetch("/api/session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"classroom-pass", classroom})});
+        const data = await response.json();
+        if (!response.ok || !data.ticket) throw new Error("교실 입장을 연결하지 못했습니다. 다시 입장해 주세요.");
+        const form = document.createElement("form");
+        form.method = "POST"; form.action = target.origin + "/api/learning/entry";
+        const input = document.createElement("input"); input.type="hidden"; input.name="ticket"; input.value=data.ticket;
+        form.append(input); document.body.append(form); form.submit();
+      } catch(error) {
+        loginError.textContent=error.message; loginButton.disabled=false; updateLoginButtonLabel();
+      }
+    }
+
     function prepareParentRegistrationNotice(studentId, destination) {
       const now = Date.now();
       const firstTrialKey = trialStorageKey(studentId);
@@ -1211,7 +1232,7 @@
         const copy = parentRegistrationCopy[selectedLanguage] || parentRegistrationCopy.ko;
         window.alert(`${copy.title}\n\n${copy.intro}\n${copy.detail}\n\n${copy.noChatgpt}`);
         writeStoredTimestamp(registrationNoticeKey, now);
-        location.replace(destination);
+        void enterClassroom(destination);
       }
       return true;
     }
@@ -1222,7 +1243,7 @@
       pendingClassDestination = "";
       pendingNoticeStorageKey = "";
       parentRegistrationDialog.close();
-      location.replace(destination);
+      void enterClassroom(destination);
     });
 
     parentRegistrationDialog.addEventListener("cancel", (event) => {
@@ -1293,7 +1314,7 @@
         const destination = selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
-        location.replace(destination);
+        void enterClassroom(destination);
       } catch (error) {
         loginError.textContent = error.message || "입장 연결 중 문제가 발생했습니다.";
         loginButton.disabled = false;
