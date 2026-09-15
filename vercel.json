@@ -17,7 +17,8 @@
   ],
   "functions": {
     "api/session.js": {
-      "includeFiles": "*.html"
+      "includeFiles": "*.html",
+      "maxDuration": 60
     }
   }
 }

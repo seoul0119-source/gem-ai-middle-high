@@ -66,7 +66,7 @@ function extractNamedFunction(source, name) {
 }
 
 test("keeps entry and registration flows running when browser storage is blocked", () => {
-  for (const [page, source] of [["entry", indexHtml], ["registration", welcomeHtml]]) {
+  for (const [page, source] of [["entry", indexHtml]]) {
     for (const errorName of ["SecurityError", "QuotaExceededError"]) {
       let attempts = 0;
       const context = {
@@ -96,9 +96,14 @@ test("keeps entry and registration flows running when browser storage is blocked
 
   assert.match(indexHtml, /writeLocalStorageValue\("gem-program-language", selectedLanguage\)/);
   assert.match(indexHtml, /writeLocalStorageValue\("gem-support-course", course\)/);
-  assert.match(welcomeHtml, /writeLocalStorageValue\([\s\S]*?"gemStudentId"/);
-  assert.match(welcomeHtml, /writeLocalStorageValue\([\s\S]*?"gemRegistrationType"/);
-  assert.match(welcomeHtml, /const nextUrl =[\s\S]*?window\.setTimeout/);
+  assert.match(welcomeHtml, /location\.replace\("\/#registration"\)/);
+  assert.doesNotMatch(welcomeHtml, /localStorage/);
+  const sessionSource = extractNamedFunction(indexHtml, "sessionValue");
+  const blocked = { sessionStorage: { getItem() { throw Error("blocked"); }, setItem() { throw Error("blocked"); }, removeItem() { throw Error("blocked"); } } };
+  runInNewContext(`${sessionSource}\nthis.sessionValue = sessionValue;`, blocked);
+  assert.equal(blocked.sessionValue("id"), null);
+  assert.equal(blocked.sessionValue("id", "T260001"), null);
+  assert.equal(blocked.sessionValue("id", null), null);
 });
 
 function runSuneungUi(initialHash = "") {

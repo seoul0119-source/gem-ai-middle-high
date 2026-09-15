@@ -149,6 +149,55 @@ async function loginStudent(rawId) {
   return student;
 }
 
+// Registration uses the same deployed student manager as login. Never accept
+// a paid/regular registration type from this public trial entry point.
+export function parseRegistrationResponse(body) {
+  const html = extractUserHtml(body);
+  const match = html.match(/window\.top\.postMessage\(\s*(\{[\s\S]*?\})\s*,\s*["']\*["']/);
+  if (!match) throw new Error("등록 응답을 확인하지 못했습니다.");
+  return JSON.parse(match[1]);
+}
+
+async function registerStudent(body) {
+  const name = String(body.name || "").trim();
+  const grade = String(body.grade || "").trim();
+  const grades = [
+    ...Array.from({ length: 6 }, (_, i) => `초등학교 ${i + 1}학년`),
+    ...Array.from({ length: 3 }, (_, i) => `중학교 ${i + 1}학년`),
+    ...Array.from({ length: 3 }, (_, i) => `고등학교 ${i + 1}학년`)
+  ];
+  if (!name || name.length > 40 || /^[=+@-]/.test(name) || /[<>\x00-\x1f]/.test(name) || !grades.includes(grade)) {
+    const error = new Error("이름(40자 이내)과 학년을 확인해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+  // A POST may have saved a row even if its response is lost. Do not retry it.
+  let result;
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ name, grade, registrationType: "체험" }).toString(),
+      redirect: "follow",
+      signal: AbortSignal.timeout(45000)
+    });
+    if (!response.ok) throw new Error("upstream response");
+    result = parseRegistrationResponse(await response.text());
+  } catch (_) {
+    const error = new Error("등록 처리 결과를 확인 중입니다. 중복 발급을 피하려면 다시 등록하지 말고 담당 선생님에게 이름과 학년으로 ID를 확인해 주세요.");
+    error.status = 502;
+    error.registrationUncertain = true;
+    throw error;
+  }
+  if (result.success !== true || !/^T[0-9]{6}$/.test(String(result.studentId || "")) || result.name !== name || result.grade !== grade) {
+    const error = new Error("등록 결과를 확인하지 못했습니다. 담당 선생님에게 이름과 학년으로 ID를 확인해 주세요.");
+    error.status = 502;
+    error.registrationUncertain = true;
+    throw error;
+  }
+  return { id: result.studentId, name, grade };
+}
+
 function courseLevel(course) {
   const match = course.title.match(/Lv\.(\d+)/i);
   return match ? `Lv.${match[1]}` : course.grade;
@@ -280,6 +329,11 @@ export default async function handler(request, response) {
   const action = String(body.action || "login");
 
   try {
+    if (action === "register") {
+      const student = await registerStudent(body);
+      return sendJson(response, 200, { success: true, student });
+    }
+
     if (action === "login") {
       const student = await loginStudent(body.studentId);
       if (!setStudentSession(response, student)) {
@@ -375,7 +429,8 @@ export default async function handler(request, response) {
   } catch (error) {
     console.error("GEM student session error", action, error.message);
     return sendJson(response, error.status || 502, {
-      error: error.message || "학생관리 연결 중 문제가 발생했습니다."
+      error: error.message || "학생관리 연결 중 문제가 발생했습니다.",
+      ...(error.registrationUncertain ? { registrationUncertain: true } : {})
     });
   }
 }

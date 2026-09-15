@@ -475,6 +475,16 @@
       outline-offset: 3px;
     }
 
+    .trial-box { margin-bottom: 24px; padding: 22px; border: 2px solid #c6daf4; border-radius: 16px; text-align: left; background: #f4f8ff; }
+    .trial-box summary { cursor: pointer; font-size: 19px; font-weight: 700; color: #173d70; }
+    .trial-box p { margin: 12px 0; font-size: 15px; }
+    .trial-box label { display: block; margin: 14px 0 6px; font-weight: 700; }
+    .trial-box input, .trial-box select { width: 100%; padding: 13px; border: 1px solid #aebed2; border-radius: 8px; font: inherit; background: white; }
+    .trial-box button { width: 100%; padding: 14px; margin-top: 14px; border: 0; border-radius: 10px; background: #1e67c6; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+    .trial-box button:disabled { opacity: .6; cursor: wait; }
+    .trial-box [hidden] { display: none; }
+    #issued-id { display: block; margin: 12px 0; font-size: 28px; letter-spacing: 2px; color: #173d70; }
+    #registration-status { font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
   </style>
 </head>
 
@@ -490,6 +500,25 @@
 
   <main>
     <section class="login-box">
+      <details id="registration" class="trial-box">
+        <summary>처음 오셨나요? 내 학생 ID 만들기</summary>
+        <p>이름과 학년을 입력하면 나만의 체험 ID가 발급됩니다. 이미 ID가 있다면 아래에서 입장해 주세요.</p>
+        <form id="trial-registration">
+          <label for="registration-name">학생 이름</label>
+          <input id="registration-name" name="name" maxlength="40" autocomplete="off" required>
+          <label for="registration-grade">학년</label>
+          <select id="registration-grade" name="grade" required><option value="">학년 선택</option><option value="초등학교 1학년">초등학교 1학년</option><option value="초등학교 2학년">초등학교 2학년</option><option value="초등학교 3학년">초등학교 3학년</option><option value="초등학교 4학년">초등학교 4학년</option><option value="초등학교 5학년">초등학교 5학년</option><option value="초등학교 6학년">초등학교 6학년</option><option value="중학교 1학년">중학교 1학년</option><option value="중학교 2학년">중학교 2학년</option><option value="중학교 3학년">중학교 3학년</option><option value="고등학교 1학년">고등학교 1학년</option><option value="고등학교 2학년">고등학교 2학년</option><option value="고등학교 3학년">고등학교 3학년</option></select>
+          <p>입력한 이름과 학년은 학생 등록과 학습 기록 관리에 사용됩니다. 보호자 또는 담임교사의 안내에 따라 이용해 주세요.</p>
+          <button id="registration-submit" type="submit">무료 체험 ID 발급받기</button>
+        </form>
+        <p id="registration-status" role="status" aria-live="polite"></p>
+        <div id="registration-result" hidden>
+          <strong id="issued-id"></strong>
+          <p>다음 방문에도 사용할 ID입니다. 복사하거나 화면을 저장해 주세요.</p>
+          <button id="copy-student-id" type="button">내 ID 복사</button>
+          <button id="choose-class" type="button">교육과정 선택하고 입장하기</button>
+        </div>
+      </details>
       <h2 id="entrance-title">교육과정 선택</h2>
       <p>
         먼저 공부할 언어와 교육과정을 선택한 뒤<br>
@@ -634,6 +663,86 @@
     </div>
   </dialog>
   <script>
+    const registrationForm = document.getElementById("trial-registration");
+    const registrationButton = document.getElementById("registration-submit");
+    const registrationStatus = document.getElementById("registration-status");
+    const registrationDetails = document.getElementById("registration");
+    const pendingKey = "gem-registration-pending-v1";
+    const issuedKey = "gem-issued-id-v1";
+    let registrationBusy = false;
+    function sessionValue(key, value) {
+      try {
+        if (value === undefined) return sessionStorage.getItem(key);
+        if (value === null) sessionStorage.removeItem(key);
+        else sessionStorage.setItem(key, value);
+      } catch (_) { return null; }
+    }
+    function showIssuedId(id) {
+      document.getElementById("studentId").value = id;
+      document.getElementById("issued-id").textContent = id;
+      document.getElementById("registration-result").hidden = false;
+      registrationForm.hidden = true;
+      registrationDetails.open = true;
+      registrationStatus.textContent = "개인 학생 ID가 발급되었습니다. 아래에서 교육과정을 선택하고 입장해 주세요.";
+    }
+    const savedIssuedId = sessionValue(issuedKey);
+    if (/^T[0-9]{6}$/.test(savedIssuedId || "")) showIssuedId(savedIssuedId);
+    else if (sessionValue(pendingKey)) {
+      registrationBusy = true;
+      registrationButton.disabled = true;
+      registrationDetails.open = true;
+      registrationStatus.textContent = "이전에 요청한 등록 결과를 확인하지 못했습니다. 다시 발급하지 말고 담당 선생님에게 이름과 학년으로 ID를 확인해 주세요.";
+    }
+    if (location.hash === "#registration") registrationDetails.open = true;
+    registrationForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (registrationBusy) return;
+      const name = document.getElementById("registration-name").value.trim();
+      const grade = document.getElementById("registration-grade").value;
+      if (!name || /^[=+@-]/.test(name) || /[<>\x00-\x1f]/.test(name)) {
+        registrationStatus.textContent = "학생 이름을 확인해 주세요.";
+        return;
+      }
+      registrationBusy = true;
+      registrationButton.disabled = true;
+      registrationButton.textContent = "개인 ID 발급 중…";
+      sessionValue(pendingKey, "1");
+      registrationStatus.textContent = "등록하고 있습니다. 화면을 닫지 말고 잠시 기다려 주세요.";
+      try {
+        const response = await fetch("/api/session", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "register", name, grade })
+        });
+        const data = await response.json();
+        if (!response.ok || !/^T[0-9]{6}$/.test(data.student?.id || "")) {
+          if (response.status === 400 && !data.registrationUncertain) {
+            sessionValue(pendingKey, null);
+            registrationBusy = false;
+            registrationButton.disabled = false;
+            registrationButton.textContent = "무료 체험 ID 발급받기";
+          }
+          throw new Error(data.error || "등록 결과를 확인하지 못했습니다. 담당 선생님에게 ID를 확인해 주세요.");
+        }
+        sessionValue(issuedKey, data.student.id);
+        sessionValue(pendingKey, null);
+        showIssuedId(data.student.id);
+      } catch (error) {
+        registrationStatus.textContent = error.message + (registrationBusy ? " 중복 등록하지 말고 담당 선생님에게 확인해 주세요." : "");
+      }
+    });
+    document.getElementById("copy-student-id").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(document.getElementById("issued-id").textContent);
+        registrationStatus.textContent = "학생 ID를 복사했습니다. 안전한 곳에 보관해 주세요.";
+      } catch (_) {
+        registrationStatus.textContent = "위 학생 ID를 직접 복사하거나 화면을 저장해 주세요.";
+      }
+    });
+    document.getElementById("choose-class").addEventListener("click", () => {
+      registrationDetails.open = false;
+      document.getElementById("entrance-title").scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelector(".language-option").focus({ preventScroll: true });
+    });
     const loginForm = document.getElementById("student-login");
     const studentIdInput = document.getElementById("studentId");
     const loginButton = document.getElementById("login-button");
