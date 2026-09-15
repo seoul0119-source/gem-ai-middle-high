@@ -33,3 +33,20 @@ test('trial registration validates fields, ignores requested paid type, and repo
     assert.equal(lost.statusCode,502); assert.equal(lost.body.registrationUncertain,true); assert.equal(calls,2);
   } finally { globalThis.fetch = original; }
 });
+
+test('English and French grades reach the same student register unchanged', async () => {
+  const original = globalThis.fetch;
+  const stored = [];
+  globalThis.fetch = async (_url, opts) => {
+    const data = new URLSearchParams(opts.body);
+    stored.push(data.get('grade'));
+    return { ok: true, text: async () => wrap({ success:true, studentId:'T260022', name:data.get('name'), grade:data.get('grade') }) };
+  };
+  try {
+    for (const grade of ['Grade 1','Grade 6','Grade 12','CP','6e','Première','Terminale']) {
+      const r=response(); await handler({method:'POST',body:{action:'register',name:'GEM Test',grade}},r);
+      assert.equal(r.statusCode,200); assert.equal(r.body.student.grade,grade);
+    }
+    assert.deepEqual(stored,['Grade 1','Grade 6','Grade 12','CP','6e','Première','Terminale']);
+  } finally { globalThis.fetch=original; }
+});

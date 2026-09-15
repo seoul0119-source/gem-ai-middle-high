@@ -501,20 +501,22 @@
   <main>
     <section class="login-box">
       <details id="registration" class="trial-box">
-        <summary>처음 오셨나요? 내 학생 ID 만들기</summary>
-        <p>이름과 학년을 입력하면 나만의 체험 ID가 발급됩니다. 이미 ID가 있다면 아래에서 입장해 주세요.</p>
+        <summary id="registration-summary">처음 오셨나요? 내 학생 ID 만들기 · EN · FR</summary>
+        <label for="registration-language">교육과정 · Program · Programme</label>
+        <select id="registration-language"><option value="ko">🇰🇷 한국반</option><option value="en">🇺🇸 English Program</option><option value="fr">🇫🇷 Programme français</option></select>
+        <p id="registration-intro">이름과 학년을 입력하면 나만의 체험 ID가 발급됩니다. 이미 ID가 있다면 아래에서 입장해 주세요.</p>
         <form id="trial-registration">
           <label for="registration-name">학생 이름</label>
           <input id="registration-name" name="name" maxlength="40" autocomplete="off" required>
           <label for="registration-grade">학년</label>
           <select id="registration-grade" name="grade" required><option value="">학년 선택</option><option value="초등학교 1학년">초등학교 1학년</option><option value="초등학교 2학년">초등학교 2학년</option><option value="초등학교 3학년">초등학교 3학년</option><option value="초등학교 4학년">초등학교 4학년</option><option value="초등학교 5학년">초등학교 5학년</option><option value="초등학교 6학년">초등학교 6학년</option><option value="중학교 1학년">중학교 1학년</option><option value="중학교 2학년">중학교 2학년</option><option value="중학교 3학년">중학교 3학년</option><option value="고등학교 1학년">고등학교 1학년</option><option value="고등학교 2학년">고등학교 2학년</option><option value="고등학교 3학년">고등학교 3학년</option></select>
-          <p>입력한 이름과 학년은 학생 등록과 학습 기록 관리에 사용됩니다. 보호자 또는 담임교사의 안내에 따라 이용해 주세요.</p>
+          <p id="registration-privacy">입력한 이름과 학년은 학생 등록과 학습 기록 관리에 사용됩니다. 보호자 또는 담임교사의 안내에 따라 이용해 주세요.</p>
           <button id="registration-submit" type="submit">무료 체험 ID 발급받기</button>
         </form>
         <p id="registration-status" role="status" aria-live="polite"></p>
         <div id="registration-result" hidden>
           <strong id="issued-id"></strong>
-          <p>다음 방문에도 사용할 ID입니다. 복사하거나 화면을 저장해 주세요.</p>
+          <p id="registration-save">다음 방문에도 사용할 ID입니다. 복사하거나 화면을 저장해 주세요.</p>
           <button id="copy-student-id" type="button">내 ID 복사</button>
           <button id="choose-class" type="button">교육과정 선택하고 입장하기</button>
         </div>
@@ -663,6 +665,32 @@
     </div>
   </dialog>
   <script>
+    let registrationLanguage = "ko";
+    let registrationState = "";
+    const registrationTranslations = {"ko": {"summary": "처음 오셨나요? 내 학생 ID 만들기 · EN · FR", "intro": "이름과 학년을 입력하면 나만의 체험 ID가 발급됩니다. 기존 ID는 한국·영어·프랑스어반에서 함께 사용할 수 있습니다.", "name": "학생 이름", "grade": "학년", "pick": "학년 선택", "privacy": "입력한 이름과 학년은 학생 등록과 학습 기록 관리에 사용됩니다. 보호자 또는 담임교사의 안내에 따라 이용해 주세요.", "submit": "무료 체험 ID 발급받기", "save": "다음 방문에도 사용할 ID입니다. 복사하거나 화면을 저장해 주세요.", "copy": "내 ID 복사", "choose": "교육과정 선택하고 입장하기", "success": "개인 학생 ID가 발급되었습니다. 아래에서 교육과정을 선택하고 입장해 주세요.", "busy": "개인 ID 발급 중…", "wait": "등록하고 있습니다. 화면을 닫지 말고 잠시 기다려 주세요.", "invalid": "학생 이름과 학년을 확인해 주세요.", "uncertain": "등록 결과를 확인하지 못했습니다. 중복 발급하지 말고 담당 선생님에게 이름과 학년으로 ID를 확인해 주세요.", "copied": "학생 ID를 복사했습니다. 안전한 곳에 보관해 주세요.", "manual": "위 학생 ID를 직접 복사하거나 화면을 저장해 주세요."}, "en": {"summary": "New here? Create my student ID", "intro": "Enter your name and grade to get a personal trial ID. One ID works across the Korean, English and French programs.", "name": "Student name", "grade": "Grade", "pick": "Choose your grade", "privacy": "Your name and grade are used for registration and learning records. Use GEM with guidance from a parent, guardian or teacher.", "submit": "Get my free trial ID", "save": "Keep this ID for your next visit. Copy it or save a screenshot.", "copy": "Copy my ID", "choose": "Choose a course and enter", "success": "Your personal student ID is ready. Choose your course below to enter.", "busy": "Creating your ID…", "wait": "Registration is in progress. Please keep this page open.", "invalid": "Please check your name and grade.", "uncertain": "We could not confirm registration. Do not register again. Ask your GEM teacher to find your ID using your name and grade.", "copied": "Student ID copied. Keep it in a safe place.", "manual": "Please copy the ID above or save a screenshot."}, "fr": {"summary": "Première visite ? Créer mon identifiant élève", "intro": "Indiquez votre nom et votre classe pour recevoir un identifiant personnel d’essai. Un même identifiant permet d’accéder aux programmes coréen, anglais et français.", "name": "Nom de l’élève", "grade": "Classe", "pick": "Choisir votre classe", "privacy": "Votre nom et votre classe servent à l’inscription et au suivi des apprentissages. Utilisez GEM avec l’accompagnement d’un parent ou d’un enseignant.", "submit": "Obtenir mon identifiant d’essai gratuit", "save": "Conservez cet identifiant pour votre prochaine visite. Copiez-le ou faites une capture d’écran.", "copy": "Copier mon identifiant", "choose": "Choisir un cours et entrer", "success": "Votre identifiant personnel est prêt. Choisissez votre cours ci-dessous.", "busy": "Création de votre identifiant…", "wait": "Inscription en cours. Veuillez garder cette page ouverte.", "invalid": "Veuillez vérifier votre nom et votre classe.", "uncertain": "L’inscription n’a pas pu être confirmée. Ne recommencez pas. Demandez à votre enseignant GEM de retrouver votre identifiant avec votre nom et votre classe.", "copied": "Identifiant copié. Conservez-le en lieu sûr.", "manual": "Veuillez copier l’identifiant ci-dessus ou faire une capture d’écran."}};
+    const registrationGrades = {
+      ko: [...Array.from({length:6},(_,i)=>`초등학교 ${i+1}학년`), ...Array.from({length:3},(_,i)=>`중학교 ${i+1}학년`), ...Array.from({length:3},(_,i)=>`고등학교 ${i+1}학년`)],
+      en: Array.from({length:12},(_,i)=>`Grade ${i+1}`),
+      fr: ["CP","CE1","CE2","CM1","CM2","6e","5e","4e","3e","Seconde","Première","Terminale"]
+    };
+    function registrationMessage(key) {
+      registrationState = key;
+      registrationStatus.textContent = registrationTranslations[registrationLanguage][key];
+    }
+    function updateRegistrationLanguage(language) {
+      registrationLanguage = language;
+      const copy = registrationTranslations[language];
+      document.getElementById("registration-language").value = language;
+      for (const [id,key] of Object.entries({"registration-summary":"summary","registration-intro":"intro","registration-privacy":"privacy","registration-save":"save","copy-student-id":"copy","choose-class":"choose"})) document.getElementById(id).textContent = copy[key];
+      document.querySelector('label[for="registration-name"]').textContent = copy.name;
+      document.querySelector('label[for="registration-grade"]').textContent = copy.grade;
+      const select = document.getElementById("registration-grade");
+      const previousIndex = select.selectedIndex;
+      select.replaceChildren(new Option(copy.pick, ""), ...registrationGrades[language].map(grade=>new Option(grade,grade)));
+      select.selectedIndex = Math.max(0,previousIndex);
+      registrationButton.textContent = registrationBusy ? copy.busy : copy.submit;
+      if (registrationState) registrationMessage(registrationState);
+    }
     const registrationForm = document.getElementById("trial-registration");
     const registrationButton = document.getElementById("registration-submit");
     const registrationStatus = document.getElementById("registration-status");
@@ -682,8 +710,9 @@
       document.getElementById("issued-id").textContent = id;
       document.getElementById("registration-result").hidden = false;
       registrationForm.hidden = true;
+      document.getElementById("registration-language").disabled = false;
       registrationDetails.open = true;
-      registrationStatus.textContent = "개인 학생 ID가 발급되었습니다. 아래에서 교육과정을 선택하고 입장해 주세요.";
+      registrationMessage("success");
     }
     const savedIssuedId = sessionValue(issuedKey);
     if (/^T[0-9]{6}$/.test(savedIssuedId || "")) showIssuedId(savedIssuedId);
@@ -691,7 +720,7 @@
       registrationBusy = true;
       registrationButton.disabled = true;
       registrationDetails.open = true;
-      registrationStatus.textContent = "이전에 요청한 등록 결과를 확인하지 못했습니다. 다시 발급하지 말고 담당 선생님에게 이름과 학년으로 ID를 확인해 주세요.";
+      registrationMessage("uncertain");
     }
     if (location.hash === "#registration") registrationDetails.open = true;
     registrationForm.addEventListener("submit", async (event) => {
@@ -700,14 +729,15 @@
       const name = document.getElementById("registration-name").value.trim();
       const grade = document.getElementById("registration-grade").value;
       if (!name || /^[=+@-]/.test(name) || /[<>\x00-\x1f]/.test(name)) {
-        registrationStatus.textContent = "학생 이름을 확인해 주세요.";
+        registrationMessage("invalid");
         return;
       }
       registrationBusy = true;
       registrationButton.disabled = true;
-      registrationButton.textContent = "개인 ID 발급 중…";
+      document.getElementById("registration-language").disabled = true;
+      registrationButton.textContent = registrationTranslations[registrationLanguage].busy;
       sessionValue(pendingKey, "1");
-      registrationStatus.textContent = "등록하고 있습니다. 화면을 닫지 말고 잠시 기다려 주세요.";
+      registrationMessage("wait");
       try {
         const response = await fetch("/api/session", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -719,26 +749,35 @@
             sessionValue(pendingKey, null);
             registrationBusy = false;
             registrationButton.disabled = false;
-            registrationButton.textContent = "무료 체험 ID 발급받기";
+            document.getElementById("registration-language").disabled = false;
+            registrationButton.textContent = registrationTranslations[registrationLanguage].submit;
           }
           throw new Error(data.error || "등록 결과를 확인하지 못했습니다. 담당 선생님에게 ID를 확인해 주세요.");
         }
         sessionValue(issuedKey, data.student.id);
+        sessionValue("gem-issued-program-v1", registrationLanguage);
+        sessionValue("gem-issued-grade-v1", grade);
         sessionValue(pendingKey, null);
         showIssuedId(data.student.id);
       } catch (error) {
-        registrationStatus.textContent = error.message + (registrationBusy ? " 중복 등록하지 말고 담당 선생님에게 확인해 주세요." : "");
+        registrationMessage(registrationBusy ? "uncertain" : "invalid");
       }
     });
     document.getElementById("copy-student-id").addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(document.getElementById("issued-id").textContent);
-        registrationStatus.textContent = "학생 ID를 복사했습니다. 안전한 곳에 보관해 주세요.";
+        registrationMessage("copied");
       } catch (_) {
-        registrationStatus.textContent = "위 학생 ID를 직접 복사하거나 화면을 저장해 주세요.";
+        registrationMessage("manual");
       }
     });
     document.getElementById("choose-class").addEventListener("click", () => {
+      const grade = document.getElementById("registration-grade").value || sessionValue("gem-issued-grade-v1");
+      const gradeIndex = registrationGrades[registrationLanguage].indexOf(grade);
+      if (registrationLanguage !== "ko" && gradeIndex >= 0) {
+        const middleEnd = registrationLanguage === "en" ? 8 : 9;
+        selectSchoolLevel(gradeIndex < 5 ? "elementary" : gradeIndex < middleEnd ? "middle" : "high");
+      }
       registrationDetails.open = false;
       document.getElementById("entrance-title").scrollIntoView({ behavior: "smooth", block: "start" });
       document.querySelector(".language-option").focus({ preventScroll: true });
@@ -1029,7 +1068,9 @@
     }
 
     function selectLanguage(language) {
+      if (registrationBusy && !registrationForm.hidden) return;
       selectedLanguage = language;
+      updateRegistrationLanguage(language);
       selectedSupportCourse = "";
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
       writeLocalStorageValue("gem-program-language", language);
@@ -1212,10 +1253,17 @@
     supportOptions.forEach((option) => {
       option.addEventListener("click", () => selectSupportCourse(option.dataset.support));
     });
+    document.getElementById("registration-language").addEventListener("change", (event) => selectLanguage(event.target.value));
     selectSubject(selectedSubject);
     selectHighSchoolPathway(selectedHighSchoolPathway);
     selectSchoolLevel(selectedSchoolLevel);
     selectLanguage(selectedLanguage);
+    const savedProgram = sessionValue("gem-issued-program-v1");
+    if (savedIssuedId && ["ko","en","fr"].includes(savedProgram)) {
+      selectLanguage(savedProgram);
+      const savedGrade = sessionValue("gem-issued-grade-v1");
+      if (registrationGrades[savedProgram].includes(savedGrade)) document.getElementById("registration-grade").value = savedGrade;
+    }
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();

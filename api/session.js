@@ -164,7 +164,9 @@ async function registerStudent(body) {
   const grades = [
     ...Array.from({ length: 6 }, (_, i) => `초등학교 ${i + 1}학년`),
     ...Array.from({ length: 3 }, (_, i) => `중학교 ${i + 1}학년`),
-    ...Array.from({ length: 3 }, (_, i) => `고등학교 ${i + 1}학년`)
+    ...Array.from({ length: 3 }, (_, i) => `고등학교 ${i + 1}학년`),
+    ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`),
+    "CP", "CE1", "CE2", "CM1", "CM2", "6e", "5e", "4e", "3e", "Seconde", "Première", "Terminale"
   ];
   if (!name || name.length > 40 || /^[=+@-]/.test(name) || /[<>\x00-\x1f]/.test(name) || !grades.includes(grade)) {
     const error = new Error("이름(40자 이내)과 학년을 확인해 주세요.");
