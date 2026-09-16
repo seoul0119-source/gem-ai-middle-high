@@ -5,8 +5,15 @@ test('catalog covers Korean middle science and EN/FR grades and material is inde
  const saved=globalThis.fetch;const requests=[];globalThis.fetch=async(_url,o)=>{const b=JSON.parse(o.body);requests.push(b);return Response.json({output_text:JSON.stringify(requests.length===1?fixture:{valid:true})});};
  try{const result=await handleMaterials({mode:'generate',courseId:'m1-science',topic:'상태 변화'});assert.deepEqual(result.material,fixture);assert.equal(requests.length,2);assert.match(requests[1].instructions,/Independently solve/);}finally{globalThis.fetch=saved;}
 });
-test('review rejects flawed sets without returning a printable worksheet',async()=>{
- const saved=globalThis.fetch;let count=0;globalThis.fetch=async()=>Response.json({output_text:JSON.stringify(++count===1?fixture:{valid:false})});try{await assert.rejects(handleMaterials({mode:'generate',courseId:'m1-science',topic:''}),/검토/);}finally{globalThis.fetch=saved;}
+test('review feedback repairs the candidate and independently checks it again',async()=>{
+ const saved=globalThis.fetch,requests=[];const fixed=structuredClone(fixture);fixed.title='Corrected worksheet';
+ const responses=[fixture,{valid:false,issues:[{question:1,reason:'Ambiguous option',fix:'Make the choices distinct'}]},fixed,{valid:true,issues:[]}];
+ globalThis.fetch=async(_url,o)=>{requests.push(JSON.parse(o.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+ try{const r=await handleMaterials({mode:'generate',courseId:'m2-history',topic:'4.19 혁명'});assert.equal(r.material.title,fixed.title);assert.equal(requests.length,4);assert.match(requests[2].input[0].content,/Ambiguous option/);assert.match(requests[1].instructions,/ordinary factual knowledge/);}finally{globalThis.fetch=saved;}
+});
+test('a second failed review never returns an unapproved printable worksheet',async()=>{
+ const saved=globalThis.fetch;let count=0;globalThis.fetch=async()=>Response.json({output_text:JSON.stringify(++count%2?fixture:{valid:false,issues:[{question:1,reason:'Wrong date',fix:'Correct it'}]})});
+ try{await assert.rejects(handleMaterials({mode:'generate',courseId:'m2-history',topic:'4.19 혁명'}),/자동 수정.*검토/);assert.equal(count,4);}finally{globalThis.fetch=saved;}
 });
 
 test('excluded topics in Korean, English and French are blocked before generation',async()=>{

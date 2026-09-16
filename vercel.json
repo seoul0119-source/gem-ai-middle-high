@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node --test tests/*.test.mjs && node scripts/verify-suneung-2028.mjs --course=suneung-2028-english",
+  "buildCommand": "node --test tests/*.test.mjs && node scripts/verify-suneung-2028.mjs --course=suneung-2028-english && node scripts/verify-materials.mjs",
   "outputDirectory": ".",
   "routes": [
     {
