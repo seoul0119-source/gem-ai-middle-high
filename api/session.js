@@ -1,5 +1,5 @@
 import {issueRecordPermit,saveClassRecord,verifyRecordTransfer,resumeClassRecord} from '../lib/class-record.js';
-import { issueClassroomPass, verifyClassroomPass } from "../lib/classroom-pass.js";
+import { issueClassroomPass, verifyClassroomPass, exchangeRecordPass, verifyRecordSession } from "../lib/classroom-pass.js";
 import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
 import { randomUUID } from "node:crypto";
@@ -344,6 +344,14 @@ export default async function handler(request, response) {
       const valid=verifyRecordTransfer(body.ticket,body.record);
       return sendJson(response, valid?200:401, {valid});
     }
+    if (action === "exchange-record-pass") {
+      const token=exchangeRecordPass(body.ticket,body.audience);
+      return sendJson(response,token?200:401,token?{token}:{error:'Invalid entry'});
+    }
+    if (action === "verify-record-session") {
+      const session=verifyRecordSession(body.token);
+      return sendJson(response,session?200:401,session?{session}:{error:'Invalid session'});
+    }
     if (action === "verify-classroom-pass") {
       const pass = verifyClassroomPass(body.ticket, body.audience);
       return sendJson(response, pass ? 200 : 401, pass ? {success:true, pass} : {error:"Invalid entry pass"});
@@ -372,8 +380,8 @@ export default async function handler(request, response) {
     if (action === "resume-class-record") {
       const record=await resumeClassRecord(student,body.id);
       const {courseId,course}=requireCourse(record.course);
-      if(course.suneung)throw Error('이 수업은 현재 이어하기를 지원하지 않습니다.');
       const active=await createFreshCourseSession(student,courseId,course);
+      if(course.suneung)active.courseRunId=record.id;
       setStudentSession(response,active);
       return sendJson(response,200,{success:true,courseId,courseRunId:active.courseRunId,recordPermit:issueRecordPermit({...active,courseRunId:record.id,startedAt:record.started,recordLease:record.lease}),record});
     }

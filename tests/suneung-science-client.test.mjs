@@ -38,6 +38,7 @@ function harness() {
   const requests = [];
   const pending = [];
   const context = {
+    saveClassSnapshot() {}, recordClient:null, recordPermit:"", recordRevision:0,
     COURSE_ID: "suneung-2028-integrated-science", COURSE: { avatar: false, voice: false, greeting: "시작해 주세요." },
     IS_SUNEUNG: true, IS_MATH: false, IS_KOREAN: false, IS_SOCIAL: false, IS_HISTORY: false, IS_SCIENCE: true, IS_ENGLISH: false,
     IS_GENERATIVE_LESSON: true, AVATAR_TEXT: {}, courseRunId: "run-A", lessonSeed: "seed-A", lessonManuallyEnded: false,

@@ -1196,7 +1196,11 @@
       };
       const target = new URL(destination, location.origin);
       const classroom = classrooms[target.origin];
-      if (!classroom) { location.replace(destination); return; }
+      if (!classroom) {
+        const {RECORD_CLASSROOMS}=await import('/lib/classroom-catalog.js');
+        const key=Object.keys(RECORD_CLASSROOMS).find(k=>RECORD_CLASSROOMS[k]===target.origin);
+        location.replace(key?'/record-entry.html?classroom='+encodeURIComponent(key)+'&destination='+encodeURIComponent(target.pathname+target.search):destination);return;
+      }
       try {
         const response = await fetch("/api/session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"classroom-pass", classroom})});
         const data = await response.json();
@@ -1315,7 +1319,8 @@
             : schoolLevelRoute;
         const wantsMaterials = event.submitter?.id === "materials-login" || new URLSearchParams(location.search).has("materials");
         const params=new URLSearchParams(location.search);params.delete("materials");if(!params.has("language"))params.set("language",selectedLanguage);
-        const destination = wantsMaterials ? "/materials.html?"+params.toString() : selectedRoute || data.redirect || "/class.html";
+        const recordClassroom = new URLSearchParams(location.search).get("recordClassroom");
+        const destination = recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? "/materials.html?"+params.toString() : selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
         void enterClassroom(destination);

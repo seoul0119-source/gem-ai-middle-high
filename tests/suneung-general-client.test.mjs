@@ -38,6 +38,7 @@ function harness(id = "suneung-2027-korean-speech-writing") {
   const nodes = new Map();
   const rendered = [], requests = [], pending = [];
   const context = {
+    saveClassSnapshot() {}, recordClient:null, recordPermit:"", recordRevision:0,
     COURSE_ID: id, COURSE: configs[id], IS_SUNEUNG: true, IS_MATH: false, IS_KOREAN: true,
     IS_SOCIAL: false, IS_HISTORY: false, IS_SCIENCE: false, IS_ENGLISH: false, IS_GENERATIVE_LESSON: true,
     AVATAR_TEXT: {}, courseRunId: "run-A", lessonSeed: "seed-A", lessonManuallyEnded: false,

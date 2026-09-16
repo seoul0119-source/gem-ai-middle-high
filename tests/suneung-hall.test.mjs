@@ -776,6 +776,8 @@ test("restores lesson readiness after a successful session restart", async () =>
   };
   runInNewContext(`
     let capturedRestart;
+    function saveClassSnapshot() {}
+    let recordClient=null,recordPermit="",recordRevision=0;
     const restartButton = {
       disabled:false,
       addEventListener(type, listener) {
