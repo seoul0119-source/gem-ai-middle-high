@@ -181,7 +181,7 @@ test("authenticated chat-final generates contextual chemistry help and speech ac
     const courseRunId = "science-v2:help-api";
     const room = classroom(courseRunId);
     const token = createSessionToken({
-      id:"R260001", name:"설명 경로 테스트", session:"science-help-route-test",
+      id:"R269991", name:"설명 경로 테스트", session:"science-help-route-test",
       courseId, courseRunId, startedAt:new Date().toISOString(), endedAt:null
     });
     assert.ok(token);

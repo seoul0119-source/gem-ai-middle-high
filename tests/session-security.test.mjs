@@ -45,7 +45,7 @@ function makeResponse() {
 
 function signedRequest(body, student = {}) {
   const token = createSessionToken({
-    id: "R260001",
+    id: "R269991",
     name: "테스트 학생",
     session: "11111111-1111-4111-8111-111111111111",
     ...student
@@ -194,7 +194,7 @@ test("preserves the original login time across cookie saves", () => {
   const now = Math.floor(Date.now() / 1000);
   const authenticatedAt = now - 60 * 60;
   const firstToken = createSessionToken({
-    id: "R260001",
+    id: "R269991",
     name: "테스트 학생",
     session: "11111111-1111-4111-8111-111111111111",
     authenticatedAt
@@ -231,7 +231,7 @@ test("keeps the login boundary when a fresh tracked course row is created", asyn
   const authenticatedAt = now - 60 * 60;
   const replies = [
     "<html><body>수업이 종료되었습니다.</body></html>",
-    '<html><body><a href="https://gem-ai-middle-high.vercel.app/class.html?id=R260001&name=%ED%85%8C%EC%8A%A4%ED%8A%B8&session=22222222-2222-4222-8222-222222222222">입장</a></body></html>',
+    '<html><body><a href="https://gem-ai-middle-high.vercel.app/class.html?id=R269991&name=%ED%85%8C%EC%8A%A4%ED%8A%B8&session=22222222-2222-4222-8222-222222222222">입장</a></body></html>',
     "<html><body>수업 시작 기록이 저장되었습니다.</body></html>"
   ];
   globalThis.fetch = async () => ({
@@ -269,7 +269,7 @@ test("science start and restart keep versioned keys and avoid the previous twent
     return { ok:true, text:async () => action === "start"
       ? "<html><body>수업 시작 기록이 저장되었습니다.</body></html>"
       : action === "end" ? "<html><body>수업이 종료되었습니다.</body></html>"
-      : '<html><body><a href="https://gem-ai-middle-high.vercel.app/class.html?id=R260001&name=student&session=22222222-2222-4222-8222-222222222222">입장</a></body></html>' };
+      : '<html><body><a href="https://gem-ai-middle-high.vercel.app/class.html?id=R269991&name=student&session=22222222-2222-4222-8222-222222222222">입장</a></body></html>' };
   };
   const courseId = "suneung-2028-integrated-science";
   let student = {};

@@ -477,7 +477,7 @@ test("guarded Integrated Science chat route never calls the generative endpoint"
   try {
     const courseRunId = "closed-science-run";
     const token = createSessionToken({
-      id:"R260001",
+      id:"R269991",
       name:"테스트 학생",
       session:"sheet-session",
       courseId:COURSE_ID,
@@ -545,7 +545,7 @@ test("closed science speech accepts bank output and rejects every arbitrary payl
   try {
     const courseRunId = "closed-science-speech-run";
     const token = createSessionToken({
-      id:"R260001",
+      id:"R269991",
       name:"테스트 학생",
       session:"sheet-session",
       courseId:COURSE_ID,

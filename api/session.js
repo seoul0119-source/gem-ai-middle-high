@@ -8,6 +8,7 @@ import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
 import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import {
   clearStudentSession,
+  isBlockedStudentId,
   readStudentSession,
   isActiveCourseRun,
   requireStudentSession,
@@ -136,8 +137,13 @@ function findLoginRedirect(html, expectedId) {
 async function loginStudent(rawId) {
   const id = String(rawId || "").trim().toUpperCase();
   if (!/^[A-Z][0-9]{6}$/.test(id)) {
-    const error = new Error("학생 ID 형식을 확인해 주세요. 예: R260001");
+    const error = new Error("학생 ID 형식을 확인해 주세요. 예: T260123");
     error.status = 400;
+    throw error;
+  }
+  if (isBlockedStudentId(id)) {
+    const error = new Error("사용이 종료된 학생 ID입니다. 본인에게 발급된 학생 ID로 입장해 주세요.");
+    error.status = 403;
     throw error;
   }
   const result = await requestSheet({ action: "login", id });

@@ -201,7 +201,7 @@ test("signed deployed chat route preserves voice clarification, E grading and sk
     }
     assert.ok(engine);
     const token = createSessionToken({
-      id:"R260001",
+      id:"R269991",
       name:"음성 테스트 학생",
       session:"science-voice-route-test",
       courseId,

@@ -7,7 +7,7 @@ const { default: handleTranscribe } = await import("../api/transcribe.js");
 const { createSessionToken } = await import("../lib/student-session.js");
 
 const activeStudent = {
-  id:"R260001",
+  id:"R269991",
   name:"학생",
   session:"00000000-0000-4000-8000-000000000001",
   courseId:"suneung-2027-math-probability",

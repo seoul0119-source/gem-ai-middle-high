@@ -197,7 +197,7 @@ test("sends the normalized choices and final question to the TTS provider", asyn
     const courseId = "suneung-2028-math";
     const courseRunId = "natural-speech-run";
     const token = createSessionToken({
-      id:"R260001",
+      id:"R269991",
       name:"테스트 학생",
       session:"sheet-session",
       courseId,

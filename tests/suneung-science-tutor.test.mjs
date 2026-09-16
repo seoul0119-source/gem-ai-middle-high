@@ -46,7 +46,7 @@ async function withProvider(run, callback) {
 function classroom(courseRunId = "science-v2:ai-tutor-test") {
   const engine = createScienceLessonEngine(courseRunId);
   const token = createSessionToken({
-    id: "R260001", name: "과학 대화 테스트", session: "science-ai-test",
+    id: "R269991", name: "과학 대화 테스트", session: "science-ai-test",
     courseId, courseRunId, startedAt: new Date().toISOString(), endedAt: null
   });
   const headers = { cookie: `${SESSION_COOKIE}=${token}` };

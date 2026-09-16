@@ -9,7 +9,7 @@ test("science voice input preserves full concept questions and unambiguous E ans
   process.env.OPENAI_API_KEY = "science-conversation-transcribe-test";
   const courseId = "suneung-2028-integrated-science";
   const courseRunId = "science-v2:question-transcription";
-  const token = createSessionToken({ id: "R260001", name: "질문 테스트", session: "asr-science-test",
+  const token = createSessionToken({ id: "R269991", name: "질문 테스트", session: "asr-science-test",
     courseId, courseRunId, startedAt: new Date().toISOString(), endedAt: null });
   let recognizedText = "";
   globalThis.fetch = async (url, options) => {

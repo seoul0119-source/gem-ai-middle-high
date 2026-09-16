@@ -18,7 +18,7 @@ test("all classroom URLs deny missing or forged cookies even with shared student
   for (const page of ["class", "learn", "learn-fr", "english", "suneung", "international-en", "international-fr", "emma-test"]) {
     for (const cookie of ["", `${SESSION_COOKIE}=forged.signature`]) {
       const res = response();
-      await serveStudentPage({ method: "GET", headers: { cookie }, query: { page, id: "R260001", session: "shared" } }, res);
+      await serveStudentPage({ method: "GET", headers: { cookie }, query: { page, id: "R269991", session: "shared" } }, res);
       assert.equal(res.code, 303);
       assert.equal(res.headers.Location, "/");
       assert.equal(res.body, "");
@@ -27,7 +27,7 @@ test("all classroom URLs deny missing or forged cookies even with shared student
   }
 });
 test("valid login serves the classroom; tampered, expired and traversal requests fail", async () => {
-  const token = createSessionToken({ id: "R260001", session: "test-session" });
+  const token = createSessionToken({ id: "R269991", session: "test-session" });
   const req = { method: "GET", headers: { cookie: `${SESSION_COOKIE}=${token}` }, query: { page: "class" } };
   const res = response();
   await serveStudentPage(req, res);

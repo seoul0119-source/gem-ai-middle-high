@@ -75,7 +75,7 @@ test("an in-progress Suneung start request repeats the current question without 
     const courseId = "suneung-2027-math-probability";
     const courseRunId = "voice-repeat-run";
     const token = createSessionToken({
-      id:"R260001",
+      id:"R269991",
       name:"테스트 학생",
       session:"sheet-session",
       courseId,

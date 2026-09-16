@@ -21,7 +21,7 @@ function capture() {
 
 function requestFor(courseId, body = {}) {
   const courseRunId = "general-voice-test-run";
-  const token = createSessionToken({ id:"R260001", name:"테스트", session:"general-voice-test", courseId,
+  const token = createSessionToken({ id:"R269991", name:"테스트", session:"general-voice-test", courseId,
     courseRunId, startedAt:new Date().toISOString(), endedAt:null });
   return { method:"POST", headers:{ cookie:`${SESSION_COOKIE}=${token}` },
     body:{ courseId, courseRunId, ...body } };

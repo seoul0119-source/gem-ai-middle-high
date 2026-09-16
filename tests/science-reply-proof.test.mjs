@@ -11,7 +11,7 @@ import speechHandler from "../api/speech.js";
 
 const courseId = "suneung-2028-integrated-science";
 const text = "문제 1/10 · AI 설명 · 도전 2/3\n\n질량은 물체가 가진 물질의 양을 나타내는 물리량이에요. 국제단위계의 기본 단위는 킬로그램입니다.\n\n같은 물체를 달에 가져가도 질량은 같지만, 무게는 달의 중력에 따라 달라져요.\n\n답: (________)";
-const student = { id:"R260001", session:"proof-test-session", courseId, courseRunId:"science-v2:proof-test-run", endedAt:null };
+const student = { id:"R269991", session:"proof-test-session", courseId, courseRunId:"science-v2:proof-test-run", endedAt:null };
 const html = await readFile(new URL("../learn.html", import.meta.url), "utf8");
 
 function namedFunction(name) {

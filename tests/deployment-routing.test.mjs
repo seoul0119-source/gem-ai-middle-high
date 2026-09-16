@@ -38,7 +38,7 @@ test("the deployed /api/chat rewrite reaches the closed Suneung science engine",
   try {
     const courseRunId = "deployment-route-run";
     const token = createSessionToken({
-      id:"R260001",
+      id:"R269991",
       name:"테스트 학생",
       session:"sheet-session",
       courseId:COURSE_ID,
