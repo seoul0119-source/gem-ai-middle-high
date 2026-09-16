@@ -627,6 +627,7 @@
         <button id="login-button" type="submit">
           💎 GEM AI CLASS 입장
         </button>
+        <button id="materials-login" type="submit" style="margin-top:12px;background:#175f51">📚 선택한 반의 자료실 · PDF 입장</button>
         <div id="login-error" class="login-error" role="alert" aria-live="polite"></div>
       </form>
 
@@ -1312,7 +1313,9 @@
           : selectedSchoolLevel === "high"
             ? schoolLevelRoute?.[selectedSubject]?.[selectedHighSchoolPathway]
             : schoolLevelRoute;
-        const destination = new URLSearchParams(location.search).has("materials") ? "/materials.html" : selectedRoute || data.redirect || "/class.html";
+        const wantsMaterials = event.submitter?.id === "materials-login" || new URLSearchParams(location.search).has("materials");
+        const params=new URLSearchParams(location.search);params.delete("materials");if(!params.has("language"))params.set("language",selectedLanguage);
+        const destination = wantsMaterials ? "/materials.html?"+params.toString() : selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
         void enterClassroom(destination);
