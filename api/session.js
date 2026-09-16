@@ -1,4 +1,4 @@
-import {issueRecordPermit,saveClassRecord,verifyRecordTransfer} from '../lib/class-record.js';
+import {issueRecordPermit,saveClassRecord,verifyRecordTransfer,resumeClassRecord} from '../lib/class-record.js';
 import { issueClassroomPass, verifyClassroomPass } from "../lib/classroom-pass.js";
 import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
@@ -363,6 +363,14 @@ export default async function handler(request, response) {
     const student = requireStudentSession(request, response);
     if (!student) return;
 
+    if (action === "resume-class-record") {
+      const record=await resumeClassRecord(student,body.id);
+      const {courseId,course}=requireCourse(record.course);
+      if(course.suneung)throw Error('이 수업은 현재 이어하기를 지원하지 않습니다.');
+      const active=await createFreshCourseSession(student,courseId,course);
+      setStudentSession(response,active);
+      return sendJson(response,200,{success:true,courseId,courseRunId:active.courseRunId,recordPermit:issueRecordPermit({...active,courseRunId:record.id,startedAt:record.started,recordLease:record.lease}),record});
+    }
     if (action === "save-class-record") {
       return sendJson(response,200,await saveClassRecord(student,body));
     }

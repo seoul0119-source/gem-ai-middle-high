@@ -918,7 +918,7 @@
     if(!IS_SUNEUNG){const link=document.createElement('a');link.href='/materials.html?course='+encodeURIComponent(COURSE_ID);link.textContent='내 수업 기록 · 자료실';link.style.marginLeft='12px';const line=document.createElement('div');line.append(recordNotice,link);document.getElementById('chat').after(line);}
     function saveClassSnapshot(status=lessonManuallyEnded?'stopped':'studying',exiting=false){
       if(IS_SUNEUNG||!recordClient||messages.length<2)return;
-      recordClient.queue(courseRunId,recordPermit,{revision:++recordRevision,status,messages:messages.map(m=>({role:m.role,content:m.content})),counters:JSON.parse(JSON.stringify(turnCounters))},exiting);
+      recordClient.queue(courseRunId,recordPermit,{revision:++recordRevision,status,messages:messages.map(m=>({role:m.role,content:m.content,...(m.progress?{progress:m.progress}:{})})),counters:JSON.parse(JSON.stringify(turnCounters))},exiting);
     }
     let lessonManuallyEnded = false;
     const scienceTurnState = { epoch: 0, revision: 0, busy: false, transcribing: false, restarting: false, question: 0, key: "" };
@@ -1204,11 +1204,19 @@
     async function initializeStudentSession() {
       try {
         const session = await sessionRequest();
-        const started = await sessionRequest({ action: "start", courseId: COURSE_ID });
+        const resumeId=new URLSearchParams(location.search).get('resume');
+        const started = await sessionRequest(resumeId&&!IS_SUNEUNG?{action:'resume-class-record',id:resumeId}:{ action: "start", courseId: COURSE_ID });
+        if(started.courseId!==COURSE_ID)throw Error('기록의 과목과 교실이 일치하지 않습니다. 자료실에서 다시 이어하기를 눌러 주세요.');
         courseRunId = String(started.courseRunId || "");
         recordPermit=started.recordPermit||"";
         if(!IS_SUNEUNG)recordClient=GemClassRecords({student:session.student.id,notify:text=>{recordNotice.textContent=text;}});
         configureLearningProgress(session.student.id);
+        if(started.record&&!IS_SUNEUNG){
+          messages.splice(0,messages.length,...started.record.messages);turnCounters=started.record.counters;recordRevision=started.record.revision;
+          chat.replaceChildren();for(const m of messages)addMessage(m.role,cleanForDisplay(m.content));
+          lastAssistantText=cleanForDisplay(messages.filter(m=>m.role==='assistant').at(-1)?.content||'');renderTurnCounters();
+          if(turnCounters.items[turnCounters.current]?.completed&&turnCounters.current<10)setTimeout(()=>sendMessage('다음 문제'),0);
+        }
         sessionEnded = false;
         document.body.classList.remove("auth-pending");
         input.disabled = false;
@@ -2290,6 +2298,7 @@
           ? data.scienceReplyProof : "";
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText,
+          ...(!IS_SUNEUNG&&data.progress?{progress:data.progress}:{}),
           ...(lastAssistantProof ? { scienceReplyProof:lastAssistantProof } : {}) });
         if(!IS_SUNEUNG)saveClassSnapshot();
         recordAssessment(data.record, answerSubmittedAt);
