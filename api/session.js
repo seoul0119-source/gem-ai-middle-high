@@ -23,7 +23,8 @@ function newCourseRunId(courseId, student) {
   if (!isGuardedSuneungScienceCourse(courseId)) return randomUUID();
   const openingSignature = seed => {
     const first = createScienceLessonEngine(seed, courseId).questions[0];
-    return JSON.stringify([first.stem, first.choices]);
+    // Reordering the choices does not make a repeated question new.
+    return first.stem;
   };
   const recentOpenings = new Set(scienceRunHistory(student).map(openingSignature));
   for (let attempt = 0; attempt < 50; attempt += 1) {
