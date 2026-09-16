@@ -1,3 +1,4 @@
+import {issueRecordPermit,saveClassRecord,verifyRecordTransfer} from '../lib/class-record.js';
 import { issueClassroomPass, verifyClassroomPass } from "../lib/classroom-pass.js";
 import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
@@ -332,6 +333,10 @@ export default async function handler(request, response) {
   const action = String(body.action || "login");
 
   try {
+    if (action === "verify-class-record") {
+      const valid=verifyRecordTransfer(body.ticket,body.record);
+      return sendJson(response, valid?200:401, {valid});
+    }
     if (action === "verify-classroom-pass") {
       const pass = verifyClassroomPass(body.ticket, body.audience);
       return sendJson(response, pass ? 200 : 401, pass ? {success:true, pass} : {error:"Invalid entry pass"});
@@ -357,6 +362,9 @@ export default async function handler(request, response) {
     const student = requireStudentSession(request, response);
     if (!student) return;
 
+    if (action === "save-class-record") {
+      return sendJson(response,200,await saveClassRecord(student,body));
+    }
     if (action === "classroom-pass") {
       return sendJson(response, 200, {ticket:issueClassroomPass(student, body.classroom)});
     }
@@ -391,6 +399,7 @@ export default async function handler(request, response) {
         success: true,
         courseId: active.courseId,
         courseRunId: active.courseRunId,
+        recordPermit: issueRecordPermit(active),
         startedAt: active.startedAt,
         trackingMessage
       });
@@ -404,6 +413,7 @@ export default async function handler(request, response) {
         success: true,
         courseId: active.courseId,
         courseRunId: active.courseRunId,
+        recordPermit: issueRecordPermit(active),
         startedAt: active.startedAt,
         trackingMessage: active.trackingMessage
       });

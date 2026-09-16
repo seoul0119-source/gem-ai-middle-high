@@ -607,6 +607,7 @@
   </div>
 
   <script src="/lesson-counters.js"></script>
+  <script src="/class-record-client.js"></script>
   <script src="/elementary-catalog.js"></script>
   <script>
     function elementaryMathConfig(language, level, label) {
@@ -911,6 +912,14 @@
     let sessionEnded = false;
     let sessionEnding = false;
     let courseRunId = "";
+    let recordClient=null, recordPermit="", recordRevision=0;
+    const recordNotice=document.createElement('p');
+    recordNotice.setAttribute('role','status');recordNotice.style.cssText='font-size:13px;color:#244b6a;margin:8px 0';
+    if(!IS_SUNEUNG){const link=document.createElement('a');link.href='/materials.html?course='+encodeURIComponent(COURSE_ID);link.textContent='내 수업 기록 · 자료실';link.style.marginLeft='12px';const line=document.createElement('div');line.append(recordNotice,link);document.getElementById('chat').after(line);}
+    function saveClassSnapshot(status=lessonManuallyEnded?'stopped':'studying',exiting=false){
+      if(IS_SUNEUNG||!recordClient||messages.length<2)return;
+      recordClient.queue(courseRunId,recordPermit,{revision:++recordRevision,status,messages:messages.map(m=>({role:m.role,content:m.content})),counters:JSON.parse(JSON.stringify(turnCounters))},exiting);
+    }
     let lessonManuallyEnded = false;
     const scienceTurnState = { epoch: 0, revision: 0, busy: false, transcribing: false, restarting: false, question: 0, key: "" };
 
@@ -1197,6 +1206,8 @@
         const session = await sessionRequest();
         const started = await sessionRequest({ action: "start", courseId: COURSE_ID });
         courseRunId = String(started.courseRunId || "");
+        recordPermit=started.recordPermit||"";
+        if(!IS_SUNEUNG)recordClient=GemClassRecords({student:session.student.id,notify:text=>{recordNotice.textContent=text;}});
         configureLearningProgress(session.student.id);
         sessionEnded = false;
         document.body.classList.remove("auth-pending");
@@ -1238,6 +1249,7 @@
     }
 
     function finishTrackingOnExit() {
+      if(!IS_SUNEUNG)saveClassSnapshot("stopped",true);
       if (sessionEnded || sessionEnding) return;
       sessionEnding = true;
       const endPayload = { action: "end-on-exit", courseId: COURSE_ID, courseRunId };
@@ -2279,6 +2291,7 @@
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText,
           ...(lastAssistantProof ? { scienceReplyProof:lastAssistantProof } : {}) });
+        if(!IS_SUNEUNG)saveClassSnapshot();
         recordAssessment(data.record, answerSubmittedAt);
         if (IS_SUNEUNG && currentQuestionNumber && !data.record && questionStartedAt) {
           questionStartedAt += Math.max(0, Date.now() - answerSubmittedAt);
@@ -2348,9 +2361,11 @@
         ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.preparingNew}`
         : "<strong>상태</strong> 새 수업 기록 준비 중";
       try {
+        if(!IS_SUNEUNG){saveClassSnapshot("stopped");if(recordClient)await recordClient.flush();}
         const restarted = await sessionRequest({ action: "restart", courseId: COURSE_ID });
         courseRunId = String(restarted.courseRunId || "");
         sessionReady = Promise.resolve(true);
+        if(!IS_SUNEUNG){recordPermit=restarted.recordPermit||"";recordRevision=0;}
         lessonManuallyEnded = false;
         sessionEnded = false;
         sessionEnding = false;
@@ -2525,6 +2540,7 @@
       connection.innerHTML = COURSE.avatar
         ? `<strong>${AVATAR_TEXT.status}</strong> ${AVATAR_TEXT.ended}`
         : "<strong>상태</strong> 수업 종료·기록 저장";
+      if(!IS_SUNEUNG){saveClassSnapshot("stopped");if(recordClient)await recordClient.flush();}
       await endCourseTracking();
       if (returnToEntrance) {
         location.href = COURSE.entrance || "/";
