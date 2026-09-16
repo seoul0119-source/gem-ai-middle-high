@@ -7,6 +7,7 @@ import { SCIENCE_VARIANT_PREFIX } from "../lib/suneung-science-variants.js";
 import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
 import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import {
+  studentRegistration,
   clearStudentSession,
   isBlockedStudentId,
   readStudentSession,
@@ -206,7 +207,7 @@ async function registerStudent(body) {
     error.registrationUncertain = true;
     throw error;
   }
-  return { id: result.studentId, name, grade };
+  return { id: result.studentId, name, grade, ...studentRegistration(result.studentId) };
 }
 
 function courseLevel(course) {
@@ -324,7 +325,7 @@ export default async function handler(request, response) {
     if (!student) return sendJson(response, 401, { error: "등록된 학생 ID로 먼저 입장해 주세요." });
     return sendJson(response, 200, {
       authenticated: true,
-      student: { id: student.id, name: student.name },
+      student: { id: student.id, name: student.name, ...studentRegistration(student.id) },
       courseId: student.courseId || null,
       startedAt: student.startedAt || null,
       endedAt: student.endedAt || null
@@ -369,7 +370,7 @@ export default async function handler(request, response) {
       }
       return sendJson(response, 200, {
         success: true,
-        student: { id: student.id, name: student.name },
+        student: { id: student.id, name: student.name, ...studentRegistration(student.id) },
         redirect: "/class.html"
       });
     }
