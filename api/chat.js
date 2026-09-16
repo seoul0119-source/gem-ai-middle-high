@@ -1,3 +1,4 @@
+import {TURN_PROGRESS_RULE,turnSchema,extractTurnProgress,activeQuestion} from "../lib/lesson-turn-progress.js";
 import { getCourse } from "./courses.js";
 import { isSchoolEnglishNoAnswerRequest } from "./_no-answer-guard.js";
 import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
@@ -1433,10 +1434,10 @@ export default async function handler(request, response) {
       if (grade3Hint) {
         const visual = buildVisualGradeHint(messages, course.language);
         const explanation = buildSafeGrade3Hint(messages, course.language);
-        return sendJson(response, 200, { text: `${visual}\n\n${explanation}` });
+        return sendJson(response, 200, { text: `${visual}\n\n${explanation}`, progress:{event:"hint",question:activeQuestion(messages),currentQuestion:activeQuestion(messages)} });
       }
       if (koreanHint && !conversationalHelp && !generalSuneung && !course.elementary) {
-        return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind) });
+        return sendJson(response, 200, { text: buildSafeKoreanHint(messages, course.kind), progress:{event:"hint",question:activeQuestion(messages),currentQuestion:activeQuestion(messages)} });
       }
 
       const toeicQuestion = course.kind === "toeic" ? latestToeicQuestion(messages) : "";
@@ -1501,7 +1502,7 @@ export default async function handler(request, response) {
         }
         const requestBody = {
             model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
-            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule + independentGeneralGradeRule + elementaryRule,
+            instructions: course.prompt + historyRule + suneungSessionRule + voiceRule + koreanStartRule + toeicGradeRule + (course.language === "en" ? ENGLISH_ANSWER_SLOT_RULE : course.language === "fr" ? FRENCH_ANSWER_SLOT_RULE : ANSWER_SLOT_RULE) + schoolEnglishAnswerRule + avatarStartRule + avatarHintRule + grade4GentleRule + formatRepairRule + generalTurnRule + independentGeneralGradeRule + elementaryRule + (course.suneung ? "" : TURN_PROGRESS_RULE),
             input: messages,
             max_output_tokens: course.suneung ? 5000 : course.kind === "toefl"
               ? 1200
@@ -1509,6 +1510,7 @@ export default async function handler(request, response) {
                 ? 900
                 : 650
         };
+        if(!course.suneung){requestBody.text={format:{type:"json_schema",name:"lesson_turn",strict:true,schema:turnSchema}};requestBody.max_output_tokens+=150;}
         const suneungResponse = course.suneung
           ? await requestSuneungResponse(requestBody, { apiKey, signal: generalReviewSignal || AbortSignal.timeout(55_000) }) : null;
         const openAIResponse = suneungResponse || await fetch("https://api.openai.com/v1/responses", {
@@ -1524,7 +1526,8 @@ export default async function handler(request, response) {
           return sendJson(response, 502, { error: "AI 선생님 연결이 잠시 원활하지 않습니다." });
         }
         const rawText = getOutputText(data);
-        const text = generalSuneung ? normalizeGeneralSuneungDisplay(rawText) : rawText;
+        const turnDisplay=course.suneung?{text:rawText,progress:null}:extractTurnProgress(rawText,messages);
+        const text = generalSuneung ? normalizeGeneralSuneungDisplay(rawText) : turnDisplay.text;
         if (generalSuneung && data.status === "incomplete") {
           lastGeneralRejection = "incomplete_response";
           console.warn("Incomplete general CSAT response rejected", { attempt: attempt + 1, reason: data.incomplete_details?.reason });
@@ -1662,6 +1665,7 @@ export default async function handler(request, response) {
           }
           return sendJson(response, 200, {
             text: extracted.text,
+            ...(!course.suneung?{progress:turnDisplay.progress}:{}),
             ...(generalSuneung ? { teacherModel: suneungResponse.model } : {}),
             ...(extracted.record ? { record: extracted.record } : {})
           });

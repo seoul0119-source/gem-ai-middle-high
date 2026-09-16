@@ -57,6 +57,7 @@
       font-size: 14px;
     }
     .status strong { color: #173d70; }
+    .status { flex-wrap: wrap; }
     [hidden] { display: none !important; }
     .learning-progress {
       margin-bottom: 12px;
@@ -521,6 +522,7 @@
     <section class="status" aria-label="수업 상태">
       <span><strong>과목</strong> <span id="course-subject">수업</span></span>
       <span><strong>학년</strong> <span id="course-grade">중학교 1학년</span></span>
+      <span id="lesson-counts" aria-live="polite" style="display:none;flex-basis:100%;line-height:1.8"></span>
       <span id="connection"><strong>상태</strong> 수업 준비</span>
     </section>
 
@@ -604,6 +606,7 @@
     </div>
   </div>
 
+  <script src="/lesson-counters.js"></script>
   <script src="/elementary-catalog.js"></script>
   <script>
     function elementaryMathConfig(language, level, label) {
@@ -927,6 +930,15 @@
     } catch (_) {
       courseHistory = [];
     }
+    let turnCounters=GemLessonCounters.create();
+    function renderTurnCounters(){
+      const el=document.getElementById('lesson-counts');
+      if(IS_SUNEUNG||!IS_GENERATIVE_LESSON)return;
+      el.style.display='block';const v=GemLessonCounters.values(turnCounters);
+      const labels=IS_FRENCH?['Question','Erreurs','Indices','Total']:COURSE.language==='en'?['Question','Incorrect','Hints','Total']:['문제','오답','힌트','누적'];
+      el.textContent=`${labels[0]} ${v.current}/10 · ${labels[1]} ${v.incorrect} · ${labels[2]} ${v.hints} | ${labels[3]} ${labels[1]} ${v.totalIncorrect} · ${labels[2]} ${v.totalHints}${v.uncertain?' · 일부 횟수 확인 필요':''}`;
+    }
+    renderTurnCounters();
     let progressStorageKey = "";
     let learningRecords = [];
     let currentQuestionNumber = 0;
@@ -2249,6 +2261,7 @@
           throw new Error(data.error || (COURSE.avatar ? AVATAR_TEXT.connectionFailed : "수업 연결에 실패했습니다."));
         }
         responseAccepted = true;
+        if(!IS_SUNEUNG){GemLessonCounters.apply(turnCounters,data.progress);renderTurnCounters();}
 
         typing.remove();
         const protectedText = COURSE.avatar && isStarting
@@ -2342,6 +2355,7 @@
         sessionEnded = false;
         sessionEnding = false;
         messages.length = 0;
+        if(!IS_SUNEUNG){turnCounters=GemLessonCounters.create();renderTurnCounters();}
         lessonSeed = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
         currentQuestionNumber = 0;
         questionStartedAt = 0;

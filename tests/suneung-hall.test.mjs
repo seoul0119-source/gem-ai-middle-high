@@ -784,6 +784,7 @@ test("restores lesson readiness after a successful session restart", async () =>
     };
     const document = { getElementById:() => restartButton };
     const COURSE_ID = "suneung-2027-math-probability";
+    const IS_SUNEUNG = true;
     const COURSE = { avatar:false, greeting:"수능 수학 수업" };
     const AVATAR_TEXT = {};
     const connection = { innerHTML:"" };
