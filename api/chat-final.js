@@ -272,6 +272,13 @@ export default async function handler(request, response) {
     const payload = parsePayload(captured);
     const activity = extractLatestActivity(payload?.text || "");
     const number = extractActivityNumber(activity);
+    // Hints, corrections and discussion belong to the existing activity.
+    // Only a newly introduced activity needs the novelty guard.
+    const currentNumber = Math.max(0, ...messageActivities.map(extractActivityNumber));
+    if (!starting && typeof payload?.text === "string" && payload.text.trim() &&
+        (!number || number <= currentNumber)) {
+      return sendCaptured(response, captured);
+    }
     if (!activity || !number) {
       rejected.push(compact(payload?.text || ""));
       continue;

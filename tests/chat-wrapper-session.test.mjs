@@ -129,3 +129,42 @@ test("chat-final keeps its English freshness cookie wrapper for an active run", 
     globalThis.fetch = originalFetch;
   }
 });
+
+for (const reply of [
+  '도서관에서는 작은 목소리로 말해야 해요. 조용히 말한다는 뜻의 단어를 찾아보세요.',
+  '활동 1/10 — 단어\nPlease ______ while other students are reading.\n작은 목소리를 떠올려 보세요.',
+  '아직 맞지 않았어요. 다시 생각해 보세요.',
+  '오늘의 10개 활동을 모두 마쳤어요.'
+]) {
+  test(`chat-final delivers existing-activity feedback without regeneration: ${reply.slice(0, 20)}`, async () => {
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      return { ok:true, status:200, async json() { return { output_text:reply }; } };
+    };
+    try {
+      const response = responseRecorder();
+      await finalHandler(requestFor(activeStudent, { messages:[
+        {role:'assistant', content:'활동 1/10 — 단어\nPlease ______ while other students are reading.\n① whisper ② shout ③ jump'},
+        {role:'user', content:'whisper'}
+      ] }), response);
+      assert.equal(response.statusCode, 200);
+      assert.ok(response.payload.text);
+      assert.equal(calls, 1);
+      assert.equal(response.getHeader('Set-Cookie'), undefined);
+    } finally { globalThis.fetch = originalFetch; }
+  });
+}
+
+test('chat-final returns a hint and its counter without demanding a new question', async () => {
+  const response = responseRecorder();
+  await finalHandler(requestFor(activeStudent, { messages:[
+    {role:'assistant', content:'활동 1/10 — 단어\nPlease ______ while other students are reading.\n① whisper ② shout ③ jump'},
+    {role:'user', content:'힌트'}
+  ] }), response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload.progress.event, 'hint');
+  assert.equal(response.payload.progress.question, 1);
+  assert.doesNotMatch(response.payload.text, /다시 시작/);
+});
