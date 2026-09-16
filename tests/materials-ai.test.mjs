@@ -8,3 +8,12 @@ test('catalog covers Korean middle science and EN/FR grades and material is inde
 test('review rejects flawed sets without returning a printable worksheet',async()=>{
  const saved=globalThis.fetch;let count=0;globalThis.fetch=async()=>Response.json({output_text:JSON.stringify(++count===1?fixture:{valid:false})});try{await assert.rejects(handleMaterials({mode:'generate',courseId:'m1-science',topic:''}),/검토/);}finally{globalThis.fetch=saved;}
 });
+
+test('excluded topics in Korean, English and French are blocked before generation',async()=>{
+ const saved=globalThis.fetch;globalThis.fetch=async()=>{throw Error('must not call provider');};
+ try{for(const topic of ['인류의 진화','Darwin and natural selection','La sélection naturelle'])await assert.rejects(handleMaterials({mode:'generate',courseId:'m1-science',topic}),/제외된 주제/);}finally{globalThis.fetch=saved;}
+});
+test('excluded distractors and explanations are rejected before a worksheet can be saved',async()=>{
+ const saved=globalThis.fetch;
+ try{for(const [field,value] of [['choices','공통 조상'],['hints','human evolution'],['explanation','théorie de l’évolution']]){const bad=structuredClone(fixture);if(Array.isArray(bad.questions[0][field]))bad.questions[0][field][0]=value;else bad.questions[0][field]=value;globalThis.fetch=async()=>Response.json({output_text:JSON.stringify(bad)});await assert.rejects(handleMaterials({mode:'generate',courseId:'m1-science',topic:'세포'}),/교육 기준/);}}finally{globalThis.fetch=saved;}
+});
