@@ -50,3 +50,17 @@ test('English and French grades reach the same student register unchanged', asyn
     assert.deepEqual(stored,['Grade 1','Grade 6','Grade 12','CP','6e','Première','Terminale']);
   } finally { globalThis.fetch=original; }
 });
+
+import {studentRegistration,createSessionToken,readStudentSession,SESSION_COOKIE} from '../lib/student-session.js';
+test('T IDs are trial and other valid prefixes are regular even if a client claims otherwise',()=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='test-only';
+ try {
+ for(const [id,type] of [['T260082','trial'],['t260082','trial'],['R260002','regular'],['A260002','regular']]) {
+ assert.equal(studentRegistration(id).registrationType,type);
+ const token=createSessionToken({id,session:'verified-sheet-session',registrationType:type==='trial'?'regular':'trial'});
+ const student=readStudentSession({headers:{cookie:`${SESSION_COOKIE}=${token}`}});
+ assert.equal(student.registrationType,type);assert.equal(student.isTrial,type==='trial');
+ }
+ assert.equal(studentRegistration('invalid').registrationType,'unknown');
+ } finally {if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});

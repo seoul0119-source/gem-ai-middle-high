@@ -17,7 +17,7 @@ test('record sessions retain original student, classroom and expiry; entry passe
  const {exchangeRecordPass,verifyRecordSession}=await import('../lib/classroom-pass.js');
  const student={id:'T260123',exp:Math.floor(Date.now()/1000)+3600},key='gem-english-elementary-science';
  const entry=issueClassroomPass(student,key),token=exchangeRecordPass(entry,CLASSROOMS[key]);
- assert.deepEqual(verifyRecordSession(token),{purpose:'record-session',id:student.id,aud:CLASSROOMS[key],exp:student.exp});
+ assert.deepEqual(verifyRecordSession(token),{purpose:'record-session',registrationType:'trial',registrationLabel:'체험 학생',isTrial:true,id:student.id,aud:CLASSROOMS[key],exp:student.exp});
  assert.equal(verifyRecordSession(entry),null);assert.equal(verifyRecordSession(token+'bad'),null);
  assert.equal(exchangeRecordPass(entry,CLASSROOMS.fr),null);
  assert.equal(exchangeRecordPass(issueClassroomPass({...student,exp:1},key),CLASSROOMS[key]),null);

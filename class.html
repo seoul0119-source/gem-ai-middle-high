@@ -217,7 +217,7 @@ footer{
             AI 선생님과 사람 담임 선생님이 학습 과정과 수업 기록을 함께 관리합니다.
         </p>
         <div class="student-session">
-            <span><strong id="student-name">등록 학생</strong> · <span id="student-id"></span></span>
+            <span><strong id="student-name">등록 학생</strong> · <span id="student-id"></span> · <span id="student-registration"></span></span>
             <button id="logout" class="logout" type="button">수업 종료·나가기</button>
         </div>
     </section>
@@ -328,6 +328,7 @@ async function loadStudentSession(){
         const data = await response.json();
         document.getElementById("student-name").textContent = `${data.student.name} 학생`;
         document.getElementById("student-id").textContent = data.student.id;
+        document.getElementById("student-registration").textContent = data.student.registrationLabel;
         document.body.classList.remove("auth-pending");
     }catch(_){
         location.replace("/");
