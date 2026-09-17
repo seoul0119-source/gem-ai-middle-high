@@ -1,5 +1,14 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {handleMaterials,validMaterial} from '../lib/materials-ai.js';import catalog from '../lib/material-catalog.json' with {type:'json'};
 const fixture={title:'Review',questions:Array.from({length:10},(_,i)=>({prompt:`What is ${i}+1?`,choices:[String(i+1),'30','40','50'],answerIndex:0,hints:['Add one.','Count the next number.'],explanation:`${i}+1=${i+1}`}))};
+test('credit exhaustion is distinguished from temporary rate limits, without retrying or leaking provider messages',async()=>{
+ const saved=globalThis.fetch;
+ try{for(const code of ['credit_balance_exhausted','rate_limit_exceeded']){
+  let calls=0;globalThis.fetch=async()=>{calls++;return Response.json({error:{code,message:'private provider details'}},{status:429});};
+  await assert.rejects(handleMaterials({mode:'generate',courseId:'materials-en-sat-reading-writing',topic:'words in context'}),error=>{
+   assert.equal(error.name,'AiServiceError');assert.equal(error.payload.code,code==='credit_balance_exhausted'?'ai_credit_exhausted':'ai_rate_limited');assert.equal(error.payload.retryable,code!=='credit_balance_exhausted');assert.ok(!JSON.stringify(error.payload).includes('private provider details'));return true;
+  });assert.equal(calls,1);
+ }}finally{globalThis.fetch=saved;}
+});
 test('SAT, ACT, IB and Bac pathways generate, review and tutor with their selected preparation scope',async()=>{
  const courses=catalog.filter(c=>c.practiceFocus);
  assert.equal(courses.length,15);
