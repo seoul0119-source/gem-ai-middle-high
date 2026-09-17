@@ -918,7 +918,7 @@
     {const link=document.createElement('a');link.href='/materials.html?course='+encodeURIComponent(COURSE_ID);link.textContent='학습 기록 · 이어하기 · 음성 복습 · 자료실';link.style.marginLeft='12px';const line=document.createElement('div');line.append(recordNotice,link);document.getElementById('chat').after(line);}
     function saveClassSnapshot(status=lessonManuallyEnded?'stopped':'studying',exiting=false){
       if(!recordClient||messages.length<2)return;
-      recordClient.queue(courseRunId,recordPermit,{revision:++recordRevision,status,lessonSeed,messages:messages.map(m=>({role:m.role,content:m.content,...(m.progress?{progress:m.progress}:{})})),counters:JSON.parse(JSON.stringify(turnCounters))},exiting);
+      recordClient.queue(courseRunId,recordPermit,{revision:++recordRevision,status,lessonSeed,messages:messages.map(m=>({role:m.role,content:m.content,...(m.progress?{progress:m.progress}:{}),...(m.assessment?{assessment:m.assessment}:{})})),counters:JSON.parse(JSON.stringify(turnCounters))},exiting);
     }
     let lessonManuallyEnded = false;
     const scienceTurnState = { epoch: 0, revision: 0, busy: false, transcribing: false, restarting: false, question: 0, key: "" };
@@ -2300,7 +2300,8 @@
           ? data.scienceReplyProof : "";
         addMessage("assistant", lastAssistantText);
         messages.push({ role: "assistant", content: answerReadyText,
-          ...(!IS_SUNEUNG&&data.progress?{progress:data.progress}:{}),
+          ...(data.progress?{progress:data.progress}:{}),
+          ...(IS_SUNEUNG&&data.record?{assessment:data.record}:{}),
           ...(lastAssistantProof ? { scienceReplyProof:lastAssistantProof } : {}) });
         saveClassSnapshot();
         recordAssessment(data.record, answerSubmittedAt);
