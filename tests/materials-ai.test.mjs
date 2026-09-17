@@ -1,5 +1,21 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {handleMaterials,validMaterial} from '../lib/materials-ai.js';import catalog from '../lib/material-catalog.json' with {type:'json'};
 const fixture={title:'Review',questions:Array.from({length:10},(_,i)=>({prompt:`What is ${i}+1?`,choices:[String(i+1),'30','40','50'],answerIndex:0,hints:['Add one.','Count the next number.'],explanation:`${i}+1=${i+1}`}))};
+test('SAT, ACT, IB and Bac pathways generate, review and tutor with their selected preparation scope',async()=>{
+ const courses=catalog.filter(c=>c.practiceFocus);
+ assert.equal(courses.length,15);
+ assert.equal(new Set(catalog.map(c=>c.id)).size,catalog.length);
+ for(const prefix of ['materials-en-sat-','materials-en-act-','materials-en-ib-','materials-fr-bac-'])assert.ok(courses.some(c=>c.id.startsWith(prefix)));
+ const saved=globalThis.fetch;
+ try{for(const course of courses){
+  const requests=[];
+  globalThis.fetch=async(_url,o)=>{const b=JSON.parse(o.body);requests.push(b);return Response.json({output_text:requests.length===3?'Method explanation':JSON.stringify(requests.length===1?fixture:{valid:true,issues:[]})});};
+  assert.deepEqual((await handleMaterials({mode:'generate',courseId:course.id,topic:''})).material,fixture);
+  assert.equal((await handleMaterials({mode:'tutor',courseId:course.id,question:fixture.questions[0],message:'Explain the method.'})).text,'Method explanation');
+  for(const r of requests){assert.ok(r.instructions.includes(course.practiceFocus));assert.ok(r.instructions.includes(course.subject));}
+  assert.ok(requests[0].instructions.includes(course.language==='fr'?'in French':'in English'));
+  assert.ok(requests[1].instructions.includes('not a full official exam'));
+ }}finally{globalThis.fetch=saved;}
+});
 test('catalog covers Korean middle science and EN/FR grades and material is independently reviewed',async()=>{
  assert.ok(catalog.find(c=>c.id==='m1-science'));for(const language of ['ko','en','fr'])assert.ok(catalog.some(c=>c.language===language));assert.equal(validMaterial(fixture),true);
  const saved=globalThis.fetch;const requests=[];globalThis.fetch=async(_url,o)=>{const b=JSON.parse(o.body);requests.push(b);return Response.json({output_text:JSON.stringify(requests.length===1?fixture:{valid:true})});};

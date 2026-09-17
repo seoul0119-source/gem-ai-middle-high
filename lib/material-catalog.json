@@ -1323,6 +1323,86 @@
     "title": "AP Art History"
   },
   {
+    "id": "materials-en-sat-reading-writing",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "SAT · Reading & Writing",
+    "title": "SAT · Reading & Writing",
+    "practiceFocus": "Reading comprehension, evidence, vocabulary in context, grammar and revision. Include original short passages."
+  },
+  {
+    "id": "materials-en-sat-math",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "SAT · Math",
+    "title": "SAT · Math",
+    "practiceFocus": "Algebra, advanced algebra, problem solving and data analysis, geometry and trigonometry."
+  },
+  {
+    "id": "materials-en-act-english",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "ACT · English",
+    "title": "ACT · English",
+    "practiceFocus": "Grammar, punctuation, sentence structure and rhetorical revision in original passages."
+  },
+  {
+    "id": "materials-en-act-math",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "ACT · Math",
+    "title": "ACT · Math",
+    "practiceFocus": "High-school algebra, functions, geometry, trigonometry, probability and statistics."
+  },
+  {
+    "id": "materials-en-act-reading",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "ACT · Reading",
+    "title": "ACT · Reading",
+    "practiceFocus": "Main ideas, evidence, inference, relationships and author purpose in original passages."
+  },
+  {
+    "id": "materials-en-act-science",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "ACT · Science",
+    "title": "ACT · Science",
+    "practiceFocus": "Interpret supplied experimental data and scientific reasoning; include every table or datum in plain text."
+  },
+  {
+    "id": "materials-en-act-writing",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "ACT · Writing — Planning & Revision",
+    "title": "ACT · Writing — Planning & Revision",
+    "practiceFocus": "Practice evaluating thesis statements, perspectives, evidence, organization and revision, not writing a complete assessed essay."
+  },
+  {
+    "id": "materials-en-ib-tok",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "IB Diploma · Theory of Knowledge (TOK)",
+    "title": "IB Diploma · Theory of Knowledge (TOK)",
+    "practiceFocus": "Practice recognizing knowledge questions, evidence, assumptions, perspectives and justification. Assess reasoning techniques, never treat a contested philosophical opinion as uniquely correct."
+  },
+  {
+    "id": "materials-en-ib-ee",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "IB Diploma · Extended Essay (EE)",
+    "title": "IB Diploma · Extended Essay (EE)",
+    "practiceFocus": "Practice research questions, source evaluation, research planning, citations and academic integrity. Never write a student's assessed Extended Essay."
+  },
+  {
+    "id": "materials-en-ib-academic-writing",
+    "language": "en",
+    "grade": "Advanced / AP",
+    "subject": "IB Diploma · Academic Writing",
+    "title": "IB Diploma · Academic Writing",
+    "practiceFocus": "Practice thesis, paragraph coherence, evidence, quotation, paraphrase and citation using original mini-examples. Never produce work to submit as the student's own assessment."
+  },
+  {
     "id": "materials-fr-1-0",
     "language": "fr",
     "grade": "CP",
@@ -1755,5 +1835,45 @@
     "grade": "Spécialités & options",
     "subject": "Histoire des arts",
     "title": "Histoire des arts"
+  },
+  {
+    "id": "materials-fr-bac-dissertation",
+    "language": "fr",
+    "grade": "Spécialités & options",
+    "subject": "Baccalauréat · Dissertation",
+    "title": "Baccalauréat · Dissertation",
+    "practiceFocus": "En français : analyser un sujet, formuler une problématique, construire un plan et choisir des arguments. Exercices de méthode, pas une dissertation complète à remettre."
+  },
+  {
+    "id": "materials-fr-bac-documents",
+    "language": "fr",
+    "grade": "Spécialités & options",
+    "subject": "Baccalauréat · Analyse de documents",
+    "title": "Baccalauréat · Analyse de documents",
+    "practiceFocus": "En français : identifier la source, contextualiser, citer des preuves et comparer des documents originaux inclus dans chaque question."
+  },
+  {
+    "id": "materials-fr-bac-grand-oral",
+    "language": "fr",
+    "grade": "Spécialités & options",
+    "subject": "Baccalauréat · Grand oral",
+    "title": "Baccalauréat · Grand oral",
+    "practiceFocus": "En français : préparer une question, structurer une présentation, justifier une réponse et répondre au jury. Exercices écrits de préparation, sans prétendre évaluer une prestation orale."
+  },
+  {
+    "id": "materials-fr-bac-recherche",
+    "language": "fr",
+    "grade": "Spécialités & options",
+    "subject": "Baccalauréat · Recherche & sources",
+    "title": "Baccalauréat · Recherche & sources",
+    "practiceFocus": "En français : construire une question de recherche, évaluer la fiabilité des sources et citer correctement."
+  },
+  {
+    "id": "materials-fr-bac-argumentation",
+    "language": "fr",
+    "grade": "Spécialités & options",
+    "subject": "Baccalauréat · Argumentation",
+    "title": "Baccalauréat · Argumentation",
+    "practiceFocus": "En français : distinguer thèse, argument, exemple et objection, organiser une réponse et réviser un raisonnement."
   }
 ]
