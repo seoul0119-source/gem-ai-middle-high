@@ -6,6 +6,7 @@ try{
  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true});
  await context.addInitScript(()=>{
   window.DIAG_TEST={mic:0,speak:0,voices:[]};const events=new EventTarget();
+  window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
   Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>DIAG_TEST.voices,addEventListener:events.addEventListener.bind(events),cancel(){},speak(){DIAG_TEST.speak++;},paused:false}});
   DIAG_TEST.changed=()=>events.dispatchEvent(new Event('voiceschanged'));
   Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{DIAG_TEST.mic++;throw new Error('Unexpected microphone call');}}});
