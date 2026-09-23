@@ -1,5 +1,5 @@
-import {spokenMath,firstPackage} from './lesson-media.mjs';
-assert.equal(spokenMath('8 + ? = 10','en'),'eight plus what equals ten');assert.equal(firstPackage.scenes.length,3);
+import {spokenMath,firstPackage,countOnPackage,preparedMediaAnswer} from './lesson-media.mjs';
+assert.equal(spokenMath('8 + ? = 10','en'),'eight plus what equals ten');assert.equal(firstPackage.scenes.length,3);assert.equal(countOnPackage.scenes.length,4);assert.match(preparedMediaAnswer('count-on','Why not count eight?','en'),/already been counted/);
 import fs from 'node:fs/promises';import http from 'node:http';import path from 'node:path';import assert from 'node:assert/strict';import {chromium as playwright} from 'playwright-core';import chromium from '@sparticuz/chromium';
 import {normalizeSelection,lessonAvailable,excludedTopic,subjects} from './classroom-catalog.mjs';
 assert.equal(normalizeSelection({minutes:-1}).minutes,40);assert.equal(subjects.some(x=>/\bAP\b|advanced/i.test(x[1])),false);for(const text of ['진화론','natural selection','Darwin','évolution humaine'])assert.ok(excludedTopic(text));assert.ok(!excludedTopic('What is 8 plus 7?'));assert.ok(!lessonAvailable({country:'NG',grade:2,subject:'math'}));
@@ -50,5 +50,18 @@ await page.click('#group-advance');await page.click('#group-advance');await page
 await page.click('#group-advance');await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'summary');
 assert.ok(await page.locator('#answer').isEnabled());await page.fill('#answer','Explique encore');await page.click('#answer-form button[type=submit]');assert.ok((await page.locator('#feedback').innerText()).includes('sept')||(await page.locator('#feedback').innerText()).includes('7'));
 assert.equal(await page.evaluate(()=>GEM_PILOT.index),1);await page.click('[data-lang=en]');
+// Next problem uses its own resources, worked example, activity and prepared questions.
+await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROUP.mediaPackage),'gem-g2-math-count-on-8-2');
+assert.ok((await page.locator('#media-picture').getAttribute('alt')).includes('eight to ten'));
+await page.click('#group-advance');assert.ok(await page.locator('#media-clip').isVisible());
+await page.click('[data-lang=fr]');assert.equal(await page.evaluate(()=>GEM_GROUP.mediaScene),1);
+await page.click('#group-pause');await page.waitForFunction(()=>GEM_GROUP.mediaScene===2);await page.click('#group-pause');
+await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROUP.mediaScene),3);assert.ok((await page.locator('#media-picture').getAttribute('alt')).includes('Six'));
+await page.waitForFunction(()=>document.getElementById('caption').textContent.includes('six'));
+await page.click('#group-advance');await page.click('#group-advance');await page.fill('#answer','10');await page.click('#answer-form button[type=submit]');assert.equal(await page.locator('#equation').innerText(),'8 + 2 = 10');
+await page.click('#group-advance');await page.waitForFunction(()=>document.getElementById('caption').textContent.includes('Échangez les rôles'));
+await page.click('#group-advance');await page.fill('#answer','Pourquoi partir de huit ?');await page.click('#answer-form button[type=submit]');assert.ok((await page.locator('#feedback').innerText()).includes('déjà comptés'));
+assert.equal(await page.evaluate(()=>GEM_PILOT.index),2);await page.click('[data-lang=en]');
+await page.fill('#answer','Another example');await page.click('#answer-form button[type=submit]');assert.ok((await page.locator('#feedback').innerText()).includes('Six plus two equals eight'));
 await fs.mkdir(root+'/group-checks',{recursive:true});for(const [name,width,height]of [['desktop',1366,900],['tv',1920,1080],['phone',390,844],['landscape',844,390]]){await page.setViewportSize({width,height});await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name);await page.screenshot({path:root+'/group-checks/'+name+'.png',fullPage:true});await page.click('#group-open');assert.ok(await page.locator('#group-apply').isVisible());assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.locator('#group-close').click();}assert.deepEqual(errors,[]);
 const report=JSON.parse(await fs.readFile(root+'/test-report.json','utf8'));report.groupClassroom={status:'PASS',checks:['Independent country, language, grade and subject; persisted selection','No unreviewed national mapping or unavailable lesson can start','40 minute default; custom timetable duration','Automatic five phases; pause freezes progress; final microphone result auto-submits','Representative class answer; no individual score or attempt counters','Excluded-topic redirect without teaching excluded material','Original 3D model and speech interface retained','Desktop, TV and both phone orientations'],limitations:['Only GEM common Grade 2 addition content is ready','National curriculum mappings and other lessons are pending','Speech APIs mocked; hardware previously confirmed by user','No full 40-minute real classroom trial or free AI chat']};await fs.writeFile(root+'/test-report.json',JSON.stringify(report,null,2));console.log('GROUP CLASSROOM PASS');}finally{await browser?.close();await new Promise(r=>server.close(r));}
