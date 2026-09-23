@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - preview/global-mission-g2-20260923
+      - preview/global-mission-group-20260924
 permissions:
   contents: read
 concurrency:
