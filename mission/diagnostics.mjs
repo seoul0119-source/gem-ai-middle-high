@@ -33,7 +33,7 @@ export function installDiagnosticsDialog({refresh, stop}) {
 @media(max-height:450px) and (orientation:landscape){.diagnostics-head{padding:7px 12px}.diagnostics-head h2{font-size:16px}.diagnostics-actions{padding:7px 12px}.diagnostics-body{padding:9px 14px}}
 `;
   document.head.append(style);
-  let lastFocus=null, fallback=false, blocked=[], oldOverflow='', timer=0, timers=[], copyEpoch=0;
+  let lastFocus=null, fallback=false, blocked=[], oldOverflow='', timer=0, timers=[], copyEpoch=0, cleaned=true;
   function snapshot(){
     const lang=window.GEM_PILOT?.language||document.documentElement.lang||'en';
     let list=[];try{list=Array.from(globalThis.speechSynthesis?.getVoices()||[]);}catch{}
@@ -57,17 +57,17 @@ export function installDiagnosticsDialog({refresh, stop}) {
   function update(){if(modal.open)snapshot();}
   function refreshNow(){refresh();snapshot();for(const t of timers)clearTimeout(t);timers=[setTimeout(update,250),setTimeout(update,1200)];}
   function afterClose(){
-    if(modal.open)return;
+    if(modal.open||cleaned)return;cleaned=true;
     trigger.setAttribute('aria-expanded','false');backdrop.hidden=true;modal.classList.remove('is-fallback');
     for(const [el,inert,aria]of blocked){if(!inert)el.removeAttribute('inert');if(aria===null)el.removeAttribute('aria-hidden');else el.setAttribute('aria-hidden',aria);}blocked=[];
     document.body.style.overflow=oldOverflow;fallback=false;clearTimeout(timer);for(const t of timers)clearTimeout(t);copyEpoch++;
     lastFocus?.focus?.({preventScroll:true});
   }
-  function close(){if(!modal.open)return;if(fallback){modal.removeAttribute('open');afterClose();}else modal.close();}
+  function close(){if(!modal.open)return;if(fallback)modal.removeAttribute('open');else modal.close();afterClose();}
   function open(){
     if(modal.open)return;lastFocus=document.activeElement;stop();refreshNow();
     $('diagnostics-copy-text').hidden=true;$('diagnostics-copy-status').textContent='';
-    oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';
+    cleaned=false;oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';
     try{if(typeof modal.showModal!=='function')throw new Error('Dialog API unavailable');modal.showModal();}
     catch{fallback=true;modal.setAttribute('open','');modal.classList.add('is-fallback');backdrop.hidden=false;blocked=[];for(const el of shell.children){if(el===modal||el===backdrop)continue;blocked.push([el,el.hasAttribute('inert'),el.getAttribute('aria-hidden')]);el.setAttribute('inert','');el.setAttribute('aria-hidden','true');}}
     trigger.setAttribute('aria-expanded','true');modal.querySelector('.diagnostics-body').scrollTop=0;
