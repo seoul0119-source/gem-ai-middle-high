@@ -1,5 +1,5 @@
 // GEM_MEDIA_FIX_V2: native local voices first; online voices require explicit consent.
-let speechPending=false,speechWaitTimer=0,speechStartTimer=0,speechEndTimer=0,pendingSpeech=null,lastSpeechMessage='',lastSpeechTesting=false;
+let speechPending=false,speechWaitTimer=0,speechStartTimer=0,speechEndTimer=0,pendingSpeech=null;
 let voiceDiagnostic='',selectedVoices={};
 function allVoices(){try{return (globalThis.speechSynthesis?.getVoices()||[]).filter(v=>String(v.lang).toLowerCase().replaceAll('_','-').split('-')[0]===state.lang);}catch{return [];}}
 function voices(){return allVoices().filter(v=>v.localService===true||$('remote').checked).sort((a,b)=>Number(b.localService===true)-Number(a.localService===true));}
@@ -11,15 +11,16 @@ function updateVoices(){const list=voices(),all=allVoices(),saved=selectedVoices
  if(pendingSpeech&&list.length){const p=pendingSpeech;pendingSpeech=null;clearTimeout(speechWaitTimer);if(p.epoch===speechEpoch)runSpeech(p.message,p.testing,p.epoch);}}
 function stopSpeech(){speechEpoch++;clearTimeout(speechWaitTimer);clearTimeout(speechStartTimer);clearTimeout(speechEndTimer);pendingSpeech=null;speechPending=false;try{globalThis.speechSynthesis?.cancel();}catch{}utterance=null;avatarTalk(false);}
 function speechFailure(code){stopSpeech();voiceDiagnostic=(state.lang==='fr'?'Lecture impossible':'Voice playback failed')+` [${code}]. `+(state.lang==='fr'?'Appuyez sur Tester la voix. Vérifiez aussi le son de l’onglet et de l’appareil.':'Press Test voice. Also check the tab and device sound.');updateVoices();}
-function speak(message,testing=false){stopSpeech();lastSpeechMessage=message;lastSpeechTesting=testing;$('caption').textContent=message;if(!testing&&(!state.started||state.paused||state.ended))return;if(Number($('volume').value)===0){voiceDiagnostic=state.lang==='fr'?'Son coupé · volume 0 %':'Muted · volume 0%';updateVoices();return;}voiceDiagnostic='';const epoch=speechEpoch;
+function speak(message,testing=false){stopSpeech();$('caption').textContent=message;if(!testing&&(!state.started||state.paused||state.ended))return;if(Number($('volume').value)===0){voiceDiagnostic=state.lang==='fr'?'Son coupé · volume 0 %':'Muted · volume 0%';updateVoices();return;}voiceDiagnostic='';const epoch=speechEpoch;
  if(!globalThis.speechSynthesis||!globalThis.SpeechSynthesisUtterance){speechFailure('speech-unavailable');return;}
- if(!voices().length){speechPending=true;pendingSpeech={message,testing,epoch};updateVoices();speechWaitTimer=setTimeout(()=>{if(epoch!==speechEpoch)return;pendingSpeech=null;speechPending=false;updateVoices();},2500);return;}
+ if(!voices().length){speechPending=true;pendingSpeech={message,testing,epoch};updateVoices();if(pendingSpeech)speechWaitTimer=setTimeout(()=>{if(epoch!==speechEpoch)return;pendingSpeech=null;speechPending=false;updateVoices();},2500);return;}
  runSpeech(message,testing,epoch);}
 function runSpeech(message,testing,epoch){if(epoch!==speechEpoch)return;const voice=voices().find(v=>v.voiceURI===$('voice').value)||voices()[0];if(!voice){speechPending=false;updateVoices();return;}speechPending=true;const chunks=[];for(const segment of message.match(/[^.!?]+[.!?]?/g)||[message]){let part='';for(const word of segment.trim().split(/\s+/)){if((part+' '+word).length>145&&part){chunks.push(part);part='';}part+=(part?' ':'')+word;}if(part)chunks.push(part);}let i=0;
  function playChunk(){if(epoch!==speechEpoch)return;if((!testing&&(state.paused||state.ended))||i>=chunks.length){speechPending=false;avatarTalk(false);return;}const u=new SpeechSynthesisUtterance(chunks[i++]);utterance=u;u.voice=voice;u.lang=voice.lang;u.volume=Number($('volume').value)/100;u.rate=Number($('rate').value);let settled=false;speechStartTimer=setTimeout(()=>{if(epoch===speechEpoch&&!settled)speechFailure('start-timeout');},8000);
  u.onstart=()=>{if(epoch!==speechEpoch)return;clearTimeout(speechStartTimer);speechPending=false;avatarTalk(true);$('caption').textContent=u.text;voiceDiagnostic='';updateVoices();speechEndTimer=setTimeout(()=>{if(epoch===speechEpoch&&!settled)speechFailure('end-timeout');},45000);};
- u.onend=()=>{clearTimeout(speechStartTimer);clearTimeout(speechEndTimer);if(settled||epoch!==speechEpoch)return;settled=true;avatarTalk(false);if(i<chunks.length){speechPending=true;setTimeout(playChunk,30);}else{speechPending=false;$('caption').textContent=message;}};
- u.onerror=e=>{clearTimeout(speechStartTimer);clearTimeout(speechEndTimer);if(epoch!==speechEpoch||settled)return;settled=true;speechFailure(e.error||'synthesis-failed');};
+ // Stale callbacks must not clear the new language's timers.
+ u.onend=()=>{if(settled||epoch!==speechEpoch)return;clearTimeout(speechStartTimer);clearTimeout(speechEndTimer);settled=true;avatarTalk(false);if(i<chunks.length){speechPending=true;setTimeout(playChunk,30);}else{speechPending=false;$('caption').textContent=message;}};
+ u.onerror=e=>{if(epoch!==speechEpoch||settled)return;clearTimeout(speechStartTimer);clearTimeout(speechEndTimer);settled=true;speechFailure(e.error||'synthesis-failed');};
  try{if(speechSynthesis.paused)speechSynthesis.resume();speechSynthesis.speak(u);}catch(error){speechFailure(error.name||'synthesis-exception');}}
  playChunk();}
 function soundTest(){stopMic();updateVoices();if(!voices().length&&allVoices().some(v=>v.localService!==true)&&!$('remote').checked){$('voice-consent').showModal();return;}speak(state.lang==='fr'?'Bonjour ! Je peux parler et bouger. Un, deux, trois.':'Hello! I can speak and move. One, two, three.',true);}

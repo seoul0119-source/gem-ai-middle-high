@@ -1,0 +1,9 @@
+# Audio v2 operator preview
+
+The entry point is `build-audio-v2.mjs`. It applies checked, fail-closed replacements to the original pilot source in the build workspace before invoking `build.mjs`, then runs `audio-browser-tests.mjs`. The maintained speech and microphone implementations are `speech-controls.inc.js` and `mic-controls.inc.js`. The deployed app.mjs contains these changes; the base app.mjs in Git remains the original source template. Do not assume the base app alone describes the deployed audio behavior.
+
+Changes: visible voice test and explicit browser-online-voice consent; per-device saved voice settings; delayed voice-list handling; cancellation guards; playback for user-requested replay/questions while the lesson clock remains paused; speech-error codes; microphone service-specific error display; finalizing rather than discarding input when Stop is pressed; local 5-second microphone signal test with no recording or upload; more visible restrained speaking gestures; make-ten explanation uses the displayed calculation.
+
+No paid speech/ASR/Anam or generative-AI endpoint is added. Browser online voices and recognition may send text/audio to the browser provider only through their respective explicit permission flows. Local microphone diagnostics neither record nor upload. Missing OS voices, blocked browser services, OS permissions and physical speaker/microphone failures cannot be repaired by the page itself.
+
+The existing tests render the real VRM and validate layouts/offline shell/progress. The added tests simulate the browser speech/recognition interfaces to check consent, timing, cancellation, error paths and mouth-state integration with real WebGL. Neither test suite validates a physical speaker or microphone. Only a strict successful build may be shared for operator retesting. Main and the production homepage remain out of scope.
