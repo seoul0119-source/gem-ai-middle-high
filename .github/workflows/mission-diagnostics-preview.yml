@@ -1,0 +1,23 @@
+name: Mission diagnostic preview checks
+on:
+  push:
+    branches:
+      - preview/global-mission-g2-20260923
+permissions:
+  contents: read
+concurrency:
+  group: mission-diagnostics-preview
+  cancel-in-progress: true
+jobs:
+  browser-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned preview dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run strict static preview checks without paid APIs
+        run: npm run vercel-build
