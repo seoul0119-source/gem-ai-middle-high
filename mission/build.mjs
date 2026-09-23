@@ -1,0 +1,9 @@
+import fs from 'node:fs/promises';import path from 'node:path';import crypto from 'node:crypto';import {execFileSync}from 'node:child_process';import {build}from 'esbuild';
+execFileSync(process.execPath,['mission/tests.mjs'],{stdio:'inherit'});for(const f of ['app.mjs','avatar.mjs','sw.js'])execFileSync(process.execPath,['--check','mission/'+f],{stdio:'inherit'});
+const dist='mission-dist';await fs.mkdir(dist+'/assets',{recursive:true});for(const f of ['index.html','style.css','app.mjs','lesson.mjs','sw.js'])await fs.copyFile('mission/'+f,dist+'/'+f);
+const model=await fs.readFile('assets/avatar-sample-z.vrm');const blob=crypto.createHash('sha1').update(Buffer.from('blob '+model.length+'\0')).update(model).digest('hex');if(blob!=='eecc03480fd8d88a53ac4edc1bd8272693d23885')throw Error('Existing model differs from the verified source. Review before building.');await fs.writeFile(dist+'/assets/avatar-sample-z.vrm',model);
+const n=model.readUInt32LE(12),gltf=JSON.parse(model.subarray(20,20+n).toString()),meta=gltf.extensions.VRMC_vrm.meta;const im=gltf.images[meta.thumbnailImage],view=gltf.bufferViews[im.bufferView],begin=20+n+8+(view.byteOffset||0);await fs.writeFile(dist+'/teacher-preview.png',model.subarray(begin,begin+view.byteLength));
+await build({entryPoints:['mission/avatar.mjs'],bundle:true,format:'esm',outfile:dist+'/avatar.bundle.js',target:['es2020'],minify:true,legalComments:'eof'});
+let notices='GEM operator-only pilot. Original model unchanged. Model metadata requires permission review before public student deployment.\n\n';for(const f of ['node_modules/three/LICENSE','node_modules/@pixiv/three-vrm/LICENSE']){try{notices+=f+'\n'+await fs.readFile(f,'utf8')+'\n\n';}catch{}}await fs.writeFile(dist+'/THIRD-PARTY-NOTICES.txt',notices);
+console.log('Reused exact original VRM; bytes='+model.length+'; display and lesson files bundled locally.');
+await import('./browser-test.mjs');
