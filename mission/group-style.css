@@ -4,3 +4,5 @@
 @media(max-width:650px) and (orientation:portrait){footer{position:static!important}.interaction form{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px}.interaction #answer{grid-column:1/-1;width:100%}.interaction form button{width:100%;min-width:0}.lesson-controls button{font-size:12px}.group-flow{padding-block:8px}}
 
 #group-more{margin-top:10px;font-size:13px}#group-more>summary{cursor:pointer;padding:10px;min-height:44px}#group-countdown{display:block;margin-top:6px;color:#126d59}.lesson-controls{display:flex;flex-wrap:wrap;gap:8px}.lesson-controls button{min-height:48px}#group-more .view-controls{display:flex;flex-wrap:wrap;margin-block:10px}
+
+#group-audio-help{padding:14px 20px;background:#fff2d4;border:2px solid #ba7d23;border-radius:10px;margin:12px}#group-audio-help p{margin:0 0 10px;line-height:1.5}#group-audio-help button{min-height:48px}
