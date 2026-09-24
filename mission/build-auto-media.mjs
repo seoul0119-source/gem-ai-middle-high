@@ -1,0 +1,30 @@
+// Incremental addition: one JOIN card. Existing baseline and display tests remain mandatory.
+import fs from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+function once(s,a,b){if(s.split(a).length!==2)throw Error('Auto-media anchor changed: '+a.slice(0,150));return s.replace(a,b);}
+for(const f of ['auto-join.mjs','auto-join-tests.mjs','auto-join-browser-tests.mjs'])execFileSync(process.execPath,['--check','mission/'+f],{stdio:'inherit'});
+execFileSync(process.execPath,['mission/auto-join-tests.mjs'],{stdio:'inherit'});
+await import('./build-display-v3.mjs');
+const out='mission-dist';await fs.copyFile('mission/auto-join.mjs',out+'/auto-join.mjs');
+let lesson=await fs.readFile(out+'/reliable-lessons.mjs','utf8');
+lesson="import {supportsJoin,joinCard,installAutoJoin} from './auto-join.mjs';\n"+lesson;
+lesson=once(lesson,'if(!s||s.answer===null)return null;','if(!s||s.answer===null)return null;if(supportsJoin(s))return joinCard(s);');
+lesson=once(lesson,"document.getElementById('counters').before(root);const image=","document.getElementById('counters').before(root);const autoJoin=installAutoJoin(root);const image=");
+lesson=once(lesson,'function sync(id,phase,scene,lang,isPaused,revealed=false){','function sync(id,phase,scene,lang,isPaused,revealed=false){if(autoJoin.sync(active.find(s=>s.id===id),phase,scene,lang,isPaused,revealed)){video.pause();moving=false;return;}');
+lesson=once(lesson,'return {sync,busy:()=>moving&&!paused};','return {sync,busy:()=>autoJoin.busy()||(moving&&!paused)};');
+await fs.writeFile(out+'/reliable-lessons.mjs',lesson);
+let interaction=await fs.readFile(out+'/interaction-support.mjs','utf8');
+interaction="import {joinReply,joinContext} from './auto-join.mjs';\n"+interaction;
+interaction=once(interaction,'function replyFor(result,s,lang){','function replyFor(result,s,lang){const materialReply=joinReply(result,s,lang,state().reveal);if(materialReply!==null)return materialReply;');
+interaction=once(interaction,'visibleExplanation:ui.phaseText().slice(0,1000)','visibleExplanation:(ui.phaseText()+\'\\n\'+joinContext(s,state().reveal)).slice(0,1000)');
+await fs.writeFile(out+'/interaction-support.mjs',interaction);
+let app=await fs.readFile(out+'/app.mjs','utf8');
+app="import {emitJoinCue} from './auto-join.mjs';\n"+app;
+app=once(app,"$('caption').textContent=u.text;voiceDiagnostic='';","$('caption').textContent=u.text;emitJoinCue(u.text,current());voiceDiagnostic='';");
+await fs.writeFile(out+'/app.mjs',app);
+let sw=await fs.readFile(out+'/sw.js','utf8');
+sw=once(sw,'gem-group-display-v3','gem-group-auto-media-001');sw=once(sw,"'./display-v3.mjs'","'./display-v3.mjs','./auto-join.mjs'");await fs.writeFile(out+'/sw.js',sw);
+let html=await fs.readFile(out+'/index.html','utf8');
+html=once(html,'초2 화면 수정 v3 · 시작/일시정지 하나 · 휴대폰 전체 화면','초2 자동 자료 001 · 두 그룹 합하기 · 영어/프랑스어 공용 · 새 수업/이어하기 구분');await fs.writeFile(out+'/index.html',html);
+for(const f of ['app.mjs','interaction-support.mjs','reliable-lessons.mjs'])execFileSync(process.execPath,['--check',out+'/'+f],{stdio:'inherit'});
+await import('./auto-join-browser-tests.mjs');

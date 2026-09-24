@@ -1,0 +1,58 @@
+import fs from 'node:fs/promises';
+import http from 'node:http';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {chromium as playwright} from 'playwright-core';
+import chromium from '@sparticuz/chromium';
+import {makeSession,validateSession} from '../mission-dist/reliable-lessons.mjs';
+let calls=0,seed=177;const rng=()=>{if(calls++===0)return .1;seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/2**32;};
+const prepared=makeSession([],rng);assert.ok(validateSession(prepared));assert.equal(prepared.steps[1].id,'join');prepared.progress={index:1,started:false,ended:false,reveal:false};
+const root=path.resolve('mission-dist'),checks=[],errors=[],external=[];let browser;
+const server=http.createServer(async(req,res)=>{try{let p=new URL(req.url,'http://localhost').pathname;if(p==='/')p='/index.html';const f=path.resolve(root,'.'+p);if(!f.startsWith(root+path.sep))throw Error('path');const b=await fs.readFile(f);res.writeHead(200,{'Content-Type':f.endsWith('.html')?'text/html':/\.(mjs|js)$/.test(f)?'text/javascript':f.endsWith('.css')?'text/css':'application/octet-stream'});res.end(b);}catch{res.writeHead(404);res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
+try{
+ browser=await playwright.launch({args:[...chromium.args,'--enable-unsafe-swiftshader'],executablePath:await chromium.executablePath(),headless:true});
+ const ctx=await browser.newContext({viewport:{width:1366,height:900},hasTouch:true});
+ await ctx.addInitScript(session=>{
+  if(!localStorage.getItem('gem-g2-reliable-session-v1'))localStorage.setItem('gem-g2-reliable-session-v1',JSON.stringify(session));
+  window.MEDIA_TEST={spoken:[],timer:0};window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
+  const voices=[{name:'Local English test',lang:'en-US',voiceURI:'en',localService:true},{name:'Local French test',lang:'fr-FR',voiceURI:'fr',localService:true}];
+  Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>voices,addEventListener(){},resume(){},paused:false,cancel(){clearTimeout(MEDIA_TEST.timer);},speak(u){MEDIA_TEST.spoken.push(u.text);u.onstart?.();const delay=/^Watch the two groups|^Regardez les deux groupes/.test(u.text)?2800:180;MEDIA_TEST.timer=setTimeout(()=>u.onend?.(),delay);}}});
+ },prepared);
+ const page=await ctx.newPage();page.setDefaultTimeout(25000);page.on('dialog',d=>d.accept());page.on('pageerror',e=>{errors.push(e.message);console.error('AUTO JOIN PAGE',e.message);});page.on('request',r=>{if(!r.url().startsWith(url)&&!r.url().startsWith('data:')&&!r.url().startsWith('blob:'))external.push(r.url());});
+ await page.goto(url);await page.waitForFunction(()=>window.GEM_AUTO_MEDIA?.active,{},{polling:100});
+ const original=await page.evaluate(()=>({id:GEM_RELIABILITY.sessionId,step:GEM_RELIABILITY.step})),total=original.step.a+original.step.b;
+ assert.equal(await page.locator('#auto-join-visual [data-counter]').count(),total);assert.equal(await page.locator('#auto-join-visual button').count(),0);
+ assert.match(await page.locator('#auto-join-visual [data-formula]').innerText(),/= \?/);assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.mediaCount),2);
+ await page.click('#play');await page.waitForFunction(()=>GEM_PILOT.modelReady,{},{polling:100,timeout:90000});
+ await page.waitForFunction(()=>GEM_GROUP.phase==='response',{},{polling:100,timeout:30000});
+ assert.equal(await page.evaluate(()=>GEM_PILOT.reveal),false);assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.progress),0);
+ assert.ok(!(await page.evaluate(()=>MEDIA_TEST.spoken.join(' '))).includes(`${original.step.a} + ${original.step.b} = ${total}`));
+ await page.screenshot({path:root+'/checks/auto-join-before.png',fullPage:true});
+ checks.push('JOIN shows one observation picture and one short fact automatically, no media buttons and no pre-answer total. Existing random session numbers are unchanged.');
+ await page.fill('#answer',String(total+1));await page.click('#answer-form button[type=submit]');
+ await page.waitForFunction(()=>GEM_AUTO_MEDIA.progress>.04&&GEM_AUTO_MEDIA.progress<.95,{},{polling:50});
+ assert.equal(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired),true);assert.equal(await page.locator('#auto-join-visual [data-counter]').count(),total);
+ await page.click('#play');await page.waitForFunction(()=>GEM_AUTO_MEDIA.paused,{},{polling:50});const frozen=await page.evaluate(()=>GEM_AUTO_MEDIA.progress);
+ await page.waitForTimeout(550);assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.progress),frozen);
+ await page.fill('#answer','Why do the groups stay the same?');await page.click('#answer-form button[type=submit]');await page.waitForFunction(()=>!GEM_PILOT.speaking&&!GEM_PILOT.speechPending,{},{polling:100});
+ assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.progress),frozen);assert.equal(await page.evaluate(()=>GEM_RELIABILITY.aiRequests),0);
+ checks.push('Submitting an incorrect answer automatically shows the second material and synchronizes counter movement to the teacher speech cue. Counter count is conserved; Pause and a follow-up question preserve the frame and correction hold.');
+ const beforeSwitch=await page.evaluate(()=>({session:GEM_RELIABILITY.sessionId,key:GEM_AUTO_MEDIA.key,p:GEM_AUTO_MEDIA.progress,index:GEM_PILOT.index,phase:GEM_GROUP.phase}));
+ await page.click('[data-lang=fr]');await page.waitForFunction(()=>GEM_AUTO_MEDIA.language==='fr',{},{polling:50});
+ assert.deepEqual(await page.evaluate(()=>({session:GEM_RELIABILITY.sessionId,key:GEM_AUTO_MEDIA.key,p:GEM_AUTO_MEDIA.progress,index:GEM_PILOT.index,phase:GEM_GROUP.phase})),beforeSwitch);
+ assert.match(await page.locator('#media-fact').innerText(),/Déplacer/);
+ await page.reload();await page.waitForFunction(()=>window.GEM_AUTO_MEDIA?.active,{},{polling:100});
+ assert.equal(await page.evaluate(()=>GEM_RELIABILITY.sessionId),original.id);assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.progress),frozen);assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.language),'fr');assert.ok(await page.evaluate(()=>GEM_PILOT.paused));
+ checks.push('English/French switch and reload preserve the same session, numbers and saved animation frame; reload is paused. No new problem is generated by language selection.');
+ await page.click('#play');await page.waitForFunction(()=>GEM_PILOT.modelReady,{},{polling:100,timeout:90000});await page.waitForFunction(()=>GEM_AUTO_MEDIA.progress===1,{},{polling:100,timeout:20000});
+ await page.click('#play');assert.equal(await page.evaluate(()=>GEM_PILOT.paused),true);
+ assert.match(await page.locator('#auto-join-visual [data-formula]').innerText(),new RegExp('= '+total+'$'));assert.equal(await page.locator('#auto-join-visual [data-counter]').count(),total);
+ for(const [name,w,h]of [['desktop',1366,900],['phone',390,844],['landscape',844,390]]){await page.setViewportSize({width:w,height:h});await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));assert.equal(await page.evaluate(()=>GEM_DISPLAY.visibleToggleCount),1);await page.screenshot({path:root+'/checks/auto-join-'+name+'.png',fullPage:true});}
+ await page.setViewportSize({width:390,height:844});await page.click('#fullscreen');await page.waitForFunction(()=>GEM_DISPLAY.active,{},{polling:50});await page.waitForTimeout(600);assert.ok(await page.evaluate(()=>GEM_RENDER_BOUNDS.opaqueSamples>0));assert.ok(await page.locator('#auto-join-visual').isVisible());await page.click('#fullscreen');
+ checks.push('Completed materials match the revealed equation on desktop/phone/rotation; one playback button and the real rendered 3D teacher remain available in phone fullscreen.');
+ const old=await page.evaluate(()=>({id:GEM_RELIABILITY.sessionId,first:GEM_RELIABILITY.first}));await page.click('#group-new-lesson');const fresh=await page.evaluate(()=>({id:GEM_RELIABILITY.sessionId,first:GEM_RELIABILITY.first}));assert.notEqual(fresh.id,old.id);assert.notEqual(fresh.first,old.first);assert.equal(await page.evaluate(()=>GEM_PILOT.reveal),false);assert.equal(await page.evaluate(()=>GEM_RELIABILITY.aiRequests),0);if(await page.evaluate(()=>GEM_AUTO_MEDIA.active))assert.equal(await page.evaluate(()=>GEM_AUTO_MEDIA.progress),0);
+ checks.push('Only New lesson generates a new problem set. Old completed material is never attached to the new session. No extra AI or external media requests are introduced.');
+ assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+ const file=root+'/test-report.json',report=JSON.parse(await fs.readFile(file,'utf8'));report.autoMedia001={version:'auto-media-001',status:'PASS',scope:'join only; other problem types unchanged',checks,sourceBytes:(await fs.stat(root+'/auto-join.mjs')).size,limitations:['Browser speech service simulated; actual device retest remains necessary','Increment covers the existing JOIN problem, not every maths/science card','Storage persists only on the same origin/browser when permitted']};await fs.writeFile(file,JSON.stringify(report,null,2));console.log('AUTO MEDIA 001 PASS',JSON.stringify(report.autoMedia001));
+}finally{if(browser)await browser.close();server.closeAllConnections?.();await new Promise(r=>server.close(r));}
