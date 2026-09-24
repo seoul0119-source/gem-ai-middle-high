@@ -1,0 +1,9 @@
+{
+  "name": "gem-mission-api-preview",
+  "private": true,
+  "type": "module",
+  "description": "Isolated question API. Full classroom, arithmetic and browser tests run in the root static build.",
+  "scripts": {
+    "vercel-build": "node -e \"const fs=require('node:fs'),cp=require('node:child_process');const f=fs.existsSync('mission-chat.js')?'mission-chat.js':'api/mission-chat.js';cp.execFileSync(process.execPath,['--check',f],{stdio:'inherit'});console.log('Mission API syntax checked; full regression tests remain in the root static build.');\""
+  }
+}
