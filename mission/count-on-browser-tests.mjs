@@ -14,10 +14,15 @@ try{
  await page.click('#play');await page.waitForFunction(()=>GEM_PILOT.modelReady,null,{polling:100,timeout:90000});await wait(()=>GEM_GROUP.phase==='response');
  await send(`Why do we start at ${s.a}?`);await wait(()=>GEM_RELIABILITY.dialogueMode==='followup');assert.equal(await page.evaluate(()=>GEM_RELIABILITY.lastOutcome),'count-on');assert.equal(await page.evaluate(()=>GEM_PILOT.reveal),false);assert.equal(await page.evaluate(()=>GEM_AUTO_COUNT_ON.progress),0);assert.equal(await page.evaluate(()=>GEM_RELIABILITY.aiRequests),0);
  await page.click('#play');await wait(()=>!GEM_PILOT.paused);await page.screenshot({path:root+'/checks/count-on-before.png',fullPage:true});checks.push('Generated start/extra counters drive observation, speech and equation; no solution shown before answer; a numeric question is not graded.');
- await send(String(total+1));await wait(()=>GEM_AUTO_COUNT_ON.progress>.04&&GEM_AUTO_COUNT_ON.progress<.8);assert.ok(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired));assert.match(await page.locator('#answer-receipt').textContent(),/Received/);
- // Interrupt halfway through motion by typing. Neither reply nor follow-up advances it.
- await send('Why do we count on?');await wait(()=>GEM_RELIABILITY.dialogueMode==='followup');const frozen=await snapshot(),elapsed=await page.evaluate(()=>GEM_PILOT.elapsed);await page.waitForTimeout(650);assert.deepEqual(await snapshot(),frozen);assert.equal(await page.evaluate(()=>GEM_PILOT.elapsed),elapsed);
- await wait(()=>!GEM_RELIABILITY.dialogueActive&&!GEM_PILOT.paused);assert.equal(await page.evaluate(()=>GEM_PILOT.index),initial.index);await page.waitForFunction(p=>GEM_AUTO_COUNT_ON.progress>p,frozen.p,{polling:50});
+ await send(String(total+1));
+ // Observe motion and deliver the native input event in the same browser task.
+ // Separate automation round trips can outlast this short animation on slow builders.
+ await wait(()=>{if(GEM_AUTO_COUNT_ON.progress<=.04||GEM_AUTO_COUNT_ON.progress>=.8)return false;const input=document.getElementById('answer');input.value='Why do we count on?';input.dispatchEvent(new Event('input',{bubbles:true}));return true;});
+ assert.ok(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired));assert.match(await page.locator('#answer-receipt').textContent(),/Received/);
+ await page.click('#answer-form button[type=submit]');await wait(()=>GEM_RELIABILITY.dialogueMode==='followup');const frozen=await snapshot(),elapsed=await page.evaluate(()=>GEM_PILOT.elapsed);assert.ok(frozen.p>0&&frozen.p<1,'Question must interrupt an unfinished animation');await page.waitForTimeout(650);assert.deepEqual(await snapshot(),frozen);assert.equal(await page.evaluate(()=>GEM_PILOT.elapsed),elapsed);
+ console.log('COUNT ON FROZEN FRAME',JSON.stringify(frozen));
+ await wait(()=>!GEM_RELIABILITY.dialogueActive&&!GEM_PILOT.paused);assert.equal(await page.evaluate(()=>GEM_PILOT.index),initial.index);
+ try{await page.waitForFunction(p=>GEM_AUTO_COUNT_ON.progress>p,frozen.p,{polling:50});}catch(error){console.error('COUNT ON RESUME STATE',await page.evaluate(()=>({media:GEM_AUTO_COUNT_ON,dialogue:GEM_RELIABILITY.dialogueActive,paused:GEM_PILOT.paused,focus:document.activeElement?.id,hidden:document.hidden})));throw error;}
  await page.click('#play');const paused=await snapshot();await page.waitForTimeout(300);assert.deepEqual(await snapshot(),paused);
  checks.push('Incorrect answer reveals the exact solution and retains review hold. Question pauses animation/timer; 20-second automatic return resumes the same problem.');
  await page.click('[data-lang=fr]');assert.deepEqual(await snapshot(),paused);assert.match(await page.locator('#media-fact').textContent(),/départ/);await page.reload();await wait(()=>window.GEM_AUTO_COUNT_ON?.active);assert.deepEqual(await snapshot(),paused);assert.ok(await page.evaluate(()=>GEM_PILOT.paused));assert.equal(await page.evaluate(()=>GEM_AUTO_COUNT_ON.language),'fr');

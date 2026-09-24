@@ -75,13 +75,15 @@ export function installAutoCountOn(root){
  $('answer').addEventListener('input',interrupt,true);$('answer-form').addEventListener('submit',interrupt,true);document.addEventListener('gem-final-answer',interrupt,true);$('mic').addEventListener('click',interrupt,true);
  $('play').addEventListener('click',()=>{if(active&&window.GEM_PILOT?.paused){suspended=false;armed=revealed&&p<1;}},true);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)save();last=performance.now();});addEventListener('pagehide',save);
- let raf;function tick(now){raf=requestAnimationFrame(tick);const dt=Math.min(100,now-last);last=now;if(!active||!revealed||p>=1)return;
+ // SVG progress must not depend on WebGL animation-frame scheduling. Slow GPUs
+ // and builder browsers can stop delivering those callbacks during dialogue.
+ function tick(now){const dt=Math.min(100,now-last);last=now;if(!active||!revealed||p>=1)return;
   const input=$('answer');if(paused||suspended||document.hidden||window.GEM_RELIABILITY?.dialogueActive||window.GEM_RELIABILITY?.busy||document.querySelector('dialog[open]')||input.value.trim()||document.activeElement===input)return;
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){p=1;armed=false;paint();save();return;}
   if(armed&&(spoken||window.GEM_PILOT?.speechPending)){quiet=0;p=clamp(p+dt/6000);paint();}else if(armed){quiet+=dt;if(quiet>1100){p=1;armed=false;paint();}}
   if(now-savedAt>350)save();
  }
- raf=requestAnimationFrame(tick);addEventListener('pagehide',()=>cancelAnimationFrame(raf),{once:true});
+ const timer=setInterval(()=>tick(performance.now()),50);addEventListener('pagehide',()=>clearInterval(timer),{once:true});
  Object.defineProperty(window,'GEM_AUTO_COUNT_ON',{get:()=>({version:'auto-media-002',active,key,progress:p,paused,armed,suspended,answerVisible:revealed,card:active?'count-on':null,mediaCount:active?2:0,language:lang,step:step?{id:step.id,a:step.a,b:step.b}:null,networkRequests:0})});
  return {sync,busy:()=>active&&revealed&&armed&&!paused&&!suspended&&p<1};
 }
