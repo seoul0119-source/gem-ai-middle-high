@@ -1,13 +1,130 @@
-import fs from 'node:fs/promises';import http from 'node:http';import path from 'node:path';import assert from 'node:assert/strict';import {chromium as playwright} from 'playwright-core';import chromium from '@sparticuz/chromium';
-const root=path.resolve('mission-dist'),checks=[],errors=[];let browser;const server=http.createServer(async(req,res)=>{try{let p=new URL(req.url,'http://localhost').pathname;if(p==='/')p='/index.html';const f=path.resolve(root,'.'+p);if(!f.startsWith(root+path.sep))throw Error('path');const bytes=await fs.readFile(f);res.writeHead(200,{'Content-Type':f.endsWith('.html')?'text/html':/\.(mjs|js)$/.test(f)?'text/javascript':f.endsWith('.css')?'text/css':'application/octet-stream'});res.end(bytes);}catch{res.writeHead(404);res.end();}});await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
-try{browser=await playwright.launch({args:[...chromium.args,'--enable-unsafe-swiftshader'],executablePath:await chromium.executablePath(),headless:true});const ctx=await browser.newContext({viewport:{width:1366,height:900}});await ctx.addInitScript(()=>{window.MOCK={spoken:[],voiceTimer:0,duration:40,busy:false};window.SpeechSynthesisUtterance=class{constructor(t){this.text=t;}};const v=[{name:'English local test',lang:'en-US',voiceURI:'en-test',localService:true},{name:'French local test',lang:'fr-FR',voiceURI:'fr-test',localService:true}];Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>v,addEventListener(){},resume(){},paused:false,cancel(){clearTimeout(MOCK.voiceTimer);MOCK.busy=false;},speak(u){MOCK.busy=true;MOCK.spoken.push(u.text);u.onstart?.();MOCK.voiceTimer=setTimeout(()=>{MOCK.busy=false;u.onend?.();},MOCK.duration);}});});
-const page=await ctx.newPage();page.on('pageerror',e=>{errors.push(e.message);console.error('RELIABILITY PAGE',e.message);});page.on('dialog',d=>d.accept());await page.goto(url);await page.waitForFunction(()=>window.GEM_RELIABILITY);await page.click('#play');await page.waitForFunction(()=>GEM_PILOT.modelReady&&GEM_PILOT.started,{},{timeout:90000});
-async function advance(){await page.waitForFunction(()=>!MOCK.busy,{polling:100,timeout:15000});await page.waitForTimeout(300);await page.click('#group-advance');await page.waitForTimeout(200);}
-for(let i=0;i<12&&(await page.evaluate(()=>GEM_PILOT.index))===0;i++)await advance();assert.equal(await page.evaluate(()=>GEM_PILOT.index),1);await page.click('#group-pause');assert.ok(await page.evaluate(()=>GEM_PILOT.paused));const initial=await page.evaluate(()=>GEM_RELIABILITY),target=initial.step.a+initial.step.b;
-await page.fill('#answer',String(target+1));await page.click('#answer-form button[type=submit]');await page.waitForFunction(()=>GEM_RELIABILITY.reviewRequired);assert.ok((await page.locator('#feedback').innerText()).includes(String(target)));assert.ok((await page.locator('#equation').innerText()).endsWith('= '+target));await page.waitForFunction(()=>!MOCK.busy,{polling:100});await page.click('#group-pause');const position=await page.evaluate(()=>({index:GEM_PILOT.index,phase:GEM_GROUP.phase}));await page.waitForTimeout(12000);assert.deepEqual(await page.evaluate(()=>({index:GEM_PILOT.index,phase:GEM_GROUP.phase})),position);assert.ok(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired));checks.push('Incorrect answer shows exact correction and explanation, and never advances automatically after the former ten-second window.');
-const sid=await page.evaluate(()=>GEM_RELIABILITY.sessionId);await page.click('[data-lang=fr]');assert.equal(await page.evaluate(()=>GEM_RELIABILITY.sessionId),sid);assert.equal(await page.evaluate(()=>GEM_RELIABILITY.step.a),initial.step.a);assert.ok((await page.locator('#feedback').innerText()).includes('réponse'));await advance();assert.equal(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired),false);checks.push('Language switching keeps the same numbers/correction; teacher acknowledgement releases the hold.');
-await page.click('#group-new-lesson');const second=await page.evaluate(()=>GEM_RELIABILITY);assert.notEqual(second.first,initial.first);assert.notEqual(second.sessionId,sid);assert.equal(await page.evaluate(()=>GEM_PILOT.index),0);assert.equal(await page.evaluate(()=>GEM_PILOT.language),'fr');checks.push('New lesson changes the first question without changing the selected language.');await page.click('#play');await page.waitForTimeout(1000);await page.click('#group-pause');
-await page.route('**/api/mission-chat',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'not_configured'})}));const q='Puis-je représenter ce calcul avec des pommes ?';const beforeSpeech=await page.evaluate(()=>MOCK.spoken.length),before=await page.evaluate(()=>GEM_PILOT.index);await page.fill('#answer',q);await page.click('#answer-form button[type=submit]');await page.waitForFunction(()=>GEM_RELIABILITY.provider==='not-configured');assert.equal(await page.locator('#answer').inputValue(),q);assert.equal(await page.evaluate(()=>MOCK.spoken.length),beforeSpeech);assert.equal(await page.evaluate(()=>GEM_PILOT.index),before);checks.push('Unavailable AI displays silent status, preserves the typed question and does not advance or falsely claim connection.');
-await page.unroute('**/api/mission-chat');await page.route('**/api/mission-chat',async route=>{const b=route.request().postDataJSON();await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({answer:'Oui, utilisez des pommes pour représenter chaque quantité.',scope:'math',source:'openai',targetAnswer:b.step.a+b.step.b})});});await page.click('#answer-form button[type=submit]');await page.waitForFunction(()=>GEM_RELIABILITY.provider==='connected');assert.ok((await page.locator('#feedback').innerText()).includes('pommes'));assert.equal(await page.evaluate(()=>GEM_PILOT.index),before);checks.push('Additional question carries current numeric context; AI reply cannot grade or change progress.');
-for(const [name,w,h]of [['desktop',1366,900],['phone-portrait',390,844],['phone-landscape',844,390]]){await page.setViewportSize({width:w,height:h});await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' overflow');await page.screenshot({path:root+'/checks/reliable-'+name+'.png',fullPage:true});}checks.push('Final UI checked on desktop and portrait/landscape phone viewports.');assert.deepEqual(errors,[]);const report=JSON.parse(await fs.readFile(root+'/test-report.json','utf8'));report.reliability={version:'g2-reliability-v1',status:'PASS',checks,limitations:['Speech/provider calls simulated in browser regression tests','Real OpenAI checks are recorded separately under liveAI','Physical device retest required']};await fs.writeFile(root+'/test-report.json',JSON.stringify(report,null,2));console.log('RELIABILITY BROWSER PASS',JSON.stringify(checks));
-}finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
+import fs from 'node:fs/promises';
+import http from 'node:http';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {chromium as playwright} from 'playwright-core';
+import chromium from '@sparticuz/chromium';
+const root=path.resolve('mission-dist'),checks=[],errors=[];
+let browser;
+const server=http.createServer(async(req,res)=>{
+  try{
+    let p=new URL(req.url,'http://localhost').pathname;
+    if(p==='/')p='/index.html';
+    const f=path.resolve(root,'.'+p);
+    if(!f.startsWith(root+path.sep))throw Error('path');
+    const bytes=await fs.readFile(f);
+    res.writeHead(200,{'Content-Type':f.endsWith('.html')?'text/html':/\.(mjs|js)$/.test(f)?'text/javascript':f.endsWith('.css')?'text/css':'application/octet-stream'});
+    res.end(bytes);
+  }catch{res.writeHead(404);res.end();}
+});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const url='http://127.0.0.1:'+server.address().port;
+try{
+  browser=await playwright.launch({args:[...chromium.args,'--enable-unsafe-swiftshader'],executablePath:await chromium.executablePath(),headless:true});
+  const ctx=await browser.newContext({viewport:{width:1366,height:900}});
+  await ctx.addInitScript(()=>{
+    window.MOCK={spoken:[],voiceTimer:0,duration:40,busy:false};
+    window.SpeechSynthesisUtterance=class{constructor(t){this.text=t;}};
+    const voices=[{name:'English local test',lang:'en-US',voiceURI:'en-test',localService:true},{name:'French local test',lang:'fr-FR',voiceURI:'fr-test',localService:true}];
+    Object.defineProperty(window,'speechSynthesis',{
+      configurable:true,
+      value:{
+        getVoices:()=>voices,
+        addEventListener(){},
+        resume(){},
+        paused:false,
+        cancel(){clearTimeout(MOCK.voiceTimer);MOCK.busy=false;},
+        speak(u){
+          MOCK.busy=true;
+          MOCK.spoken.push(u.text);
+          u.onstart?.();
+          MOCK.voiceTimer=setTimeout(()=>{MOCK.busy=false;u.onend?.();},MOCK.duration);
+        }
+      }
+    });
+  });
+  const page=await ctx.newPage();
+  page.on('pageerror',e=>{errors.push(e.message);console.error('RELIABILITY PAGE',e.message);});
+  page.on('dialog',d=>d.accept());
+  await page.goto(url);
+  await page.waitForFunction(()=>window.GEM_RELIABILITY,{},{polling:100});
+  await page.click('#play');
+  await page.waitForFunction(()=>GEM_PILOT.modelReady&&GEM_PILOT.started,{},{polling:100,timeout:90000});
+  async function advance(){
+    await page.waitForFunction(()=>!MOCK.busy,{},{polling:100,timeout:15000});
+    await page.waitForTimeout(300);
+    await page.click('#group-advance');
+    await page.waitForTimeout(200);
+  }
+  for(let i=0;i<12&&(await page.evaluate(()=>GEM_PILOT.index))===0;i++)await advance();
+  assert.equal(await page.evaluate(()=>GEM_PILOT.index),1);
+  await page.click('#group-pause');
+  assert.ok(await page.evaluate(()=>GEM_PILOT.paused));
+  const initial=await page.evaluate(()=>GEM_RELIABILITY),target=initial.step.a+initial.step.b;
+  await page.fill('#answer',String(target+1));
+  await page.click('#answer-form button[type=submit]');
+  await page.waitForFunction(()=>GEM_RELIABILITY.reviewRequired,{},{polling:100});
+  assert.ok((await page.locator('#feedback').innerText()).includes(String(target)));
+  assert.ok((await page.locator('#equation').innerText()).endsWith('= '+target));
+  await page.waitForFunction(()=>!MOCK.busy,{},{polling:100});
+  await page.click('#group-pause');
+  const position=await page.evaluate(()=>({index:GEM_PILOT.index,phase:GEM_GROUP.phase}));
+  await page.waitForTimeout(12000);
+  assert.deepEqual(await page.evaluate(()=>({index:GEM_PILOT.index,phase:GEM_GROUP.phase})),position);
+  assert.ok(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired));
+  checks.push('Incorrect answer shows exact correction and explanation, and never advances automatically after the former ten-second window.');
+  const sid=await page.evaluate(()=>GEM_RELIABILITY.sessionId);
+  await page.click('[data-lang=fr]');
+  assert.equal(await page.evaluate(()=>GEM_RELIABILITY.sessionId),sid);
+  assert.equal(await page.evaluate(()=>GEM_RELIABILITY.step.a),initial.step.a);
+  assert.ok((await page.locator('#feedback').innerText()).includes('réponse'));
+  await advance();
+  assert.equal(await page.evaluate(()=>GEM_RELIABILITY.reviewRequired),false);
+  checks.push('Language switching keeps the same numbers/correction; teacher acknowledgement releases the hold.');
+  await page.click('#group-new-lesson');
+  const second=await page.evaluate(()=>GEM_RELIABILITY);
+  assert.notEqual(second.first,initial.first);
+  assert.notEqual(second.sessionId,sid);
+  assert.equal(await page.evaluate(()=>GEM_PILOT.index),0);
+  assert.equal(await page.evaluate(()=>GEM_PILOT.language),'fr');
+  checks.push('New lesson changes the first question without changing the selected language.');
+  await page.click('#play');
+  await page.waitForTimeout(1000);
+  await page.click('#group-pause');
+  await page.route('**/api/mission-chat',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'not_configured'})}));
+  const q='Puis-je représenter ce calcul avec des pommes ?';
+  const beforeSpeech=await page.evaluate(()=>MOCK.spoken.length),before=await page.evaluate(()=>GEM_PILOT.index);
+  await page.fill('#answer',q);
+  await page.click('#answer-form button[type=submit]');
+  await page.waitForFunction(()=>GEM_RELIABILITY.provider==='not-configured',{},{polling:100});
+  assert.equal(await page.locator('#answer').inputValue(),q);
+  assert.equal(await page.evaluate(()=>MOCK.spoken.length),beforeSpeech);
+  assert.equal(await page.evaluate(()=>GEM_PILOT.index),before);
+  checks.push('Unavailable AI displays silent status, preserves the typed question and does not advance or falsely claim connection.');
+  await page.unroute('**/api/mission-chat');
+  await page.route('**/api/mission-chat',async route=>{
+    const b=route.request().postDataJSON();
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({answer:'Oui, utilisez des pommes pour représenter chaque quantité.',scope:'math',source:'openai',targetAnswer:b.step.a+b.step.b})});
+  });
+  await page.click('#answer-form button[type=submit]');
+  await page.waitForFunction(()=>GEM_RELIABILITY.provider==='connected',{},{polling:100});
+  assert.ok((await page.locator('#feedback').innerText()).includes('pommes'));
+  assert.equal(await page.evaluate(()=>GEM_PILOT.index),before);
+  checks.push('Additional question carries current numeric context; AI reply cannot grade or change progress.');
+  for(const [name,w,h]of [['desktop',1366,900],['phone-portrait',390,844],['phone-landscape',844,390]]){
+    await page.setViewportSize({width:w,height:h});
+    await page.waitForTimeout(200);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' overflow');
+    await page.screenshot({path:root+'/checks/reliable-'+name+'.png',fullPage:true});
+  }
+  checks.push('Final UI checked on desktop and portrait/landscape phone viewports.');
+  assert.deepEqual(errors,[]);
+  const report=JSON.parse(await fs.readFile(root+'/test-report.json','utf8'));
+  report.reliability={version:'g2-reliability-v1',status:'PASS',checks,limitations:['Speech/provider calls simulated in browser regression tests','Real OpenAI checks are recorded separately under liveAI','Physical device retest required']};
+  await fs.writeFile(root+'/test-report.json',JSON.stringify(report,null,2));
+  console.log('RELIABILITY BROWSER PASS',JSON.stringify(checks));
+}finally{
+  if(browser)await browser.close();
+  server.closeAllConnections?.();
+  await new Promise(r=>server.close(r));
+}
