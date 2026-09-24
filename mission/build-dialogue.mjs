@@ -5,7 +5,7 @@ await import('./build-auto-media.mjs');
 const out='mission-dist';
 let input=await fs.readFile(out+'/interaction-support.mjs','utf8');
 input=once(input," const banner=document.createElement('p');",` let dialogueActive=false,dialogueMode='idle',resumeAfter=false,dialogueRemaining=20,lastNarration='';
- function beginDialogue(){if(dialogueMode==='input')return;if(busy)cancel(true);if(!dialogueActive)resumeAfter=state().started&&!state().paused&&!state().ended;lastNarration=$('caption').textContent;dialogueActive=true;dialogueMode='input';h.pause();ui.refresh();}
+ function beginDialogue(){if(dialogueMode==='input')return;const field=$('answer'),focused=document.activeElement===field,start=field.selectionStart,end=field.selectionEnd;if(busy)cancel(true);if(!dialogueActive)resumeAfter=state().started&&!state().paused&&!state().ended;lastNarration=$('caption').textContent;dialogueActive=true;dialogueMode='input';h.pause();ui.refresh();if(focused){field.focus({preventScroll:true});field.setSelectionRange(start,end);}}
  function resumeDialogue(force=false){const resume=force||resumeAfter;ui.stop();cancel();lastReply=null;holdUntil=0;unresolved=false;$('answer').value='';$('answer').blur();state().paused=!resume;ui.resetClock();ui.refresh();status('ready');if(resume)h.speak(ui.phaseText());}
  function tickDialogue(dt){if(!dialogueActive||dialogueMode==='input'||dialogueMode==='error'||busy||h.mediaState().busy||h.mediaState().failed||h.mediaState().muted||document.hidden||document.querySelector('dialog[open]'))return;if(dialogueMode==='answer'){dialogueMode='followup';dialogueRemaining=20;}if(unresolved||$('answer').value.trim())return;dialogueRemaining-=dt;banner.textContent=fr()?'Autre question ? Reprise dans '+Math.ceil(dialogueRemaining)+' s. Continuer reprend la leçon.':'Another question? Returning to the lesson in '+Math.ceil(dialogueRemaining)+' s. Continue resumes now.';if(dialogueRemaining<=0)resumeDialogue();}
  const banner=document.createElement('p');`);
@@ -26,13 +26,13 @@ input=once(input,'hold:()=>busy||review||unresolved||performance.now()<holdUntil
 await fs.writeFile(out+'/interaction-support.mjs',input);
 let group=await fs.readFile(out+'/group-classroom.mjs','utf8');
 group=once(group,"answered:()=>{submitted=true;phaseIdle=0;phase='response';scene=0;}","resetClock:()=>{phaseIdle=0;},answered:()=>{submitted=true;phaseIdle=0;phase='response';scene=0;}");
-group=once(group,' const s=state();\n if(!h.modelReady())', ' const s=state();\n if(support.dialogueActive()){if(!h.modelReady()){await $("load-avatar").onclick();if(!h.modelReady())return;}support.resumeDialogue(true);return;}\n if(!h.modelReady())');
+group=once(group,' const s=state();\n if(!h.modelReady())', ' const s=state();\n if(support.dialogueActive()){support.ensureInteractive();if(!h.modelReady()){await $("load-avatar").onclick();if(!h.modelReady())return;}support.resumeDialogue(true);return;}\n if(!h.modelReady())');
 group=once(group,'support.ensureInteractive();refresh();originalMicClick();','support.ensureInteractive();support.beginDialogue();refresh();originalMicClick();');
 group=once(group," $('answer-form').onsubmit=", " $('answer').addEventListener('input',()=>{if(lessonAvailable(selection))support.beginDialogue();});\n $('answer-form').onsubmit=");
 group=once(group," if(!s.started||s.ended||s.paused||document.hidden", " support.tickDialogue(dt);\n if(!s.started||s.ended||s.paused||document.hidden");
 group=group.replace('Explanations continue automatically. Answers and corrections wait for the class. Microphone: final answers are sent automatically.','Ask with Speak or Send. The lesson pauses for answers, then allows 20 seconds for more questions. Continue returns to the lesson.').replace('Les explications avancent automatiquement. Les réponses et corrections attendent la classe. Micro : envoi automatique de la réponse finale.','Posez une question avec le micro ou Envoyer. La leçon attend la réponse, puis laisse 20 secondes pour une autre question. Continuer reprend la leçon.');
 await fs.writeFile(out+'/group-classroom.mjs',group);
-let sw=await fs.readFile(out+'/sw.js','utf8');sw=once(sw,'gem-group-auto-media-001','gem-group-dialogue-v1');await fs.writeFile(out+'/sw.js',sw);
+let sw=await fs.readFile(out+'/sw.js','utf8');sw=once(sw,'gem-group-auto-media-001','gem-group-dialogue-v2');await fs.writeFile(out+'/sw.js',sw);
 await import('./dialogue-browser-tests.mjs');
 
 await import('./dialogue-live-check.mjs');
