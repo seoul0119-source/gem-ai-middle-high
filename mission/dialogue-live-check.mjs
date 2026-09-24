@@ -1,0 +1,4 @@
+import fs from 'node:fs/promises';import {answerQuestion} from '../api/mission-chat.js';
+const report={status:'NOT_CONFIGURED',checks:[]};
+if(process.env.OPENAI_API_KEY){for(const [lang,question]of [['en','How is addition different from multiplication?'],['fr',"Qu’avons-nous appris aujourd’hui ?"]]){const result=await answerQuestion({lang,question,step:{a:8,b:2,missing:false},phase:'explain',history:[],lessonProgress:{currentProblem:2,currentTitle:'Count on',phase:'explain',covered:[{a:4,b:3,missing:false,title:'Join two groups'}]}});if(result.status!==200)throw Error('Dialogue live AI: '+result.code);report.checks.push({language:lang,answer:result.answer,source:result.source,usage:result.usage});}report.status='PASS';}
+const p='mission-dist/test-report.json',all=JSON.parse(await fs.readFile(p,'utf8'));all.dialogueLiveAI=report;await fs.writeFile(p,JSON.stringify(all,null,2));console.log('DIALOGUE LIVE AI',JSON.stringify(report));

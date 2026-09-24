@@ -1,0 +1,9 @@
+# Group question pause and return
+
+Preview-only extension after build-auto-media.mjs. Preserve fresh sessions, authoritative arithmetic, teacher acknowledgement of incorrect answers, one visible playback control, fullscreen/3D layout and automatic JOIN material.
+
+Typing or pressing the existing microphone pauses lesson playback and time. Numeric answers retain the deterministic assessment path. Other local or AI answers keep the current lesson phase, are narrated, and then offer a 20-second follow-up window. The timer does not run during narration, microphone input, hidden documents, dialogs, new drafts or audio errors. When this window expires, a previously running lesson resumes from the same phase. A lesson the teacher had already paused stays paused. Existing Continue can return immediately and cancels a pending response. Incorrect-answer review holds are retained.
+
+Additional AI requests contain bounded current arithmetic, recent conversation and prior/current problem context. Lesson summaries distinguish prior problems from current work; addition/multiplication comparisons go to the existing configured server model. Repeat requests reuse the last AI explanation. No new buttons, keys, student records, providers or production routes are introduced. Existing rate limits, response validation and content exclusions remain.
+
+All pre-existing build tests remain mandatory. dialogue-browser-tests uses the real avatar with mocked speech/AI to check timer freeze, consecutive voice questions, 20-second return, both languages, repeat, error retention and stale-response cancellation. dialogue-live-check runs two small real provider questions only when the configured preview API key exists. Its separate report distinguishes PASS from NOT_CONFIGURED. Full real-device microphone accuracy and a complete 40-minute lesson are not claimed.
