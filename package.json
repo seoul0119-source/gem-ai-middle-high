@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "vercel-build": "node mission/build-count-on.mjs",
+    "vercel-build": "node mission/build-make-ten.mjs",
     "test": "node mission/tests.mjs"
   },
   "dependencies": {
