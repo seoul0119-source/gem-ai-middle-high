@@ -73,5 +73,12 @@
       "failure": "25-second timeout waiting for progress beyond the saved frame after dialogue return; all inherited suites passed"
     },
     "physicalDevicesTested": false
+  },
+  "ciTimingFollowup": {
+    "previousDeployment": "dpl_4LTi6s96EJ33bJ8KazmAhXq3UQun",
+    "result": "ERROR: automation observed animation after short animation completed; inherited suites passed",
+    "fix": "Arm interruption observer before submitting answer, dispatch normal input event at intermediate frame; do not mutate lesson state",
+    "localLatencyStress": "PASS with 6500ms automation delay after send",
+    "physicalDevicesTested": false
   }
 }

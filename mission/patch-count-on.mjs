@@ -18,5 +18,5 @@ input=once(input,'const materialReply=joinReply(result,s,lang,state().reveal);',
 input=once(input,'joinContext(s,state().reveal)','(countOnContext(s,state().reveal)||joinContext(s,state().reveal))');
 await fs.writeFile(out+'/interaction-support.mjs',input);
 let app=await fs.readFile(out+'/app.mjs','utf8');app="import {emitCountOnCue} from './auto-count-on.mjs';\n"+app;app=once(app,'emitJoinCue(u.text,current());','emitJoinCue(u.text,current());emitCountOnCue(u.text,current());');await fs.writeFile(out+'/app.mjs',app);
-let sw=await fs.readFile(out+'/sw.js','utf8');sw=once(sw,'gem-group-fullscreen-exit-v1','gem-group-auto-media-002');sw=once(sw,"'./auto-join.mjs'","'./auto-join.mjs','./auto-count-on.mjs'");await fs.writeFile(out+'/sw.js',sw);
+let sw=await fs.readFile(out+'/sw.js','utf8');sw=once(sw,'gem-group-fullscreen-exit-v1','gem-group-auto-media-002-v2');sw=once(sw,"'./auto-join.mjs'","'./auto-join.mjs','./auto-count-on.mjs'");await fs.writeFile(out+'/sw.js',sw);
 let html=await fs.readFile(out+'/index.html','utf8');html=once(html,'초2 전체 화면 나가기 수정 · 수업·대화 기능 유지','초2 자동 자료 002 · 이어 세기 · 영어/프랑스어 공용');await fs.writeFile(out+'/index.html',html);
