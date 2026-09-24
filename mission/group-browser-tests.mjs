@@ -38,6 +38,7 @@ await page.evaluate(()=>{window.AUDIO_MODE='online';});await page.click('#group-
 await page.waitForSelector('#group-audio-help',{state:'hidden'});assert.equal(await page.evaluate(()=>GEM_GROUP.phase),failedPhase);
 await page.click('#group-pause');await page.locator('#group-more summary').click();
 
+// Poll lesson state independently of WebGL animation frames on CPU-limited builders.
 // One complete media package stays on the same question until all resources finish.
 await page.click('#group-advance');await page.click('#group-advance');
 assert.equal(await page.evaluate(()=>GEM_GROUP.mediaPackage),'gem-g2-math-join-4-3');
@@ -45,7 +46,7 @@ assert.equal(await page.evaluate(()=>GEM_GROUP.mediaScene),0);assert.ok(await pa
 await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'explain');assert.ok(await page.locator('#media-clip').isVisible());
 assert.ok(await page.evaluate(()=>document.getElementById('media-clip').paused));
 await page.click('[data-lang=fr]');assert.equal(await page.evaluate(()=>GEM_GROUP.mediaScene),1);
-await page.click('#group-pause');await page.waitForFunction(()=>{if(GEM_GROUP.mediaScene!==2||GEM_GROUP.phase!=='explain')return false;document.getElementById('group-pause').click();return true;});assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'explain');assert.ok((await page.locator('#group-pause').innerText()).includes('Continuer'));assert.ok(await page.locator('#media-fact').isVisible());
+await page.click('#group-pause');await page.waitForFunction(()=>{if(GEM_GROUP.mediaScene!==2||GEM_GROUP.phase!=='explain')return false;document.getElementById('group-pause').click();return true;},null,{polling:50,timeout:60000});assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'explain');assert.ok((await page.locator('#group-pause').innerText()).includes('Continuer'));assert.ok(await page.locator('#media-fact').isVisible());
 await page.click('#group-advance');await page.click('#group-advance');await page.fill('#answer','7');await page.click('#answer-form button[type=submit]');
 await page.click('#group-advance');await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'summary');
 assert.ok(await page.locator('#answer').isEnabled());await page.fill('#answer','Explique encore');await page.click('#answer-form button[type=submit]');assert.ok((await page.locator('#feedback').innerText()).includes('sept')||(await page.locator('#feedback').innerText()).includes('7'));
@@ -55,7 +56,7 @@ await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROU
 assert.ok((await page.locator('#media-picture').getAttribute('alt')).includes('eight to ten'));
 await page.click('#group-advance');assert.ok(await page.locator('#media-clip').isVisible());
 await page.click('[data-lang=fr]');assert.equal(await page.evaluate(()=>GEM_GROUP.mediaScene),1);
-await page.click('#group-pause');await page.waitForFunction(()=>{if(GEM_GROUP.mediaScene!==2||GEM_GROUP.phase!=='explain')return false;document.getElementById('group-pause').click();return true;});assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'explain');assert.ok((await page.locator('#group-pause').innerText()).includes('Continuer'));
+await page.click('#group-pause');await page.waitForFunction(()=>{if(GEM_GROUP.mediaScene!==2||GEM_GROUP.phase!=='explain')return false;document.getElementById('group-pause').click();return true;},null,{polling:50,timeout:60000});assert.equal(await page.evaluate(()=>GEM_GROUP.phase),'explain');assert.ok((await page.locator('#group-pause').innerText()).includes('Continuer'));
 await page.click('#group-advance');assert.equal(await page.evaluate(()=>GEM_GROUP.mediaScene),3);assert.ok((await page.locator('#media-picture').getAttribute('alt')).includes('Six'));
 await page.waitForFunction(()=>document.getElementById('caption').textContent.includes('six'));
 await page.click('#group-advance');await page.click('#group-advance');await page.fill('#answer','10');await page.click('#answer-form button[type=submit]');assert.equal(await page.locator('#equation').innerText(),'8 + 2 = 10');
