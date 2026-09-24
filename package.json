@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "vercel-build": "node mission/build-dialogue.mjs",
+    "vercel-build": "node mission/build-fullscreen-exit.mjs",
     "test": "node mission/tests.mjs"
   },
   "dependencies": {
