@@ -1,0 +1,13 @@
+# First-problem input and answer-visibility repair
+
+This is an operator-preview change only. The production main branch, avatar asset, installed-device voice behavior, voice/microphone consent and national curriculum availability gates are preserved.
+
+Confirmed source defects: the initial step was an ungraded welcome despite showing a numeric task; Start doubled as an unconfirmed End button; a worked example solved the current problem before the class responded; requests disabled the only input field while waiting, obscuring whether a question had been received. These are separate from a hardware speech recognition failure or missing server key.
+
+The visible lesson begins at actual problem 1/10 (internal index 1). Typed and final-recognition input share a transactional handler with a visible receipt. Greetings and ordinary numeric answers work locally. Explicit new text can supersede a pending extra-question request, and previous responses cannot erase a newer draft. A canceled request cannot update a changed problem/language. Missing-provider notices are not spoken.
+
+Start/Pause/Continue do not end a lesson. A separate End button asks for confirmation. The old prematurely-ended state can be resumed. Sending a question from a finished/ready screen reopens a paused interactive state instead of discarding the message. Correct answers and explicit explanations reveal the solution; incorrect answers reveal an explanation and retain a teacher-review hold. The current solution is removed from pre-answer narration; any worked example uses a separately labelled, different problem. Diagram and main equation share the answer-visibility state, including missing-number questions.
+
+The maintained entry point is build-input-v2.mjs. Previous baseline suites run first, then checked changes are applied to the final runtime and first-three-problem integration tests run. The original prepared pilot remains separately preserved in source. Do not merge the root preview Vercel configuration into production.
+
+The input-v2 tests use a real loaded VRM/WebGL teacher plus simulated browser speech and recognition interfaces. They exercise 18 typed/recognized math responses across the first three questions in English/French, greetings before Start, correction display, pre-answer visibility, pause/continue/end confirmation, delayed additional questions, draft retention, failure handling, and PC/phone layouts. They do not measure physical microphone recognition accuracy or prove every generative answer correct. Actual provider checks, when configured, remain in the separate liveAI report.
