@@ -1,0 +1,11 @@
+# Display-only repair: one playback button and mobile fullscreen
+
+Scope: preview/global-mission-group-20260924 only. The working questions, answer handling, AI endpoint, speech/microphone permission, model asset and session generation are unchanged.
+
+The old group pause button remained visible after the original play button became Start/Pause/Continue. The redundant control is hidden and removed from keyboard/assistive focus, while retaining its internal reference for older render closures. A single visible playback button and the separate confirmed End button remain.
+
+The former fullscreen layout used a fixed-height flex column including all preparation/status/input panels. The classroom could receive too little visible height, with an independently scrolled classroom hiding its teacher. Fullscreen now reserves a grid row for the lesson, keeps a minimum teacher area, gives the board its own scrolling, and puts captions below rather than over the teacher canvas. Entry resets display scrolling; exit restores the prior view/scroll without modifying learning progress or drafts. Board-only entry temporarily restores the teacher. There is an explicit Exit full screen button. Browsers that reject native fullscreen use the same layout inside page expansion.
+
+Renderer size and camera aspect now follow the actual canvas size (including the caption space). ResizeObserver tracks both stage and canvas. Fullscreen/viewport/orientation changes request redraws after layout settles. Fullscreen framing includes the model head and feet. Five sampled canvas pixels and projected head/feet positions are exposed only as local geometry diagnostics; there is no upload or recording.
+
+The build runs the existing complete baseline/input regressions first, then checks the final display runtime with the real VRM rendered in WebGL. It verifies one visible playback control, native/fallback presentation, portrait/landscape rotation, small phones, TV layout, model pixels, unoccluded canvas, exit controls and unchanged lesson/draft state. Phone viewports are browser-emulated, not real Android/iPhone devices. Physical device confirmation is still required. No extra paid AI tests are added beyond the inherited build checks.
