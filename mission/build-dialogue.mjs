@@ -26,7 +26,7 @@ input=once(input,'hold:()=>busy||review||unresolved||performance.now()<holdUntil
 await fs.writeFile(out+'/interaction-support.mjs',input);
 let group=await fs.readFile(out+'/group-classroom.mjs','utf8');
 group=once(group,"answered:()=>{submitted=true;phaseIdle=0;phase='response';scene=0;}","resetClock:()=>{phaseIdle=0;},answered:()=>{submitted=true;phaseIdle=0;phase='response';scene=0;}");
-group=once(group,' const s=state();\n if(!h.modelReady())', ' const s=state();\n if(support.dialogueActive()){if(!h.modelReady()){await $('load-avatar').onclick();if(!h.modelReady())return;}support.resumeDialogue(true);return;}\n if(!h.modelReady())');
+group=once(group,' const s=state();\n if(!h.modelReady())', ' const s=state();\n if(support.dialogueActive()){if(!h.modelReady()){await $("load-avatar").onclick();if(!h.modelReady())return;}support.resumeDialogue(true);return;}\n if(!h.modelReady())');
 group=once(group,'support.ensureInteractive();refresh();originalMicClick();','support.ensureInteractive();support.beginDialogue();refresh();originalMicClick();');
 group=once(group," $('answer-form').onsubmit=", " $('answer').addEventListener('input',()=>{if(lessonAvailable(selection))support.beginDialogue();});\n $('answer-form').onsubmit=");
 group=once(group," if(!s.started||s.ended||s.paused||document.hidden", " support.tickDialogue(dt);\n if(!s.started||s.ended||s.paused||document.hidden");
