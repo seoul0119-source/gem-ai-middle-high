@@ -1,0 +1,23 @@
+name: PC common programme five languages
+on:
+  push:
+    branches:
+      - preview/mission-pc-five-20260925
+permissions:
+  contents: read
+concurrency:
+  group: mission-pc-five-20260925
+  cancel-in-progress: true
+jobs:
+  pc-five:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run vercel-build
