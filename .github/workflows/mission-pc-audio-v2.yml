@@ -1,0 +1,23 @@
+name: PC audio input and voice diagnostics
+on:
+  push:
+    branches:
+      - fix/mission-pc-audio-20260925
+permissions:
+  contents: read
+concurrency:
+  group: mission-pc-audio-v2
+  cancel-in-progress: true
+jobs:
+  pc-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run vercel-build

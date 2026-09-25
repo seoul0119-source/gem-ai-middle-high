@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readRecognition,voiceInventory} from './pc/audio-tools.mjs';
+const r=(s,final)=>Object.assign([{transcript:s}],{isFinal:final});
+assert.deepEqual(readRecognition({0:r('hello',true),1:r('teacher',false),length:2}),{final:'hello',interim:'teacher',text:'hello teacher'});
+assert.deepEqual(readRecognition([r('huit',false)]),{final:'',interim:'huit',text:'huit'});
+assert.deepEqual(readRecognition([r('आठ',true)]),{final:'आठ',interim:'',text:'आठ'});
+assert.deepEqual(readRecognition([]),{final:'',interim:'',text:''});
+const voices=[{lang:'EN_us',localService:true},{lang:'fr-FR',localService:true},{lang:'ne-NP',localService:false},{lang:'sw-KE',localService:undefined}];
+assert.equal(voiceInventory(voices,'en').local.length,1);
+assert.equal(voiceInventory(voices,'fr').usable.length,1);
+assert.equal(voiceInventory(voices,'ne').usable.length,0);
+assert.equal(voiceInventory(voices,'ne',true).usable.length,1);
+assert.equal(voiceInventory(voices,'sw').usable.length,0);
+assert.equal(voiceInventory(voices,'ur',true).usable.length,0);
+assert.equal(voices.length,4);
+console.log('PC AUDIO UNIT PASS: array-like interim/final results, five-language voice matching, remote consent separation.');
