@@ -21,3 +21,34 @@ Selected syllabus policy (2026-09-25): per the operator's request, omit biologic
 Live verification found one draft whose answer index conflicted with its explanation. Version v2 now runs a separate AI review over all five languages without showing draft indices. It independently returns zero-based answers and rejects factual/translation ambiguity or excluded-topic paraphrases. Only validated review indices are applied. This additional check is probabilistic, not certification; the teacher preview remains required. v2 storage keys prevent reuse of previously unreviewed v1 drafts.
 
 Live drafts were held at the additional review step. Review answers now use fixed q1/q2/q3 fields (only the three questions), with explicit issue categories. The review accepts ordinary translation wording differences while requiring the same facts, tasks and correct option position. A rejected draft receives one automatic correction attempt using specific reviewer feedback; all calls share the existing 155-second deadline. A rejected correction still stays out of the classroom. Only issue categories and numeric answer metadata are logged, not lesson text or feedback.
+
+
+## Optional speech and conversation text (2026-09-25)
+
+The programme page keeps the latest 60 class/teacher messages in its current
+lesson session in this browser. Language/stage changes preserve this history;
+a new lesson or Clear conversation removes it. Speech-recognition results stay
+visible in the input/receipt while the class's submitted text and the teacher's
+answer remain in Conversation text. This is not a recording archive.
+
+Audio settings offers a separate, initially OFF AI speech checkbox. The notice
+in all five languages states that reading text and microphone audio go to
+OpenAI and require internet and billable API usage. It resets OFF on reload.
+The original browser voices remain preferred for reading, including working
+English/French voices. When enabled, missing/failed browser voices fall back to
+gpt-4o-mini-tts (coral). Nepali/Urdu/Swahili use MediaRecorder and whisper-1;
+recordings are limited to 30 seconds/2 MB, and transcription is a draft requiring
+review and Send. No new API key or provider account is needed. The server key
+stays on the server. This app does not save or log raw recordings. Existing
+provider data policies still apply. Generated voices are explicitly disclosed
+as AI. Language switching, hiding the page and disabling AI cancel recordings
+and release the microphone; stale results are ignored. Playback has native
+controls if the browser blocks autoplay. An in-memory bounded audio cache avoids
+repeat charges for recent identical narration in the same page session.
+
+The build performs a synthetic TTS-to-STT round trip in Nepali, Urdu and Swahili
+when the server key is available. This checks provider access and response
+language, not classroom microphone quality or native pronunciation. Physical
+speaker/microphone and native-speaker quality review remain necessary. Browser
+voice counts continue to describe browser voices only; AI has separate status.
+The original mobile sample and shared pc/audio-tools.mjs remain unchanged.

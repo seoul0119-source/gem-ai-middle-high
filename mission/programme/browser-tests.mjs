@@ -5,7 +5,7 @@ try{
  const chromium=process.env.PROGRAMME_CHROMIUM?null:(await import('@sparticuz/chromium')).default;
  browser=await playwright.launch({executablePath:process.env.PROGRAMME_CHROMIUM||await chromium.executablePath(),args:chromium?[...chromium.args,'--enable-unsafe-swiftshader']:['--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader'],headless:true});
  const context=await browser.newContext({viewport:{width:1440,height:1000}});await context.addInitScript(()=>{window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>['en-US','fr-FR','ne-NP','ur-PK','sw-KE'].map(lang=>({lang,name:lang,voiceURI:lang,localService:true})),addEventListener(){},cancel(){},speak(u){u.onstart?.();setTimeout(()=>u.onend?.(),5);}}});window.SpeechRecognition=class{start(){window.PROGRAMME_MIC=this;}stop(){this.onend?.();}abort(){}};});
- const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());let calls=0,fail=false,questionCalls=0;
+ const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());let calls=0,fail=false,questionCalls=0;
  await page.route('**/api/mission-programme.js',async route=>{calls++;const body=route.request().postDataJSON();if(fail)return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'network'})});if(body.action==='question'){questionCalls++;return route.fulfill({contentType:'application/json',body:JSON.stringify({answer:'Let us discuss this example.'})});}return route.fulfill({contentType:'application/json',body:JSON.stringify({version:'gem-common-programme-v2',unitId:body.unitId,lesson:fixture()})});});
  if(process.env.PROGRAMME_MOCK_AVATAR==='1')await page.route('**/avatar.bundle.js',route=>route.fulfill({contentType:'text/javascript',body:'export async function loadAvatar(){return true}'}));
  await page.goto(base+'/programme.html?subject=science&grade=2');await page.waitForFunction(()=>window.GEM_PROGRAMME);assert.equal(await page.locator('#languages button').count(),5);assert.equal(await page.locator('#unit-list article').count(),4);
@@ -22,5 +22,36 @@ try{
  await page.click('#regenerate');await page.waitForFunction(old=>GEM_PROGRAMME.sessionId!==old,id);assert.equal(await page.evaluate(()=>GEM_PROGRAMME.index),0);assert.ok(await page.evaluate(()=>GEM_PROGRAMME.paused));
  await fs.mkdir(root+'/checks',{recursive:true});await page.screenshot({path:root+'/checks/programme-catalog.png',fullPage:true});
  await page.click('[data-lang="ur"]');await page.click('#approve');await page.waitForFunction(()=>GEM_PROGRAMME.modelReady);await page.screenshot({path:root+'/checks/programme-urdu.png',fullPage:true});assert.deepEqual(errors,[]);
+
+ // Browser speech keeps a durable student/teacher transcript after auto-send.
+ await page.click('[data-lang="en"]');await page.click('#mic');
+ await page.evaluate(()=>PROGRAMME_MIC.onresult({results:[Object.assign([{transcript:'Explain this lesson again'}],{isFinal:true})]}));
+ await page.waitForFunction(()=>!GEM_PROGRAMME.busy&&document.querySelector('#transcript-messages').textContent.includes('Explain this lesson again'));
+ assert.ok((await page.locator('#answer').inputValue()).includes('Explain this lesson again'));
+ assert.ok((await page.locator('#transcript-messages').textContent()).includes('Let us discuss this example.'));
+ await page.click('#next');assert.ok((await page.locator('#transcript-messages').textContent()).includes('Explain this lesson again'));
+ // Mock hardware and provider only; physical pronunciation is a separate check.
+ await page.evaluate(()=>{
+  window.AI_TRACKS_STOPPED=0;window.AI_DENY_MIC=false;
+  navigator.mediaDevices.getUserMedia=async()=>{if(window.AI_DENY_MIC)throw new DOMException('denied','NotAllowedError');return {getTracks:()=>[{stop(){window.AI_TRACKS_STOPPED++;}}]};};
+  window.MediaRecorder=class{static isTypeSupported(){return true;}constructor(){this.state='inactive';}start(){this.state='recording';}stop(){this.state='inactive';this.ondataavailable?.({data:new Blob([new Uint8Array(200)],{type:'audio/webm'})});this.onstop?.();}};
+  speechSynthesis.getVoices=()=>['en-US','fr-FR'].map(lang=>({lang,name:lang,voiceURI:lang,localService:true}));
+  HTMLMediaElement.prototype.play=function(){this.onplay?.();setTimeout(()=>this.onended?.(),10);return Promise.resolve();};HTMLMediaElement.prototype.pause=function(){};HTMLMediaElement.prototype.load=function(){};
+ });
+ let speechCalls=0,transcribeCalls=0,delayed=false;
+ await page.route('**/api/mission-speech.js',async route=>{const body=route.request().postDataJSON();assert.equal(body.consent,true);if(body.action==='speak'){speechCalls++;return route.fulfill({contentType:'application/json',body:JSON.stringify({audio:'SUQzAQ==',mime:'audio/mpeg'})});}transcribeCalls++;if(delayed)await new Promise(r=>setTimeout(r,300));return route.fulfill({contentType:'application/json',body:JSON.stringify({text:body.lang==='sw'?'Maji ni nini?':body.lang==='ne'?'पानी के हो?':'پانی کیا ہے؟'})}).catch(()=>{});});
+ await page.click('[data-lang="sw"]');await page.click('#repeat');assert.equal(speechCalls,0);
+ await page.click('#mic');assert.ok(await page.locator('#audio').isVisible());assert.equal(transcribeCalls,0);
+ await page.check('#cloud-speech');await page.click('#audio-close');await page.click('#repeat');await page.waitForFunction(()=>!document.querySelector('#cloud-player').hidden);assert.equal(speechCalls,1);
+ for(const [lang,expected] of [['sw','Maji ni nini?'],['ne','पानी के हो?'],['ur','پانی کیا ہے؟']]){
+  await page.click(`[data-lang="${lang}"]`);await page.fill('#answer','');await page.click('#mic');await page.waitForFunction(()=>document.querySelector('#answer').disabled);await page.waitForFunction(()=>document.querySelector('#mic').getAttribute('aria-pressed')==='true');await page.click('#mic');await page.waitForFunction(text=>document.querySelector('#answer').value===text,expected);
+  assert.equal(await page.locator('#answer').isDisabled(),false);const q=questionCalls;await page.waitForTimeout(800);assert.equal(questionCalls,q,'AI microphone must wait for review and Send');await page.click('#answer-form button.primary');await page.waitForFunction(()=>!GEM_PROGRAMME.busy);assert.ok((await page.locator('#transcript-messages').textContent()).includes(expected));
+ }
+ assert.equal(transcribeCalls,3);assert.ok(await page.evaluate(()=>AI_TRACKS_STOPPED>=3));
+ await page.fill('#answer','Keep my draft');await page.evaluate(()=>{AI_DENY_MIC=true;});await page.click('#mic');await page.waitForFunction(()=>!document.querySelector('#answer').disabled);assert.equal(await page.locator('#answer').inputValue(),'Keep my draft');await page.evaluate(()=>{AI_DENY_MIC=false;});
+ delayed=true;await page.fill('#answer','');await page.click('#mic');await page.click('#mic');await page.click('[data-lang="en"]');await page.waitForTimeout(450);assert.equal(await page.locator('#answer').inputValue(),'');
+ await page.reload();await page.waitForFunction(()=>window.GEM_PROGRAMME);await page.click('#resume');assert.ok((await page.locator('#transcript-messages').textContent()).includes('Maji ni nini?'));assert.equal(await page.locator('#cloud-speech').isChecked(),false,'No automatic paid speech on reload');
+ await page.click('#clear-transcript');assert.equal(await page.locator('#transcript-messages article').count(),0);
+ checks.push('Browser voice final text and teacher replies survive stage/language changes; opt-in AI TTS, three-language microphone review before send, cancellation, denied permission draft preservation, recording cleanup, transcript reload/clear');
  checks.push('42-course catalogue, history grade floor, 5 languages, teacher preview, hidden answers, wrong-answer hold, translation keeps session and stage without API call, questions do not advance, reload/resume, fullscreen exit, generation failure keeps old lesson, explicit new lesson resets only on success');console.log('PROGRAMME BROWSER PASS',JSON.stringify(checks));
 }finally{if(browser)await browser.close();server.closeAllConnections?.();await new Promise(r=>server.close(r));}

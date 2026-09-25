@@ -2,8 +2,9 @@ import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-for(const file of ['content-policy.mjs','curriculum.mjs','core.mjs','labels.mjs','app.mjs'])execFileSync(process.execPath,['--check','mission/programme/'+file],{stdio:'inherit'});
+for(const file of ['content-policy.mjs','curriculum.mjs','core.mjs','labels.mjs','speech-labels.mjs','cloud-speech.mjs','app.mjs'])execFileSync(process.execPath,['--check','mission/programme/'+file],{stdio:'inherit'});
 execFileSync(process.execPath,['mission/programme/tests.mjs'],{stdio:'inherit'});
+execFileSync(process.execPath,['mission/programme/speech-tests.mjs'],{stdio:'inherit'});
 // Verify the live provider early, before the lengthy inherited display suite.
 // The draft is a test result only and is never served as a lesson fallback.
 if(process.env.OPENAI_API_KEY){
@@ -12,11 +13,12 @@ if(process.env.OPENAI_API_KEY){
  assert.equal(live.status,200,'Live common lesson: '+(live.code||live.status));
  console.log('PROGRAMME LIVE CONTENT PASS',JSON.stringify({unitId:live.unitId,version:live.version,languages:5,stages:live.lesson.steps.length,independentReview:true}));
 }else console.log('PROGRAMME LIVE CONTENT SKIP: no server key in this build environment');
+await import('./programme/speech-preflight.mjs');
 await import('./build-pc-audio-v2.mjs');
 const hash=async file=>crypto.createHash('sha256').update(await fs.readFile('mission-dist/'+file)).digest('hex'),before={};
 for(const f of ['index.html','app.mjs','sw.js','avatar.bundle.js','reliable-lessons.mjs','display-v3.mjs','pc/audio-tools.mjs'])before[f]=await hash(f);
 await fs.mkdir('mission-dist/programme',{recursive:true});
-for(const f of ['content-policy.mjs','curriculum.mjs','core.mjs','labels.mjs','app.mjs','style.css'])await fs.copyFile('mission/programme/'+f,'mission-dist/programme/'+f);
+for(const f of ['content-policy.mjs','curriculum.mjs','core.mjs','labels.mjs','speech-labels.mjs','cloud-speech.mjs','app.mjs','style.css'])await fs.copyFile('mission/programme/'+f,'mission-dist/programme/'+f);
 await fs.cp('mission/programme/fonts','mission-dist/programme/fonts',{recursive:true,filter:src=>!src.endsWith('.base64')});
 await fs.copyFile('mission/programme/index.html','mission-dist/programme.html');
 // Localized copy for the new page; preserve the original sample's controller.
