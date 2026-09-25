@@ -12,7 +12,7 @@ const pack=fixture();assert.ok(validateLesson(pack,'science-g2-u1'));assert.equa
 for(const mutate of [p=>p.steps.pop(),p=>delete p.steps[0].text.ur,p=>p.steps[1].answerIndex=3,p=>p.steps[1].text.fr.options.pop(),p=>p.steps[0].kind='question']){const p=structuredClone(pack);mutate(p);assert.equal(validateLesson(p,'science-g2-u1'),false);}
 assert.equal(choiceFor('२',['2','4','6']),0);assert.equal(choiceFor('۲',['2','4','6']),0);assert.equal(choiceFor('B',['2','4','6']),1);assert.equal(choiceFor('Why is 2 different?',['2','4','6']),-1);assert.equal(choiceFor('3',['2','4','6']),-1);
 assert.ok(savedSession({version:VERSION,lang:'ur',unitId:'science-g2-u1',lesson:pack,index:3}));
-let calls=0,request;const fetchImpl=async(url,options)=>{calls++;request=JSON.parse(options.body);if(request.text.format.name==='gem_lesson_review')return {ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({approved:true,answerIndices:[-1,1,-1,1,1,-1]})}]}]})};return {ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(pack)}]}]})};};
+let calls=0,request;const fetchImpl=async(url,options)=>{calls++;request=JSON.parse(options.body);if(request.text.format.name==='gem_lesson_review')return {ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({approved:true,answers:{q1:1,q2:1,q3:1},issue:'none',feedback:''})}]}]})};return {ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(pack)}]}]})};};
 assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'sw'},{key:'fixture-key',fetchImpl})).status,200);assert.equal(calls,2);assert.equal(request.store,false);assert.ok(request.instructions.includes('independent lesson reviewer'));assert.ok(!request.input.includes('answerIndex'));
 assert.equal((await runProgramme({action:'lesson',unitId:'world-history-g2-u1',lang:'en'},{key:'fixture-key',fetchImpl})).status,400);assert.equal(calls,2);
 assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en'},{key:'',fetchImpl})).status,503);
@@ -45,8 +45,14 @@ assert.equal(COURSES.some(excludedContent),false,'Static curriculum contains an 
 console.log('PASS: selected syllabus across five languages, all lesson fields, saved sessions, generation and follow-up answers.');
 
 const wrongKey=structuredClone(pack);wrongKey.steps[4].answerIndex=2;
-assert.equal(applyReview(wrongKey,{approved:true,answerIndices:[-1,1,-1,1,1,-1]}),true);assert.equal(wrongKey.steps[4].answerIndex,1);
-for(const review of [{approved:false,answerIndices:[-1,1,-1,1,1,-1]},{approved:true,answerIndices:[0,1,-1,1,1,-1]},{approved:true,answerIndices:[-1,1,-1,1,3,-1]},{approved:true,answerIndices:[-1,1]}])assert.equal(applyReview(pack,review),false);
-const rejectedReview=async(url,options)=>JSON.parse(options.body).text.format.name==='gem_lesson_review'?fake({approved:false,answerIndices:[-1,1,-1,1,1,-1]})():fake(pack)();
+assert.equal(applyReview(wrongKey,{approved:true,answers:{q1:1,q2:1,q3:1},issue:'none',feedback:''}),true);assert.equal(wrongKey.steps[4].answerIndex,1);
+for(const review of [{approved:false,answers:{q1:1,q2:1,q3:1},issue:'translation',feedback:'Repair the translation.'},{approved:true,answers:{q1:1,q2:1,q3:1},issue:'facts'},{approved:true,answers:{q1:1,q2:1,q3:3},issue:'none'},{approved:true,answers:{q1:1},issue:'none'}])assert.equal(applyReview(pack,review),false);
+const rejectedReview=async(url,options)=>JSON.parse(options.body).text.format.name==='gem_lesson_review'?fake({approved:false,answers:{q1:1,q2:1,q3:1},issue:'translation',feedback:'Repair the translation.'})():fake(pack)();
 assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en'},{key:'test',fetchImpl:rejectedReview})).code,'review_failed');
 console.log('PASS: independent answer review, index correction, rejected ambiguous content, and provider review failures.');
+
+let repairs=0,repairRequests=[];
+const repaired=async(url,options)=>{const r=JSON.parse(options.body);repairRequests.push(r);if(r.text.format.name==='gem_lesson_review'){repairs++;return fake(repairs===1?{approved:false,answers:{q1:1,q2:1,q3:1},issue:'translation',feedback:'Repair the French option wording.'}:{approved:true,answers:{q1:1,q2:1,q3:1},issue:'none',feedback:''})();}return fake(pack)();};
+assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en'},{key:'test',fetchImpl:repaired})).status,200);
+assert.equal(repairRequests.length,4);assert.ok(repairRequests[2].instructions.includes('Repair the French option wording.'));
+console.log('PASS: one bounded automatic correction, fixed question answer fields, shared deadline, and rejected correction retention.');
