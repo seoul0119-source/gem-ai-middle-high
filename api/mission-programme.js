@@ -22,13 +22,13 @@ export async function runProgramme(body,{fetchImpl=fetch,key=process.env.OPENAI_
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),body.action==='lesson'?155000:24000);
  try{
   const response=await fetchImpl('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({model:process.env.OPENAI_MISSION_MODEL||'gpt-4.1-mini',store:false,max_output_tokens:maxTokens,instructions,input,text:{format:{type:'json_schema',name:'gem_common_lesson',strict:true,schema}}})});
-  if(!response.ok)return {status:response.status===429?429:502,code:'provider_error'};
-  const raw=await response.json();if(raw.status&&raw.status!=='completed')return {status:502,code:'incomplete'};
+  if(!response.ok){const failure=await response.json().catch(()=>({}));const safe=v=>String(v||'unknown').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,80);console.warn('GEM programme provider status',response.status,safe(failure.error?.code),safe(failure.error?.param));return {status:response.status===429?429:502,code:'provider_error'};}
+  const raw=await response.json();if(raw.status&&raw.status!=='completed'){console.warn('GEM programme incomplete',raw.status,raw.incomplete_details?.reason||'unknown');return {status:502,code:'incomplete'};}
   const value=JSON.parse((raw.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));
-  if(body.action==='lesson'){if(!validateLesson(value,unit.id))return {status:502,code:'invalid_lesson'};return {status:200,version:VERSION,unitId:unit.id,lesson:value};}
+  if(body.action==='lesson'){if(!validateLesson(value,unit.id)){console.warn('GEM programme invalid lesson',unit.id,Array.isArray(value?.steps)?value.steps.length:'no steps',excludedContent(value)?'excluded content':'schema or field bounds');return {status:502,code:'invalid_lesson'};}return {status:200,version:VERSION,unitId:unit.id,lesson:value};}
   if(typeof value.answer!=='string'||!value.answer.trim()||value.answer.length>3000)return {status:502,code:'invalid_reply'};
   return {status:200,answer:excludedContent(value.answer)?scopeReply(body.lang):value.answer};
- }catch{return {status:503,code:'network'};}finally{clearTimeout(timer);}
+ }catch(error){console.warn('GEM programme request exception',error?.name||'Error');return {status:503,code:'network'};}finally{clearTimeout(timer);}
 }
 export default async function handler(req,res){
  const send=(status,data)=>{res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(status).json(data);};
