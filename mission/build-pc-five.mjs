@@ -8,6 +8,10 @@ const hashes={};const hash=async f=>crypto.createHash('sha256').update(await fs.
 await fs.mkdir('mission-dist/pc',{recursive:true});for(const f of ['app.mjs','board.mjs','catalog.mjs','i18n.mjs','style.css'])await fs.copyFile('mission/pc/'+f,'mission-dist/pc/'+f);
 // Align language-pack method selection with the exact reused visual role.
 let pack=await fs.readFile('mission-dist/pc/i18n.mjs','utf8');const old="const method=s.missing?'missing':s.id==='swap'?'swap':a<10&&a+b>10?'ten':b<=4||a===10?'count':'join';";assert.equal(pack.split(old).length,2);pack=pack.replace(old,"const method=s.missing?'missing':s.id==='join'?'join':s.id==='count-on'?'count':s.id==='swap'?'swap':a<10&&a+b>10?'ten':b<=4||a===10?'count':'join';");await fs.writeFile('mission-dist/pc/i18n.mjs',pack);
+// A word such as 'multiplication' or 'today' is not a complete intent.
+// Keep exact number/replay/greeting handlers local, but send nuanced questions with context.
+let app=await fs.readFile('mission-dist/pc/app.mjs','utf8');const lines=app.split('\n');const broad=lines.filter(line=>line.startsWith(' else if(/multiplication|')||line.startsWith(' else if(/today|'));assert.equal(broad.length,2);app=lines.filter(line=>!broad.includes(line)).join('\n');assert.equal(app.split('stopAll();state.lang').length,2);app=app.replace('stopAll();state.lang',"stopAll();status('ready');state.lang");await fs.writeFile('mission-dist/pc/app.mjs',app);
+for(const f of ['app.mjs','i18n.mjs'])execFileSync(process.execPath,['--check','mission-dist/pc/'+f],{stdio:'inherit'});
 await fs.copyFile('mission/pc/index.html','mission-dist/pc.html');
 for(const[f,h]of Object.entries(hashes))assert.equal(await hash('mission-dist/'+f),h,'Existing runtime unexpectedly altered');
 await import('./pc-browser-tests.mjs');
