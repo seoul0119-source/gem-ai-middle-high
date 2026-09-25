@@ -11,6 +11,15 @@ await fs.mkdir('mission-dist/programme',{recursive:true});
 for(const f of ['curriculum.mjs','core.mjs','labels.mjs','app.mjs','style.css'])await fs.copyFile('mission/programme/'+f,'mission-dist/programme/'+f);
 await fs.cp('mission/programme/fonts','mission-dist/programme/fonts',{recursive:true,filter:src=>!src.endsWith('.base64')});
 await fs.copyFile('mission/programme/index.html','mission-dist/programme.html');
+// Localized copy for the new page; preserve the original sample's controller.
+let display=await fs.readFile('mission-dist/display-v3.mjs','utf8');
+const oldText="const text=active?(french()?'⛶ Quitter le plein écran':'⛶ Exit full screen'):(french()?'⛶ Plein écran':'⛶ Full screen');";
+const oldExit="const exitLabel=french()?'Quitter le plein écran':'Exit full screen';";
+assert.equal(display.split(oldText).length,2);assert.equal(display.split(oldExit).length,2);
+const exitWords={en:'Exit full screen',fr:'Quitter le plein écran',ne:'पूरा पर्दाबाट बाहिर निस्कनुहोस्',ur:'پوری اسکرین سے باہر آئیں',sw:'Toka kwenye skrini nzima'};
+display="import {label as programmeLabel} from './labels.mjs';\nconst exitWords="+JSON.stringify(exitWords)+";\n"+display.replace(oldText,"const text=active?(exitWords[document.documentElement.lang]||exitWords.en):programmeLabel(document.documentElement.lang,'full');").replace(oldExit,"const exitLabel=exitWords[document.documentElement.lang]||exitWords.en;");
+await fs.writeFile('mission-dist/programme/display.mjs',display);
+
 let app=await fs.readFile('mission-dist/pc/app.mjs','utf8');
 function replaceOnce(old,value){assert.equal(app.split(old).length,2,'Programme entry anchor: '+old);app=app.replace(old,value);}
 app="import {label as programmeLabel} from '../programme/labels.mjs';\n"+app;

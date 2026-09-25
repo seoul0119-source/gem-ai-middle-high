@@ -3,7 +3,7 @@ import {VERSION,validateLesson,choiceFor,savedSession} from './core.mjs';
 import {label} from './labels.mjs';
 import {LANGUAGES,language} from '../pc/catalog.mjs';
 import {installAudioTools} from '../pc/audio-tools.mjs';
-import {installDisplayV3} from '../display-v3.mjs';
+import {installDisplayV3} from './display.mjs';
 const $=id=>document.getElementById(id),KEY=VERSION+'-session',CACHE=VERSION+'-units',query=new URLSearchParams(location.search);
 let state={version:VERSION,lang:LANGS.includes(query.get('lang'))?query.get('lang'):'en',subject:query.get('subject')||'math',grade:Number(query.get('grade'))||2,unitId:null,lesson:null,index:0,minutes:40,elapsed:0,paused:true,started:false,ended:false,approved:false,revealed:{},choices:{},draft:'',audioInput:null};
 let cache={},view='catalog',busy=false,request=null,epoch=0,statusKey='',modelReady=false,modelLoading=false,speaking=false,speechEpoch=0,voiceTimer=0,recognition=null,dialogue=false,resumeAfter=false,followup=0,lastReply=null,history=[],saving=true;
@@ -79,7 +79,7 @@ async function submit(event,source='text'){
 const audio=installAudioTools({languages:LANGUAGES,lang:()=>state.lang,locale:()=>language(state.lang).locale,key,T,canListen:()=>!!step()&&!busy,begin:beginDialogue,send:()=>submit(null,'voice'),stopSpeech,save,micState:r=>{recognition=r;},pauseAfterFailure:()=>{state.paused=true;followup=Infinity;},edited:()=>{if(busy)cancelRequest();beginDialogue();},inputMeta:()=>state.audioInput,setInputMeta:v=>{state.audioInput=v;}});
 for(const l of LANGUAGES){const b=el('button',l.name);b.dataset.lang=l.code;b.lang=l.code;b.dir=l.dir;b.onclick=()=>switchLanguage(l.code);$('languages').append(b);}
 for(let i=1;i<=12;i++){const o=el('option',String(i));o.value=String(i);$('grade').append(o);}
-$('grade').onchange=()=>{state.grade=Number($('grade').value);if(!getCourse(state.subject,state.grade))state.subject='math';render();};$('subject').onchange=()=>{state.subject=$('subject').value;render();};$('minutes').onchange=()=>{state.minutes=Math.max(10,Math.min(90,Number($('minutes').value)||40));render();};
+$('grade').onchange=()=>{cancelRequest();statusKey='';state.grade=Number($('grade').value);if(!getCourse(state.subject,state.grade))state.subject='math';render();};$('subject').onchange=()=>{cancelRequest();statusKey='';state.subject=$('subject').value;render();};$('minutes').onchange=()=>{state.minutes=Math.max(10,Math.min(90,Number($('minutes').value)||40));render();};
 $('cancel-generation').onclick=()=>{cancelRequest();statusKey='cancelled';render();};$('regenerate').onclick=()=>prepare(state.unitId,true);
 async function start(reset){if(!state.lesson||busy)return;stop();if(reset){state.index=0;state.revealed={};state.choices={};state.elapsed=0;state.ended=false;lastReply=null;history=[];}$('answer').value='';state.approved=true;state.started=true;state.paused=true;view='lesson';statusKey='ready';render();if(await loadTeacher()){state.paused=false;render();say(pack().narration);}}
 $('approve').onclick=()=>start(true);$('resume').onclick=()=>start(false);$('load-avatar').onclick=loadTeacher;
@@ -95,3 +95,4 @@ setInterval(()=>{const now=performance.now(),dt=Math.min(1,(now-last)/1000);last
 addEventListener('pagehide',()=>{save();stop();});document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();last=performance.now();});
 Object.defineProperty(window,'GEM_PROGRAMME',{get:()=>({version:VERSION,lang:state.lang,unitId:state.unitId,sessionId:state.sessionId,index:state.index,paused:state.paused,elapsed:state.elapsed,modelReady,view,busy,revealed:revealed(),dialogue,courseCount:COURSES.length})});
 render();installDisplayV3();
+
