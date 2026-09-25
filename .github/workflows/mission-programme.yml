@@ -1,0 +1,22 @@
+name: GEM common programme preview
+on:
+  push:
+    branches: [preview/mission-common-programme-20260925]
+permissions:
+  contents: read
+concurrency:
+  group: mission-common-programme
+  cancel-in-progress: true
+jobs:
+  programme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run vercel-build

@@ -1,0 +1,25 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+for(const file of ['curriculum.mjs','core.mjs','labels.mjs','app.mjs'])execFileSync(process.execPath,['--check','mission/programme/'+file],{stdio:'inherit'});
+execFileSync(process.execPath,['mission/programme/tests.mjs'],{stdio:'inherit'});
+await import('./build-pc-audio-v2.mjs');
+const hash=async file=>crypto.createHash('sha256').update(await fs.readFile('mission-dist/'+file)).digest('hex'),before={};
+for(const f of ['index.html','app.mjs','sw.js','avatar.bundle.js','reliable-lessons.mjs','display-v3.mjs','pc/audio-tools.mjs'])before[f]=await hash(f);
+await fs.mkdir('mission-dist/programme',{recursive:true});
+for(const f of ['curriculum.mjs','core.mjs','labels.mjs','app.mjs','style.css'])await fs.copyFile('mission/programme/'+f,'mission-dist/programme/'+f);
+await fs.cp('mission/programme/fonts','mission-dist/programme/fonts',{recursive:true,filter:src=>!src.endsWith('.base64')});
+await fs.copyFile('mission/programme/index.html','mission-dist/programme.html');
+let app=await fs.readFile('mission-dist/pc/app.mjs','utf8');
+function replaceOnce(old,value){assert.equal(app.split(old).length,2,'Programme entry anchor: '+old);app=app.replace(old,value);}
+app="import {label as programmeLabel} from '../programme/labels.mjs';\n"+app;
+replaceOnce("$('open-course').disabled=!availability.available;$('course-status').textContent=T(availability.available?'pilot':availability.status==='not-offered'?'unavailable':'planned');","$('open-course').disabled=false;$('course-status').textContent=programmeLabel(state.lang,'draftNotice');");
+replaceOnce("small.textContent=s.id==='math'?`${T('pilot')}; ${T('planned')}: 1, 3–12`:T('planned');","small.textContent=programmeLabel(state.lang,'units');");
+replaceOnce("$('open-course').onclick=()=>{if(!course(state.subject,state.grade).available)return;if(!state.session)newSession();state.view='lesson';render();};","$('open-course').onclick=()=>{location.href='./programme.html?'+new URLSearchParams({lang:state.lang,grade:String(state.grade),subject:state.subject});};");
+app+="\nconst sampleParams=new URLSearchParams(location.search);if(sampleParams.get('sample')==='1'){state.grade=2;state.subject='math';if(LANGUAGES.some(l=>l.code===sampleParams.get('lang')))state.lang=sampleParams.get('lang');if(!state.session)newSession();state.view='lesson';render();}\n";
+await fs.writeFile('mission-dist/pc/app.mjs',app);
+let html=await fs.readFile('mission-dist/pc.html','utf8');html=html.replace('</head>', '<link rel="stylesheet" href="./programme/style.css"></head>');html=html.replace('GEM PC 음성 입력 수정 v2 · 인식 문자 표시/유지 · 읽기/마이크 별도 진단','GEM PC 공통 과정 시험 · 42개 과정 · 168개 단원 주제 · 교사 검토 후 수업');await fs.writeFile('mission-dist/pc.html',html);
+for(const[f,h]of Object.entries(before))assert.equal(await hash(f),h,'Preserved sample changed: '+f);
+await import('./programme/browser-tests.mjs');
+await fs.writeFile('mission-dist/programme-report.json',JSON.stringify({status:'PASS',version:'gem-common-programme-v1',courses:42,unitThemes:168,languages:5,preserved:before,limitations:['Unit map and on-demand lesson preparation, not a reviewed complete annual curriculum','New translations and AI lesson facts require teacher review','TTS/ASR physical-device coverage is not certified','Browser test uses a provider fixture; live provider requires separate verification']},null,2));
