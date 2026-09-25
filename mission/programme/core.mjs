@@ -1,6 +1,6 @@
 import {excludedContent} from './content-policy.mjs';
 import {LANGS,getUnit} from './curriculum.mjs';
-export const VERSION='gem-common-programme-v1';
+export const VERSION='gem-common-programme-v2';
 export const KINDS=['explain','question','activity','question','question','recap'];
 const str={type:'string'},arr={type:'array',items:str};
 const localeSchema={type:'object',additionalProperties:false,properties:{narration:str,prompt:str,options:arr,explanation:str,board:arr},required:['narration','prompt','options','explanation','board']};
