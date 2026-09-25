@@ -1,0 +1,25 @@
+name: Programme Next button regression
+on:
+  push:
+    branches:
+      - fix/mission-next-20260925
+permissions:
+  contents: read
+concurrency:
+  group: mission-next-20260925
+  cancel-in-progress: true
+jobs:
+  next-button:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: node mission/programme/tests.mjs
+      - run: node mission/programme/next-button-tests.mjs
+      - run: node mission/programme/next-button-browser-tests.mjs
