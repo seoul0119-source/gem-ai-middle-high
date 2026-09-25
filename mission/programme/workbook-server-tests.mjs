@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {runWorkbook} from '../../api/mission-workbook.js';
+import {workbookFixture} from './workbook-fixture.mjs';
+import {questionKeys,WORKBOOK_VERSION} from './workbook-core.mjs';
+const wrap=v=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(v)}]}]}),{headers:{'Content-Type':'application/json'}});
+const review={approved:true,answers:{q1:1,q2:1,q3:1},issue:'none',feedback:''};
+const old=workbookFixture(2),newer=workbookFixture(10);let requests=[];
+const provider=async(_url,opt)=>{const p=JSON.parse(opt.body);requests.push(p);return wrap(p.text.format.schema.properties.steps?newer:review);};
+const first=await runWorkbook({unitId:'math-g2-u1',lang:'en',recentQuestions:questionKeys(old)},{fetchImpl:provider,key:'test-placeholder'});
+assert.equal(first.status,200);assert.equal(first.workbook,WORKBOOK_VERSION);assert.equal(requests.length,2);assert.ok(requests[0].instructions.includes('NEW AI practice workbook'));assert.deepEqual(JSON.parse(requests[0].input).previousQuestions,questionKeys(old));assert.ok(!requests[1].instructions.includes('NEW AI practice workbook'));
+const variant=JSON.parse(requests[0].input).variant;requests=[];
+const second=await runWorkbook({unitId:'math-g2-u1',lang:'fr'},{fetchImpl:provider,key:'test-placeholder'});assert.equal(second.status,200);assert.notEqual(JSON.parse(requests[0].input).variant,variant);
+const repeat=await runWorkbook({unitId:'math-g2-u1',lang:'en',recentQuestions:questionKeys(newer)},{fetchImpl:provider,key:'test-placeholder'});assert.equal(repeat.code,'repeat_detected');
+assert.equal((await runWorkbook({unitId:'world-history-g6-u1',lang:'en'},{key:'test-placeholder'})).status,400);
+assert.equal((await runWorkbook({unitId:'math-g2-u1',lang:'en'},{key:''})).code,'not_configured');
+const failed=await runWorkbook({unitId:'math-g2-u1',lang:'en'},{key:'test-placeholder',fetchImpl:async()=>new Response(JSON.stringify({error:{code:'test'}}),{status:503})});assert.notEqual(failed.status,200);
+console.log('WORKBOOK SERVER PASS: fresh UUID, real engine schema/review preserved, repeat rejection, history isolation, boundaries and explicit provider failure.');

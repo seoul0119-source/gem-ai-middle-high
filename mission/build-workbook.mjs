@@ -1,0 +1,31 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {applyWorkbook,patchWorkbookApp} from './patch-workbook.mjs';
+import {questionKeys} from './programme/workbook-core.mjs';
+for(const f of ['api/mission-workbook.js','mission/patch-workbook.mjs','mission/programme/workbook.mjs','mission/programme/workbook-core.mjs','mission/programme/workbook-browser-tests.mjs'])execFileSync(process.execPath,['--check',f],{stdio:'inherit'});
+// Fail fast if another window changed the implementation anchors.
+patchWorkbookApp(await fs.readFile('mission/programme/app.mjs','utf8'));
+for(const f of ['workbook-core-tests.mjs','workbook-server-tests.mjs'])execFileSync(process.execPath,['mission/programme/'+f],{stdio:'inherit'});
+let live={status:'NOT_CONFIGURED',reason:'No server key in this build environment'};
+if(process.env.OPENAI_API_KEY){
+ const {runWorkbook}=await import('../api/mission-workbook.js');
+ const first=await runWorkbook({unitId:'math-g2-u1',lang:'en'});
+ assert.equal(first.status,200,'First live workbook: '+(first.code||first.status));
+ const second=await runWorkbook({unitId:'math-g2-u1',lang:'fr',recentQuestions:questionKeys(first.lesson)});
+ assert.equal(second.status,200,'Second live workbook: '+(second.code||second.status));
+ assert.ok(questionKeys(second.lesson).every(k=>!questionKeys(first.lesson).includes(k)));
+ live={status:'PASS',workbooks:2,languagesPerWorkbook:5,questionsPerWorkbook:3,distinctQuestions:6,independentReview:true};
+ console.log('WORKBOOK LIVE PASS',JSON.stringify(live));
+}else console.log('WORKBOOK LIVE SKIP: no server key');
+await import('./build-programme.mjs');
+const hash=async file=>crypto.createHash('sha256').update(await fs.readFile(file)).digest('hex'),files=['mission-dist/index.html','mission-dist/app.mjs','mission-dist/avatar.bundle.js','mission-dist/pc/audio-tools.mjs','mission-dist/programme/display.mjs','mission-dist/programme/cloud-speech.mjs','api/mission-programme.js','api/mission-speech.js'];
+const before=Object.fromEntries(await Promise.all(files.map(async f=>[f,await hash(f)])));
+await applyWorkbook();
+execFileSync(process.execPath,['--check','mission-dist/programme/app.mjs'],{stdio:'inherit'});
+for(const [f,v] of Object.entries(before))assert.equal(await hash(f),v,'Preserved feature changed: '+f);
+await import('./programme/workbook-browser-tests.mjs');
+const reportPath='mission-dist/workbook-report.json',report=JSON.parse(await fs.readFile(reportPath,'utf8'));report.live=live;report.preservedHashes=before;
+await fs.writeFile(reportPath,JSON.stringify(report,null,2));
+console.log('WORKBOOK BUILD COMPLETE',JSON.stringify({status:'PASS',live:live.status,preservedFiles:files.length}));

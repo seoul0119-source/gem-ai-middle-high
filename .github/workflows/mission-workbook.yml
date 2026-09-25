@@ -1,0 +1,23 @@
+name: Fresh AI workbook button
+on:
+  push:
+    branches:
+      - preview/mission-ai-workbook-20260925
+permissions:
+  contents: read
+concurrency:
+  group: mission-ai-workbook-20260925
+  cancel-in-progress: true
+jobs:
+  workbook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run vercel-build
