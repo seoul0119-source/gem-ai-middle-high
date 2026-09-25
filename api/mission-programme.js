@@ -1,3 +1,4 @@
+import {CONTENT_POLICY,CONTENT_RULES,excludedContent,scopeReply} from '../mission/programme/content-policy.mjs';
 import {LANGS,getUnit} from '../mission/programme/curriculum.mjs';
 import {VERSION,LESSON_SCHEMA,validateLesson} from '../mission/programme/core.mjs';
 export const config={maxDuration:180};
@@ -9,13 +10,14 @@ export async function runProgramme(body,{fetchImpl=fetch,key=process.env.OPENAI_
  if(!key)return {status:503,code:'not_configured'};
  let schema=LESSON_SCHEMA,input,instructions,maxTokens=14000;
  if(body.action==='lesson'){
-  instructions=`${rules} Create ONE 40-minute teacher-facilitated lesson for learning level ${unit.grade}, subject ${unit.subject}, topic ${unit.title.en}. It is a first lesson within a broad unit, not coverage of the whole unit. Return exactly six stages in order: explain, question, activity, question, question, recap. Three questions each have exactly 3 choices, answerIndex 0,1,2. Other stages have answerIndex -1 and zero choices. Every stage has text packs for en, fr, ne, ur, sw. Develop English first, then translate faithfully: the SAME numbers, examples, task, correct option index, order and teaching objective in all five languages. Use ASCII numerals in mathematical expressions in all languages. English SUBJECT keeps English example sentences/words in every pack, but explanations use the chosen teaching language. Each pack has narration (maximum 55 words), prompt (maximum 25 words), options, explanation (maximum 40 words), board (1–3 short visible lines). Narration/board/prompt must NOT reveal the correct answer of an unanswered question. Explanation is revealed only after an answer. The explain stage teaches a DIFFERENT worked example from question stages. The activity gives an achievable group task and discussion instructions. Recap covers only this lesson. Keep world history non-graphic and geographically balanced. Do not repeat one question three times. Check facts, arithmetic, units, answers and translations before returning JSON.`;
+  instructions=`${rules} ${CONTENT_RULES} Create ONE 40-minute teacher-facilitated lesson for learning level ${unit.grade}, subject ${unit.subject}, topic ${unit.title.en}. It is a first lesson within a broad unit, not coverage of the whole unit. Return exactly six stages in order: explain, question, activity, question, question, recap. Three questions each have exactly 3 choices, answerIndex 0,1,2. Other stages have answerIndex -1 and zero choices. Every stage has text packs for en, fr, ne, ur, sw. Develop English first, then translate faithfully: the SAME numbers, examples, task, correct option index, order and teaching objective in all five languages. Use ASCII numerals in mathematical expressions in all languages. English SUBJECT keeps English example sentences/words in every pack, but explanations use the chosen teaching language. Each pack has narration (maximum 55 words), prompt (maximum 25 words), options, explanation (maximum 40 words), board (1–3 short visible lines). Narration/board/prompt must NOT reveal the correct answer of an unanswered question. Explanation is revealed only after an answer. The explain stage teaches a DIFFERENT worked example from question stages. The activity gives an achievable group task and discussion instructions. Recap covers only this lesson. Keep world history non-graphic and geographically balanced. Do not repeat one question three times. Check facts, arithmetic, units, answers and translations before returning JSON.`;
   input=JSON.stringify({unitId:unit.id,topic:unit.title,grade:unit.grade,subject:unit.subject,variant:String(body.variant||'').slice(0,60)});
  }else{
   if(!validateLesson(body.lesson,unit.id)||!Number.isInteger(body.index)||body.index<0||body.index>=6||typeof body.question!=='string'||!body.question.trim()||body.question.length>450)return {status:400,code:'invalid_request'};
+  if(excludedContent(body.question))return {status:200,answer:scopeReply(body.lang)};
   maxTokens=700;schema={type:'object',additionalProperties:false,properties:{answer:{type:'string'}},required:['answer']};
-  instructions=`${rules} Answer the class's question in ${names[body.lang]} in 2–5 short sentences, using the lesson context. For English lessons preserve English example sentences. Do not change the lesson, advance it, grade a numeric word as an answer, or pretend a new lesson has been generated. If the current answer is hidden, give help without revealing it unless the class explicitly requests the answer or full explanation. If unsure, say so. Include only the requested JSON.`;
-  input=JSON.stringify({unit,stage:body.lesson.steps[body.index],answerVisible:!!body.revealed,question:body.question,history:Array.isArray(body.history)?body.history.slice(-3).map(x=>({question:String(x.question||'').slice(0,450),answer:String(x.answer||'').slice(0,1500)})):[]});
+  instructions=`${rules} ${CONTENT_RULES} Answer the class's question in ${names[body.lang]} in 2–5 short sentences, using the lesson context. For English lessons preserve English example sentences. Do not change the lesson, advance it, grade a numeric word as an answer, or pretend a new lesson has been generated. If the current answer is hidden, give help without revealing it unless the class explicitly requests the answer or full explanation. If unsure, say so. Include only the requested JSON.`;
+  input=JSON.stringify({unit,stage:body.lesson.steps[body.index],answerVisible:!!body.revealed,question:body.question,history:Array.isArray(body.history)?body.history.slice(-3).map(x=>({question:String(x.question||'').slice(0,450),answer:String(x.answer||'').slice(0,1500)})).filter(x=>!excludedContent(x)):[]});
  }
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),body.action==='lesson'?155000:24000);
  try{
@@ -25,12 +27,12 @@ export async function runProgramme(body,{fetchImpl=fetch,key=process.env.OPENAI_
   const value=JSON.parse((raw.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));
   if(body.action==='lesson'){if(!validateLesson(value,unit.id))return {status:502,code:'invalid_lesson'};return {status:200,version:VERSION,unitId:unit.id,lesson:value};}
   if(typeof value.answer!=='string'||!value.answer.trim()||value.answer.length>3000)return {status:502,code:'invalid_reply'};
-  return {status:200,answer:value.answer};
+  return {status:200,answer:excludedContent(value.answer)?scopeReply(body.lang):value.answer};
  }catch{return {status:503,code:'network'};}finally{clearTimeout(timer);}
 }
 export default async function handler(req,res){
  const send=(status,data)=>{res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(status).json(data);};
- if(req.method==='GET')return send(200,{version:VERSION,configured:!!process.env.OPENAI_API_KEY,languages:LANGS});
+ if(req.method==='GET')return send(200,{version:VERSION,configured:!!process.env.OPENAI_API_KEY,languages:LANGS,contentPolicy:CONTENT_POLICY});
  if(req.method!=='POST')return send(405,{code:'method'});
  if(req.headers.origin){try{if(new URL(req.headers.origin).host!==req.headers.host)return send(403,{code:'origin'});}catch{return send(403,{code:'origin'});}}
  if(!String(req.headers['content-type']||'').includes('application/json'))return send(415,{code:'content_type'});

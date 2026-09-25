@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {excludedContent,scopeReply} from './content-policy.mjs';
 import {COURSES,LANGS,getCourse,getUnit} from './curriculum.mjs';
 import {validateLesson,choiceFor,savedSession,VERSION} from './core.mjs';
 import {label} from './labels.mjs';
@@ -17,3 +18,28 @@ assert.equal((await runProgramme({action:'lesson',unitId:'world-history-g2-u1',l
 assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en'},{key:'',fetchImpl})).status,503);
 const bad=async()=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:'{}'}]}]})});assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en'},{key:'fixture-key',fetchImpl:bad})).status,502);
 console.log('PASS: 42 courses, 168 unique five-language units, history grade floor, strict lesson validation, numeric answer ambiguity, provider contract and failure handling.');
+
+// Exclusions must apply to every language and every lesson field, including
+// hidden answers, cached sessions and provider follow-up output.
+const excluded={en:'natural selection',fr:'évolution',ne:'प्राकृतिक छनोट',ur:'قدرتی انتخاب',sw:'mageuzi ya binadamu'};
+for(const [lang,term] of Object.entries(excluded)){
+ assert.ok(excludedContent(term),lang);
+ for(const field of ['narration','prompt','explanation','options','board']){
+  const rejected=structuredClone(pack);const text=rejected.steps[1].text[lang];
+  if(Array.isArray(text[field]))text[field][0]=term;else text[field]=term;
+  assert.equal(validateLesson(rejected,'science-g2-u1'),false,lang+field);
+  assert.equal(savedSession({version:VERSION,lang,unitId:'science-g2-u1',lesson:rejected,index:0}),false);
+ }
+ assert.ok(!excludedContent(scopeReply(lang)));
+}
+for(const text of ['Darwinism','common ancestry','human evolution','sélection naturelle','ancêtres communs','विकासवाद','ارتقاء','nadharia ya mageuzi','uteuzi wa asili','진화론'])assert.ok(excludedContent(text),text);
+for(const text of ['Plants need water.','La révolution industrielle','बिरुवाको विकास','بڑھتے ہوئے پودے','Mageuzi ya kisiasa'])assert.equal(excludedContent(text),false,text);
+const fake=value=>async()=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]})});
+const unsafe=structuredClone(pack);unsafe.steps[5].text.sw.board=['uteuzi wa asili'];
+assert.equal((await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en'},{key:'test',fetchImpl:fake(unsafe)})).code,'invalid_lesson');
+const question={action:'question',unitId:'science-g2-u1',lang:'fr',lesson:pack,index:0,question:'Help me understand this lesson'};
+assert.equal((await runProgramme(question,{key:'test',fetchImpl:fake({answer:'La sélection naturelle'})})).answer,scopeReply('fr'));
+assert.equal((await runProgramme({...question,question:'Explain common ancestry'},{key:'test',fetchImpl:()=>{throw Error('Provider must not be called');}})).answer,scopeReply('fr'));
+assert.equal((await runProgramme(question,{key:'test',fetchImpl:fake({answer:'Les plantes ont besoin d’eau.'})})).answer,'Les plantes ont besoin d’eau.');
+assert.equal(COURSES.some(excludedContent),false,'Static curriculum contains an excluded topic');
+console.log('PASS: selected syllabus across five languages, all lesson fields, saved sessions, generation and follow-up answers.');
