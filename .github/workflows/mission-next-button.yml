@@ -22,4 +22,4 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: node mission/programme/tests.mjs
       - run: node mission/programme/next-button-tests.mjs
-      - run: node mission/programme/next-button-browser-tests.mjs
+      - run: timeout --kill-after=10s 120s node mission/programme/run-next-browser-tests.mjs
