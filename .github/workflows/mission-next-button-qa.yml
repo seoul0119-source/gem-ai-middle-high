@@ -1,0 +1,36 @@
+name: Next button focused QA
+on:
+  push:
+    branches:
+      - test/mission-next-20260925
+permissions:
+  contents: read
+jobs:
+  next-button-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Record unchanged runtime and correct test-only reload seeding
+        run: |
+          git hash-object mission/programme/core.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          import assert from 'node:assert/strict';
+          const path='mission/programme/next-button-browser-tests.mjs';
+          let text=await fs.readFile(path,'utf8');
+          const from="localStorage.setItem(version+'-session',JSON.stringify(";
+          assert.equal(text.split(from).length,2);
+          text=text.replace(from,"if(!localStorage.getItem(version+'-session'))localStorage.setItem(version+'-session',JSON.stringify(");
+          text=text.replace("baselineMode=isBaseline;","baselineMode=isBaseline;console.log('NEXT CASE',lang,isBaseline?'baseline':'fixed');");
+          await fs.writeFile(path,text);
+          NODE
+      - run: node mission/programme/tests.mjs
+      - run: node mission/programme/next-button-tests.mjs
+      - run: node mission/programme/next-button-browser-tests.mjs
