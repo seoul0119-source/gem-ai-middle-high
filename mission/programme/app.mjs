@@ -80,19 +80,20 @@ async function submit(event,source='text'){
 }
 const audio=installAudioTools({languages:LANGUAGES,lang:()=>state.lang,locale:()=>language(state.lang).locale,key,T,canListen:()=>!!step()&&!busy,begin:beginDialogue,send:()=>submit(null,'voice'),stopSpeech,save,micState:r=>{recognition=r;},pauseAfterFailure:()=>{state.paused=true;followup=Infinity;},edited:()=>{if(busy)cancelRequest();beginDialogue();},inputMeta:()=>state.audioInput,setInputMeta:v=>{state.audioInput=v;}});
 let cloud=null;
-cloud=installCloudSpeech({lang:()=>state.lang,key,talk,begin:beginDialogue,stopBrowserMic:()=>audio.stopMic(),hasDraft:()=>audio.hasDraft(),micState:r=>{recognition=r;},update:updateControls,save,openSettings:()=>{$('audio').showModal();}});
-function renderTranscript(){
+cloud=installCloudSpeech({micLabel:()=>T('mic'),browserMicActive:()=>!!recognition&&!cloud?.active(),lang:()=>state.lang,key,talk,begin:beginDialogue,stopBrowserMic:()=>audio.stopMic(),hasDraft:()=>audio.hasDraft(),micState:r=>{recognition=r;},update:updateControls,save,openSettings:()=>{$('audio').showModal();}});
+function renderTranscript(followLatest=false){
  const L=k=>speechLabel(state.lang,k);$('transcript-title').textContent=L('transcript');$('transcript-note').textContent=L('historyNote');$('clear-transcript').textContent=L('clear');
- const box=$('transcript-messages');box.replaceChildren();
+ const box=$('transcript-messages'),previousScroll=box.scrollTop,nearBottom=box.scrollHeight-box.clientHeight-box.scrollTop<30;box.replaceChildren();
  for(const item of (Array.isArray(state.transcript)?state.transcript:[]).slice(-60)){
   if(!item||!['teacher','student'].includes(item.role)||typeof item.text!=='string'||!LANGS.includes(item.lang))continue;
   const article=el('article'),label=el('strong',`${L(item.role)} · ${language(item.lang).name}`),p=el('p',item.text.slice(0,3000));p.lang=item.lang;article.dataset.role=item.role;article.append(label,p);box.append(article);
  }
+ box.scrollTop=followLatest||nearBottom?box.scrollHeight:previousScroll;
 }
 function recordText(role,text){
  if(!Array.isArray(state.transcript))state.transcript=[];
  const last=state.transcript.at(-1);if(last?.role===role&&last.text===text&&last.lang===state.lang)return;
- state.transcript=[...state.transcript,{role,text:text.slice(0,3000),lang:state.lang}].slice(-60);renderTranscript();save();
+ state.transcript=[...state.transcript,{role,text:text.slice(0,3000),lang:state.lang}].slice(-60);renderTranscript(true);save();
 }
 $('clear-transcript').onclick=()=>{state.transcript=[];renderTranscript();save();};
 for(const l of LANGUAGES){const b=el('button',l.name);b.dataset.lang=l.code;b.lang=l.code;b.dir=l.dir;b.onclick=()=>switchLanguage(l.code);$('languages').append(b);}

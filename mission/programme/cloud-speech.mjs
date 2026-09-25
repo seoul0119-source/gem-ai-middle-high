@@ -14,13 +14,13 @@ export function installCloudSpeech(h){
   document.querySelector('[data-label=voiceNote]').textContent=L('browser');$('cloud-label').textContent=L('enable');$('cloud-notice').textContent=L('notice');
   status.hidden=!required()&&!enabled&&!code;status.textContent=L(code||(enabled?'ready':'off'));
   $('cloud-diagnostics').textContent=`AI TTS: ${voiceCode||'not tested'} · AI STT: ${micCode||'not tested'}`;
-  if(mic){$('mic').textContent=L(mic.phase==='recording'?'stop':mic.phase);$('mic').setAttribute('aria-pressed','true');}
+  if(mic){$('mic').textContent=L(mic.phase==='recording'?'stop':mic.phase);$('mic').setAttribute('aria-pressed','true');}else if(!h.browserMicActive()){$('mic').textContent=h.micLabel();$('mic').setAttribute('aria-pressed','false');}
  }
  function statusCode(value){code=value;render();}
  function disposePlayer(){player.onplay=null;player.onpause=null;player.onended=null;player.onerror=null;player.pause();player.removeAttribute('src');player.load();player.hidden=true;if(url)URL.revokeObjectURL(url);url='';}
  function cancelVoice(){sequence++;voice?.controller.abort();voice=null;disposePlayer();h.talk(false);}
  function cleanup(t){clearTimeout(t.timer);t.stream?.getTracks().forEach(track=>track.stop());if(t.recorder){t.recorder.onstop=null;t.recorder.ondataavailable=null;t.recorder.onerror=null;if(t.recorder.state!=='inactive')try{t.recorder.stop();}catch{}}}
- function cancelMic(){if(mic){const t=mic;mic=null;t.controller?.abort();cleanup(t);h.micState(null);h.update();}render();}
+ function cancelMic(){if(mic){const t=mic;mic=null;t.controller?.abort();cleanup(t);h.micState(null);code=enabled?'ready':'off';h.update();}render();}
  async function request(body,controller){
   const timeout=setTimeout(()=>controller.abort(),55000);
   try{const res=await fetch('./api/mission-speech.js',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({...body,consent:true})});const data=await res.json();if(!res.ok)throw Error(data.code||'failed');return data;}finally{clearTimeout(timeout);}
