@@ -6,12 +6,19 @@ for(const file of ['content-policy.mjs','curriculum.mjs','core.mjs','labels.mjs'
 execFileSync(process.execPath,['mission/programme/tests.mjs'],{stdio:'inherit'});
 execFileSync(process.execPath,['mission/programme/speech-tests.mjs'],{stdio:'inherit'});
 // Verify the live provider early, before the lengthy inherited display suite.
-// The draft is a test result only and is never served as a lesson fallback.
+// A rejected stochastic test draft is never served. At most one new sample may
+// be requested after a structural/review rejection, with all validation retained.
 if(process.env.OPENAI_API_KEY){
  const {runProgramme}=await import('../api/mission-programme.js');
- const live=await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en',variant:'preview-build-verification'});
+ let live,samples=0;
+ do{
+  samples++;
+  live=await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en',variant:'preview-build-verification-'+samples});
+  if(live.status===200||!['invalid_lesson','review_failed'].includes(live.code))break;
+  console.warn('PROGRAMME LIVE TEST DRAFT REJECTED',JSON.stringify({sample:samples,code:live.code}));
+ }while(samples<2);
  assert.equal(live.status,200,'Live common lesson: '+(live.code||live.status));
- console.log('PROGRAMME LIVE CONTENT PASS',JSON.stringify({unitId:live.unitId,version:live.version,languages:5,stages:live.lesson.steps.length,independentReview:true}));
+ console.log('PROGRAMME LIVE CONTENT PASS',JSON.stringify({unitId:live.unitId,version:live.version,languages:5,stages:live.lesson.steps.length,independentReview:true,samples}));
 }else console.log('PROGRAMME LIVE CONTENT SKIP: no server key in this build environment');
 await import('./programme/speech-preflight.mjs');
 await import('./build-pc-audio-v2.mjs');

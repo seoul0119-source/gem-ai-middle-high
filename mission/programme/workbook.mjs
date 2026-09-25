@@ -23,10 +23,11 @@ export function installWorkbook(h){
   root.querySelector('#ai-workbook-card')?.remove();
   const a=document.createElement('article');a.id='ai-workbook-card';a.dir='auto';
   const title=document.createElement('h3');title.textContent=workbookLabel(lang,'title');
-  const desc=document.createElement('p');desc.textContent=workbookLabel(lang,'description');
   const button=document.createElement('button');button.id='ai-workbook';button.type='button';button.className='primary';button.disabled=h.busy()||!h.course();button.textContent=workbookLabel(lang,h.busy()?'pending':'button');button.onclick=start;
-  const note=document.createElement('small');note.textContent=workbookLabel(lang,'note');
-  a.append(title,desc,button,note);root.append(a);
+  a.append(title,button);root.append(a);
+  // Keep the card as compact as the other unit cards. The shared note remains visible before purchase/API use.
+  let note=document.getElementById('workbook-note');if(!note){note=document.createElement('p');note.id='workbook-note';note.style.cssText='font-size:12px;line-height:1.65;color:#455f54;margin:12px 0;';root.after(note);}
+  note.dir='auto';note.textContent=workbookLabel(lang,'description')+' '+workbookLabel(lang,'note');
  }
  return {render,start,remember};
 }
