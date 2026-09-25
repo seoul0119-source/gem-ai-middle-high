@@ -4,6 +4,14 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 for(const file of ['content-policy.mjs','curriculum.mjs','core.mjs','labels.mjs','app.mjs'])execFileSync(process.execPath,['--check','mission/programme/'+file],{stdio:'inherit'});
 execFileSync(process.execPath,['mission/programme/tests.mjs'],{stdio:'inherit'});
+// Verify the live provider early, before the lengthy inherited display suite.
+// The draft is a test result only and is never served as a lesson fallback.
+if(process.env.OPENAI_API_KEY){
+ const {runProgramme}=await import('../api/mission-programme.js');
+ const live=await runProgramme({action:'lesson',unitId:'science-g2-u1',lang:'en',variant:'preview-build-verification'});
+ assert.equal(live.status,200,'Live common lesson: '+(live.code||live.status));
+ console.log('PROGRAMME LIVE CONTENT PASS',JSON.stringify({unitId:live.unitId,version:live.version,languages:5,stages:live.lesson.steps.length,independentReview:true}));
+}else console.log('PROGRAMME LIVE CONTENT SKIP: no server key in this build environment');
 await import('./build-pc-audio-v2.mjs');
 const hash=async file=>crypto.createHash('sha256').update(await fs.readFile('mission-dist/'+file)).digest('hex'),before={};
 for(const f of ['index.html','app.mjs','sw.js','avatar.bundle.js','reliable-lessons.mjs','display-v3.mjs','pc/audio-tools.mjs'])before[f]=await hash(f);
