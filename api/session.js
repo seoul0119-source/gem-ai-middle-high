@@ -1,3 +1,4 @@
+import {MEMBERSHIP_PLANS,validatedMembership,requiresMembership,membershipDeadline} from "../lib/membership.js";
 import {issueRecordPermit,saveClassRecord,verifyRecordTransfer,resumeClassRecord} from '../lib/class-record.js';
 import { issueClassroomPass, verifyClassroomPass, exchangeRecordPass, verifyRecordSession } from "../lib/classroom-pass.js";
 import { serveStudentPage } from "../lib/student-page.js";
@@ -129,7 +130,11 @@ function findLoginRedirect(html, expectedId) {
     const name = String(target.searchParams.get("name") || "학생").trim();
     const session = String(target.searchParams.get("session") || "").trim();
     if (id !== expectedId || !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(session)) return null;
-    return { id, name, session };
+    let membership = null;
+    try { membership = validatedMembership(id, JSON.parse(target.searchParams.get("membership"))); } catch {}
+    if (requiresMembership(id) && !membership) return null;
+    if (membershipDeadline(membership) <= Date.now()/1000) return null;
+    return { id, name, session, ...(membership ? {membership} : {}) };
   } catch (_) {
     return null;
   }
@@ -168,7 +173,7 @@ export function parseRegistrationResponse(body) {
   return JSON.parse(match[1]);
 }
 
-async function registerStudent(body) {
+async function registerStudent(body, member = false) {
   const name = String(body.name || "").trim();
   const grade = String(body.grade || "").trim();
   const grades = [
@@ -183,13 +188,20 @@ async function registerStudent(body) {
     error.status = 400;
     throw error;
   }
+  const plan = member ? String(body.plan || '') : 'trial';
+  const definition = MEMBERSHIP_PLANS[plan];
+  const requestKey = String(body.requestKey || '');
+  const amount = member ? Number(body.amount) : 0;
+  if (member && (!['month1','month2','month3','lifetime'].includes(plan) || body.pledgeConfirmed !== true || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(requestKey) || !Number.isSafeInteger(amount) || amount < 1 || amount > 1000000000 || (definition.amount !== null && amount !== definition.amount))) {
+    const error = new Error('후원 약정과 회원 구분을 확인해 주세요.'); error.status = 400; throw error;
+  }
   // A POST may have saved a row even if its response is lost. Do not retry it.
   let result;
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ name, grade, registrationType: "체험" }).toString(),
+      body: new URLSearchParams({ name, grade, registrationType: "체험", ...(member ? {plan,amount:String(amount),requestKey,pledgeConfirmed:"true"} : {}) }).toString(),
       redirect: "follow",
       signal: AbortSignal.timeout(45000)
     });
@@ -201,13 +213,17 @@ async function registerStudent(body) {
     error.registrationUncertain = true;
     throw error;
   }
-  if (result.success !== true || !/^T[0-9]{6}$/.test(String(result.studentId || "")) || result.name !== name || result.grade !== grade) {
+  if (result.success !== true || !new RegExp(`^${definition.prefix}[0-9]{6}$`).test(String(result.studentId || "")) || result.name !== name || result.grade !== grade) {
     const error = new Error("등록 결과를 확인하지 못했습니다. 담당 선생님에게 이름과 학년으로 ID를 확인해 주세요.");
     error.status = 502;
     error.registrationUncertain = true;
     throw error;
   }
-  return { id: result.studentId, name, grade, ...studentRegistration(result.studentId) };
+  const membership = validatedMembership(result.studentId, result.membership);
+  if (!membership || membership.plan !== plan) {
+    const error = new Error('이용 기간을 확인하지 못했습니다. 선교사무실에 발급 결과를 확인해 주세요.'); error.status=502; error.registrationUncertain=true; throw error;
+  }
+  return { id: result.studentId, name, grade, membership, ...studentRegistration(result.studentId) };
 }
 
 function courseLevel(course) {
@@ -325,7 +341,7 @@ export default async function handler(request, response) {
     if (!student) return sendJson(response, 401, { error: "등록된 학생 ID로 먼저 입장해 주세요." });
     return sendJson(response, 200, {
       authenticated: true,
-      student: { id: student.id, name: student.name, ...studentRegistration(student.id) },
+      student: { id: student.id, name: student.name, ...studentRegistration(student.id), ...(student.membership ? {membership:student.membership} : {}) },
       courseId: student.courseId || null,
       startedAt: student.startedAt || null,
       endedAt: student.endedAt || null
@@ -358,8 +374,8 @@ export default async function handler(request, response) {
       return sendJson(response, pass ? 200 : 401, pass ? {success:true, pass} : {error:"Invalid entry pass"});
     }
 
-    if (action === "register") {
-      const student = await registerStudent(body);
+    if (action === "register" || action === "register-membership") {
+      const student = await registerStudent(body, action === "register-membership");
       return sendJson(response, 200, { success: true, student });
     }
 
@@ -370,7 +386,7 @@ export default async function handler(request, response) {
       }
       return sendJson(response, 200, {
         success: true,
-        student: { id: student.id, name: student.name, ...studentRegistration(student.id) },
+        student: { id: student.id, name: student.name, ...studentRegistration(student.id), ...(student.membership ? {membership:student.membership} : {}) },
         redirect: "/class.html"
       });
     }

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import handler, { parseRegistrationResponse } from '../api/session.js';
+const trialMembership = {plan:'trial',startsAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString()};
 const wrap = (payload) => {
   const html = `<script>window.top.postMessage(${JSON.stringify(payload)}, "*");</script>`;
   return `goog.script.init(${JSON.stringify(JSON.stringify({ userHtml: html }))}, "");`;
@@ -18,7 +19,7 @@ test('trial registration validates fields, ignores requested paid type, and repo
     calls++;
     const data = new URLSearchParams(opts.body);
     assert.equal(data.get('registrationType'), '체험');
-    return { ok: true, text: async () => wrap({ success: true, studentId: 'T260021', name: data.get('name'), grade: data.get('grade') }) };
+    return { ok: true, text: async () => wrap({ success: true, studentId: 'T260021', name: data.get('name'), grade: data.get('grade'), membership:trialMembership }) };
   };
   try {
     for (const body of [{name:'=IMPORTXML("x")',grade:'중학교 1학년'}, {name:'테스트',grade:'invalid'}]) {
@@ -40,7 +41,7 @@ test('English and French grades reach the same student register unchanged', asyn
   globalThis.fetch = async (_url, opts) => {
     const data = new URLSearchParams(opts.body);
     stored.push(data.get('grade'));
-    return { ok: true, text: async () => wrap({ success:true, studentId:'T260022', name:data.get('name'), grade:data.get('grade') }) };
+    return { ok: true, text: async () => wrap({ success:true, studentId:'T260022', name:data.get('name'), grade:data.get('grade'),membership:trialMembership }) };
   };
   try {
     for (const grade of ['Grade 1','Grade 6','Grade 12','CP','6e','Première','Terminale']) {
@@ -57,7 +58,7 @@ test('T IDs are trial and other valid prefixes are regular even if a client clai
  try {
  for(const [id,type] of [['T260082','trial'],['t260082','trial'],['R260002','regular'],['A260002','regular']]) {
  assert.equal(studentRegistration(id).registrationType,type);
- const token=createSessionToken({id,session:'verified-sheet-session',registrationType:type==='trial'?'regular':'trial'});
+ const token=createSessionToken({id,session:'verified-sheet-session',...(id.toUpperCase().startsWith('T')?{membership:trialMembership}:{}),registrationType:type==='trial'?'regular':'trial'});
  const student=readStudentSession({headers:{cookie:`${SESSION_COOKIE}=${token}`}});
  assert.equal(student.registrationType,type);assert.equal(student.isTrial,type==='trial');
  }

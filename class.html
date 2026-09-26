@@ -328,7 +328,8 @@ async function loadStudentSession(){
         const data = await response.json();
         document.getElementById("student-name").textContent = `${data.student.name} 학생`;
         document.getElementById("student-id").textContent = data.student.id;
-        document.getElementById("student-registration").textContent = data.student.registrationLabel;
+        const membership = data.student.membership;
+        document.getElementById("student-registration").textContent = membership ? membership.label + (membership.expiresAt ? ' · ' + new Date(Date.parse(membership.expiresAt)-1).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}) + '까지 (한국 시간)' : ' · 만료일 없음') : data.student.registrationLabel;
         document.body.classList.remove("auth-pending");
     }catch(_){
         location.replace("/");

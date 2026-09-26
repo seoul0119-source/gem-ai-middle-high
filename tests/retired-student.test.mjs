@@ -18,5 +18,5 @@ test('previously issued signed cookies are revoked without deleting history',()=
  const sig=crypto.createHmac('sha256',key).update(payload).digest('base64url');
  assert.equal(readStudentSession({headers:{cookie:`${SESSION_COOKIE}=${payload}.${sig}`}}),null);
  assert.equal(createSessionToken({id:'R260001',session:'old'}),null);
- assert.ok(createSessionToken({id:'T260123',session:'valid'}));
+ assert.ok(createSessionToken({id:'T260123',session:'valid',membership:{plan:'trial',startsAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString()}}));
 });
