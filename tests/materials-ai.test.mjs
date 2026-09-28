@@ -40,6 +40,27 @@ test('a second failed review never returns an unapproved printable worksheet',as
  const saved=globalThis.fetch;let count=0;globalThis.fetch=async()=>Response.json({output_text:JSON.stringify(++count%2?fixture:{valid:false,issues:[{question:1,reason:'Wrong date',fix:'Correct it'}]})});
  try{await assert.rejects(handleMaterials({mode:'generate',courseId:'m2-history',topic:'4.19 혁명'}),/자동 수정.*검토/);assert.equal(count,4);}finally{globalThis.fetch=saved;}
 });
+test('sheet-wide malformed hints are repaired as student text and independently reviewed without hiding defects',async()=>{
+ const saved=globalThis.fetch,requests=[];
+ const malformed=structuredClone(fixture);
+ for(const q of malformed.questions)q.hints=['explanation**: '+q.hints[0],q.hints[1]];
+ const issue={question:0,reason:'All first hints contain editorial field labels',fix:'Rewrite both hints for every question as finished indirect clues'};
+ const responses=[malformed,{valid:false,issues:[issue]},fixture,{valid:true,issues:[]}];
+ globalThis.fetch=async(_url,o)=>{requests.push(JSON.parse(o.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+ try{
+  const result=await handleMaterials({mode:'generate',courseId:'materials-en-sat-reading-writing',topic:'words in context'});
+  assert.equal(requests.length,4);
+  assert.deepEqual(JSON.parse(requests[1].input[0].content),malformed);
+  assert.deepEqual(JSON.parse(requests[2].input[0].content),{worksheet:malformed,issues:[issue]});
+  assert.deepEqual(JSON.parse(requests[3].input[0].content),fixture);
+  assert.deepEqual(result.material,fixture);
+  for(const request of [requests[0],requests[2]]){
+   assert.match(request.instructions,/rewrite both hints for all ten questions/);
+   assert.match(request.instructions,/must not define, quote or paraphrase the correct option/);
+   assert.match(request.text.format.schema.properties.questions.items.properties.hints.items.description,/finished student-facing/);
+  }
+ }finally{globalThis.fetch=saved;}
+});
 
 test('excluded topics in Korean, English and French are blocked before generation',async()=>{
  const saved=globalThis.fetch;globalThis.fetch=async()=>{throw Error('must not call provider');};
