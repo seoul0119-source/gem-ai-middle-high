@@ -22,6 +22,9 @@
     },
     "api/review-tutor.js": {
       "maxDuration": 180
+    },
+    "api/support-chat.js": {
+      "maxDuration": 60
     }
   }
 }
