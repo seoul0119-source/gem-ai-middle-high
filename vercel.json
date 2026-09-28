@@ -4,6 +4,10 @@
   "outputDirectory": ".",
   "routes": [
     {
+      "src": "/api/support-chat/?",
+      "dest": "/api/session?support=gem-support-v1"
+    },
+    {
       "src": "/(class|learn|learn-fr|english|suneung|international-en|international-fr|emma-test|materials)(?:\\.html)?/?",
       "dest": "/api/session?page=$1"
     },
@@ -22,9 +26,6 @@
     },
     "api/review-tutor.js": {
       "maxDuration": 180
-    },
-    "api/support-chat.js": {
-      "maxDuration": 60
     }
   }
 }

@@ -1,4 +1,5 @@
 import {MEMBERSHIP_PLANS,validatedMembership,requiresMembership,membershipDeadline} from "../lib/membership.js";
+import supportHandler from '../lib/support-handler.js';
 import {issueRecordPermit,saveClassRecord,verifyRecordTransfer,resumeClassRecord} from '../lib/class-record.js';
 import { issueClassroomPass, verifyClassroomPass, exchangeRecordPass, verifyRecordSession } from "../lib/classroom-pass.js";
 import { serveStudentPage } from "../lib/student-page.js";
@@ -333,6 +334,7 @@ async function createFreshCourseSession(student, courseId, course) {
 }
 
 export default async function handler(request, response) {
+  if (request.query?.support === 'gem-support-v1') return supportHandler(request, response);
   if ((request.method === "GET" || request.method === "HEAD") && request.query?.page !== undefined) {
     return serveStudentPage(request, response);
   }
