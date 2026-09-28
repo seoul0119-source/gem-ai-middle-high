@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {handleMaterials,validMaterial} from '../lib/materials-ai.js';import catalog from '../lib/material-catalog.json' with {type:'json'};
+import {test} from 'node:test';import assert from 'node:assert/strict';import {handleMaterials,validMaterial,materialFormatIssues} from '../lib/materials-ai.js';import catalog from '../lib/material-catalog.json' with {type:'json'};
 const fixture={title:'Review',questions:Array.from({length:10},(_,i)=>({prompt:`What is ${i}+1?`,choices:[String(i+1),'30','40','50'],answerIndex:0,hints:['Add one.','Count the next number.'],explanation:`${i}+1=${i+1}`}))};
 test('credit exhaustion is distinguished from temporary rate limits, without retrying or leaking provider messages',async()=>{
  const saved=globalThis.fetch;
@@ -65,6 +65,32 @@ test('sheet-wide malformed hints are repaired as student text and independently 
 test('excluded topics in Korean, English and French are blocked before generation',async()=>{
  const saved=globalThis.fetch;globalThis.fetch=async()=>{throw Error('must not call provider');};
  try{for(const topic of ['인류의 진화','Darwin and natural selection','La sélection naturelle'])await assert.rejects(handleMaterials({mode:'generate',courseId:'m1-science',topic}),/제외된 주제/);}finally{globalThis.fetch=saved;}
+});
+test('format checks preserve text, count, uniqueness and answer-index limits with content-free feedback',()=>{
+ for(const mutate of [v=>v.title=' ',v=>v.questions.pop(),v=>v.questions[1].prompt=v.questions[0].prompt,v=>v.questions[0].prompt='x'.repeat(1401),v=>v.questions[0].choices[1]=v.questions[0].choices[0],v=>v.questions[0].choices[0]='É'.repeat(221),v=>v.questions[0].answerIndex=4,v=>v.questions[0].hints.pop(),v=>v.questions[0].hints[0]='x'.repeat(351),v=>v.questions[0].explanation='x'.repeat(901),v=>v.questions[0]=null]){
+  const value=structuredClone(fixture);mutate(value);assert.equal(validMaterial(value),false);assert.ok(materialFormatIssues(value).length);
+  assert.ok(!JSON.stringify(materialFormatIssues(value)).includes('É'.repeat(221)));
+ }
+ assert.equal(validMaterial(fixture),true);
+});
+test('a malformed worksheet gets one format repair and must then pass independent content review',async()=>{
+ const saved=globalThis.fetch,requests=[],bad=structuredClone(fixture);bad.questions[0].choices[0]='É'.repeat(221);
+ const responses=[bad,fixture,{valid:true,issues:[]}];
+ globalThis.fetch=async(_url,o)=>{requests.push(JSON.parse(o.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+ try{
+  assert.deepEqual((await handleMaterials({mode:'generate',courseId:'materials-fr-bac-argumentation',topic:'Argument et exemple'})).material,fixture);
+  assert.equal(requests.length,3);assert.match(requests[1].input[0].content,/choices\[0\]/);assert.match(requests[1].input[0].content,/220 characters/);
+  assert.match(requests[2].instructions,/Independently solve/);assert.deepEqual(JSON.parse(requests[2].input[0].content),fixture);
+ }finally{globalThis.fetch=saved;}
+});
+test('format repair does not bypass rejection or allow a second repair',async()=>{
+ const saved=globalThis.fetch,bad=structuredClone(fixture);bad.questions[0].choices[0]='x'.repeat(221);
+ try{
+  for(const responses of [[bad,bad],[bad,fixture,{valid:false,issues:[{question:1,reason:'Incorrect answer',fix:'Recalculate'}]}]]){
+   const expected=responses.length;let calls=0;globalThis.fetch=async()=>{calls++;return Response.json({output_text:JSON.stringify(responses.shift())});};
+   await assert.rejects(handleMaterials({mode:'generate',courseId:'materials-fr-bac-argumentation',topic:'Argument et exemple'}),/검사|검토/);assert.equal(calls,expected);
+  }
+ }finally{globalThis.fetch=saved;}
 });
 test('excluded distractors and explanations are rejected before a worksheet can be saved',async()=>{
  const saved=globalThis.fetch;
