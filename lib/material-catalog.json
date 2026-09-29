@@ -833,25 +833,221 @@
     "title": "2028학년도 수능 통합과학 · GEM 범위"
   },
   {
+    "id": "ged-elementary-korean",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 국어",
+    "title": "초졸 검정고시 국어"
+  },
+  {
+    "id": "ged-elementary-math",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 수학",
+    "title": "초졸 검정고시 수학"
+  },
+  {
+    "id": "ged-elementary-social",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 사회",
+    "title": "초졸 검정고시 사회"
+  },
+  {
+    "id": "ged-elementary-science",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 과학",
+    "title": "초졸 검정고시 과학"
+  },
+  {
+    "id": "ged-elementary-ethics",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 도덕",
+    "title": "초졸 검정고시 도덕"
+  },
+  {
+    "id": "ged-elementary-pe",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 체육",
+    "title": "초졸 검정고시 체육"
+  },
+  {
+    "id": "ged-elementary-music",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 음악",
+    "title": "초졸 검정고시 음악"
+  },
+  {
+    "id": "ged-elementary-art",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 미술",
+    "title": "초졸 검정고시 미술"
+  },
+  {
+    "id": "ged-elementary-practical",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 실과",
+    "title": "초졸 검정고시 실과"
+  },
+  {
+    "id": "ged-elementary-english",
+    "language": "ko",
+    "grade": "초졸 검정고시 대비",
+    "subject": "검정고시 영어",
+    "title": "초졸 검정고시 영어"
+  },
+  {
+    "id": "ged-middle-korean",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 국어",
+    "title": "중졸 검정고시 국어"
+  },
+  {
+    "id": "ged-middle-math",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 수학",
+    "title": "중졸 검정고시 수학"
+  },
+  {
+    "id": "ged-middle-english",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 영어",
+    "title": "중졸 검정고시 영어"
+  },
+  {
+    "id": "ged-middle-social",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 사회",
+    "title": "중졸 검정고시 사회"
+  },
+  {
+    "id": "ged-middle-science",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 과학",
+    "title": "중졸 검정고시 과학"
+  },
+  {
+    "id": "ged-middle-ethics",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 도덕",
+    "title": "중졸 검정고시 도덕"
+  },
+  {
+    "id": "ged-middle-technology",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 기술·가정",
+    "title": "중졸 검정고시 기술·가정"
+  },
+  {
+    "id": "ged-middle-pe",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 체육",
+    "title": "중졸 검정고시 체육"
+  },
+  {
+    "id": "ged-middle-music",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 음악",
+    "title": "중졸 검정고시 음악"
+  },
+  {
+    "id": "ged-middle-art",
+    "language": "ko",
+    "grade": "중졸 검정고시 대비",
+    "subject": "검정고시 미술",
+    "title": "중졸 검정고시 미술"
+  },
+  {
     "id": "ged-high-korean",
     "language": "ko",
     "grade": "고졸 검정고시 대비",
     "subject": "검정고시 국어",
-    "title": "고졸 검정고시 국어 · 시범 수업"
+    "title": "고졸 검정고시 국어"
   },
   {
     "id": "ged-high-math",
     "language": "ko",
     "grade": "고졸 검정고시 대비",
     "subject": "검정고시 수학",
-    "title": "고졸 검정고시 수학 · 시범 수업"
+    "title": "고졸 검정고시 수학"
   },
   {
     "id": "ged-high-english",
     "language": "ko",
     "grade": "고졸 검정고시 대비",
     "subject": "검정고시 영어",
-    "title": "고졸 검정고시 영어 · 시범 수업"
+    "title": "고졸 검정고시 영어"
+  },
+  {
+    "id": "ged-high-social",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 사회",
+    "title": "고졸 검정고시 사회"
+  },
+  {
+    "id": "ged-high-science",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 과학",
+    "title": "고졸 검정고시 과학"
+  },
+  {
+    "id": "ged-high-history",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 한국사",
+    "title": "고졸 검정고시 한국사"
+  },
+  {
+    "id": "ged-high-ethics",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 도덕",
+    "title": "고졸 검정고시 도덕"
+  },
+  {
+    "id": "ged-high-technology",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 기술·가정",
+    "title": "고졸 검정고시 기술·가정"
+  },
+  {
+    "id": "ged-high-pe",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 체육",
+    "title": "고졸 검정고시 체육"
+  },
+  {
+    "id": "ged-high-music",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 음악",
+    "title": "고졸 검정고시 음악"
+  },
+  {
+    "id": "ged-high-art",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 미술",
+    "title": "고졸 검정고시 미술"
   },
   {
     "id": "materials-en-1-0",
