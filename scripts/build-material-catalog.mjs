@@ -23,7 +23,7 @@ for(const lang of ['en','fr']){
   ['bac-documents','Baccalauréat · Analyse de documents','En français : identifier la source, contextualiser, citer des preuves et comparer des documents originaux inclus dans chaque question.'],
   ['bac-grand-oral','Baccalauréat · Grand oral','En français : préparer une question, structurer une présentation, justifier une réponse et répondre au jury. Exercices écrits de préparation, sans prétendre évaluer une prestation orale.'],
   ['bac-recherche','Baccalauréat · Recherche & sources','En français : construire une question de recherche, évaluer la fiabilité des sources et citer correctement.'],
-  ['bac-argumentation','Baccalauréat · Argumentation','En français : distinguer thèse, argument, exemple et objection, organiser une réponse et réviser un raisonnement.']
+  ['bac-argumentation','Baccalauréat · Argumentation','Niveau ciblé : lycée, Première–Terminale, préparation au baccalauréat de français. Indiquer « Lycée · Français » dans le titre. Employer des textes et des situations adaptés au lycée. Distinguer thèse, argument, exemple et objection, organiser une réponse et réviser un raisonnement.']
  ];
  examCourses.forEach(([id,subject,practiceFocus])=>list.push({id:`materials-${lang}-${id}`,language:lang,grade:lang==='en'?'Advanced / AP':'Spécialités & options',subject,title:subject,practiceFocus}));
 }
