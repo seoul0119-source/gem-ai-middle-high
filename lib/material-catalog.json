@@ -833,6 +833,27 @@
     "title": "2028학년도 수능 통합과학 · GEM 범위"
   },
   {
+    "id": "ged-high-korean",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 국어",
+    "title": "고졸 검정고시 국어 · 시범 수업"
+  },
+  {
+    "id": "ged-high-math",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 수학",
+    "title": "고졸 검정고시 수학 · 시범 수업"
+  },
+  {
+    "id": "ged-high-english",
+    "language": "ko",
+    "grade": "고졸 검정고시 대비",
+    "subject": "검정고시 영어",
+    "title": "고졸 검정고시 영어 · 시범 수업"
+  },
+  {
     "id": "materials-en-1-0",
     "language": "en",
     "grade": "Grade 1",

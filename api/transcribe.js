@@ -82,7 +82,7 @@ export default async function handler(request, response) {
     // 고정하지 않습니다. 기존 단어 따라 말하기 과정만 영어로 고정합니다.
     const language = generalSuneung ? generalSuneung.fallbackLanguage : isFrenchAvatar ? "fr" : isEnglishWord || /^g[1-5]-math-en$/.test(courseId) ? "en" : isEnglishCourse ? null : "ko";
     const audioBuffer = Buffer.from(base64, "base64");
-    const lessonPrompt = generalSuneung ? generalSuneung.prompt : /^g[1-5]-math-en$/.test(courseId)
+    const lessonPrompt = courseId.startsWith("ged-high-") ? "고졸 검정고시 수업입니다. 한국어 또는 영어로 하는 질문과 답을 그대로 받아쓰세요. A(에이), B(비), C(씨), D(디), 1번부터 4번을 구분하세요. 질문을 답안으로 바꾸거나 정답을 추측하지 마세요." : generalSuneung ? generalSuneung.prompt : /^g[1-5]-math-en$/.test(courseId)
       ? "An elementary learner is answering a mathematics activity in English. Transcribe only the short spoken answer, including numbers or A, B, or C."
       : isFrenchAvatar
         ? "Un élève de l'école élémentaire répond en français à une activité de mathématiques. Transcris uniquement sa réponse courte en français, y compris les nombres ou les lettres A, B ou C."

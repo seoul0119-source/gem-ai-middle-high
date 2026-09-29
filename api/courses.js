@@ -1,3 +1,4 @@
+import { GED_COURSES } from "../lib/ged-courses.js";
 import { ELEMENTARY_COURSES } from "../lib/elementary-courses.js";
 import { SUNEUNG_COURSES } from "./suneung-courses.js";
 
@@ -1238,7 +1239,8 @@ export const COURSES = {
   "h1-science": { title: "고1 과학 Lv.10", grade: "고등학교 1학년", subject: "과학", greeting: "안녕하세요! ‘시작’이라고 입력하면 새로운 고1 과학 자료와 문제 10개로 수업을 시작합니다.", prompt: HIGH_1_SCIENCE_PROMPT, kind: "science" },
   "h2-science": { title: "고2 과학 Lv.11", grade: "고등학교 2학년", subject: "과학", greeting: "안녕하세요! ‘시작’이라고 입력하면 새로운 고2 과학 자료와 문제 10개로 수업을 시작합니다.", prompt: HIGH_2_SCIENCE_PROMPT, kind: "science" },
   "h3-science": { title: "고3 과학 Lv.12", grade: "고등학교 3학년", subject: "과학", greeting: "안녕하세요! ‘시작’이라고 입력하면 새로운 고3 과학 자료와 문제 10개로 수업을 시작합니다.", prompt: HIGH_3_SCIENCE_PROMPT, kind: "science" },
-  ...SUNEUNG_COURSES
+  ...SUNEUNG_COURSES,
+  ...GED_COURSES
 };
 
 export function getCourse(courseId) {

@@ -30,3 +30,11 @@ Preview deployments use Vercel environment variables and do not change productio
 Vercel 빌드는 전체 단위검사 후 `node scripts/verify-suneung-2028.mjs --course=suneung-2028-english`로 실제 영어 수업 시작, 문맥 질문, 알려진 정답의 채점과 2번 문제 출제를 확인합니다. 시작 요청은 한국어로 인식된 “안녕하세요. 영어 수업 시작해 주세요.”를 음성 입력 경로에 전달하며, 실제 녹음·음성 인식 서비스 검사는 아닙니다. 실제 학생 정보를 사용하거나 학습 기록을 저장하지 않습니다. 3번의 수업 요청에 기본 7번의 유료 AI 호출이 발생하며, 재시도를 포함해 최대 14번·전체 90초로 제한합니다. 실제 문제·채점의 독립 검토는 그대로 수행하고 실패하면 배포를 중단합니다.
 
 반복 배포 때 전체 과목의 유료 검사를 자동 실행하지 않도록 분리했습니다. 전체 감사가 필요하면 `node scripts/verify-suneung-2028.mjs --all`로 13개 교실·39번의 수업 요청을 검사합니다(기본 91번, 최대 170번의 유료 AI 호출·300초 제한). 기존 `node scripts/verify-suneung-tutor.mjs` 및 `node scripts/verify-suneung-general.mjs`도 수동 검증용으로 유지합니다. 이 검증들은 API 비용이 발생하므로 필요한 범위를 선택해 실행합니다. `node scripts/verify-suneung-2028.mjs --fixtures-only --course=suneung-2028-english`는 API 호출 없이 대상과 호출 상한만 확인합니다.
+
+## 고졸 검정고시 시범반
+
+`ged-high-korean`, `ged-high-math`, `ged-high-english`는 기존 `class.html` → `learn.html`과 학생 인증·Sheets 출결·자료실 기록을 사용합니다. 자체 제작 기초 4지선다 10문제로, 공식 기출이나 전 범위 모의고사는 아닙니다. 국어/영어는 각각 12문항에서 10개를 선택하고 수학은 10개 유형의 수치를 변형합니다. 수업 회차별 문제·보기 순서는 재현 가능하며, 재접속 시 저장된 회차와 전체 대화로 진도를 복원합니다. 문제 은행은 `lib/ged-bank.js`입니다.
+
+정해진 답안으로 채점하며 힌트·질문에는 도전 횟수를 쓰지 않습니다. 세 번 오답이면 정답과 해설 후 다음 문제로 진행합니다. 첫 시도 점수와 재도전 포함 정답 수를 구분하며 시험 합격 점수로 표시하지 않습니다. 자유 질문은 기존 자료실 AI 설명 엔진을 사용합니다. 자료실의 과목 카탈로그도 함께 등록합니다.
+
+빌드 마지막의 `scripts/verify-ged.mjs`는 세 과목의 실제 AI 풀이 도움(총 3번의 호출)과 그 뒤 정답 채점을 확인합니다. 학생 등록, Sheets 기록, 자료실 저장은 실행하지 않습니다. `tests/ged-lesson.test.mjs`는 세 과목 10문제 전체 진행 및 기존 저장 요청 형식을 외부 서비스 대체 응답으로 검사합니다.

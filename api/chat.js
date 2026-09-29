@@ -1,3 +1,4 @@
+import { handleGedLesson } from "../lib/ged-lesson.js";
 import {TURN_PROGRESS_RULE,turnSchema,extractTurnProgress,activeQuestion} from "../lib/lesson-turn-progress.js";
 import { getCourse } from "./courses.js";
 import { isSchoolEnglishNoAnswerRequest } from "./_no-answer-guard.js";
@@ -1290,6 +1291,15 @@ export default async function handler(request, response) {
     return sendJson(response, 409, {
       error: "현재 시작된 수업과 요청한 과목이 일치하지 않습니다. 교실에서 다시 입장해 주세요."
     });
+  }
+
+  if (course.ged) {
+    try {
+      return sendJson(response, 200, await handleGedLesson({student, messages:request.body?.messages}));
+    } catch (error) {
+      console.error('GED lesson request failed', error?.name);
+      return sendJson(response, 502, {error:'설명을 불러오지 못했습니다. 같은 질문을 다시 보내 주세요. 현재 문제와 도전 횟수는 유지됩니다.'});
+    }
   }
 
   const generalSuneung = isGeneralSuneungCourse(course);

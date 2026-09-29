@@ -400,7 +400,7 @@ export default async function handler(request, response) {
       const record=await resumeClassRecord(student,body.id);
       const {courseId,course}=requireCourse(record.course);
       const active=await createFreshCourseSession(student,courseId,course);
-      if(course.suneung)active.courseRunId=record.id;
+      if(course.suneung||course.ged)active.courseRunId=record.id;
       setStudentSession(response,active);
       return sendJson(response,200,{success:true,courseId,courseRunId:active.courseRunId,recordPermit:issueRecordPermit({...active,courseRunId:record.id,startedAt:record.started,recordLease:record.lease}),record});
     }
