@@ -6,200 +6,67 @@
 <title>GEM AI CLASS 초·중·고 학습관</title>
 
 <style>
-*{
-    box-sizing:border-box;
-}
-
-body{
-    margin:0;
-    font-family:Arial,"Noto Sans KR",sans-serif;
-    background:#f3f6fb;
-    color:#172033;
-    text-align:center;
-}
-
-body.auth-pending header,
-body.auth-pending main,
-body.auth-pending footer{
-    visibility:hidden;
-}
-
-header{
-    background:linear-gradient(135deg,#07162d,#173d70);
-    color:white;
-    padding:42px 20px;
-}
-
-.logo{
-    font-size:18px;
-    letter-spacing:3px;
-    color:#e7c46a;
-    margin-bottom:12px;
-}
-
-h1{
-    margin:0;
-    font-size:34px;
-}
-
-header p{
-    margin:14px 0 0;
-    font-size:18px;
-    line-height:1.6;
-}
-
-.container{
-    width:92%;
-    max-width:820px;
-    margin:35px auto;
-}
-
-.intro{
-    background:white;
-    padding:24px;
-    border-radius:16px;
-    box-shadow:0 5px 18px rgba(0,0,0,.10);
-    line-height:1.8;
-    margin-bottom:25px;
-}
-
-.intro h2{
-    margin-top:0;
-    color:#173d70;
-}
-
-.student-session{
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:10px;
-    flex-wrap:wrap;
-    margin-top:16px;
-    padding-top:16px;
-    border-top:1px solid #dce4ef;
-    color:#52657e;
-}
-
-.student-session strong{ color:#173d70; }
-
-.logout{
-    border:1px solid #b8c8dc;
-    border-radius:10px;
-    padding:8px 12px;
-    background:#fff;
-    color:#173d70;
-    font:inherit;
-    font-weight:bold;
-    cursor:pointer;
-}
-
-.subjects{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:14px;
-}
-
-.subject{
-    border:none;
-    border-radius:12px;
-    padding:18px 10px;
-    background:#1e67c6;
-    color:white;
-    font-size:18px;
-    font-weight:bold;
-    cursor:pointer;
-    box-shadow:0 4px 10px rgba(0,0,0,.12);
-}
-
-.subject:hover{
-    background:#144f9d;
-    transform:translateY(-2px);
-}
-
-.subject:focus-visible{
-    outline:3px solid #173d70;
-    outline-offset:3px;
-}
-
+:root{--navy:#173d70;--blue:#1e67c6;--line:#ccdaea;--muted:#52657e}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f3f6fb;color:#172033;font-size:16px;line-height:1.6}
+body.auth-pending header,body.auth-pending main,body.auth-pending footer{visibility:hidden}
+header{background:linear-gradient(135deg,#07162d,#173d70);color:white;padding:26px 20px;text-align:center}
+.logo{font-size:14px;letter-spacing:2px;color:#e7c46a;margin-bottom:8px}
+h1{margin:0;font-size:clamp(25px,4vw,34px);line-height:1.4}
+header p{margin:8px 0 0;font-size:16px;color:#e3ecf8}
+.container{width:min(940px,calc(100% - 32px));margin:24px auto 40px}
+.intro,.course-picker,.extra-courses{background:white;padding:24px;border:1px solid var(--line);border-radius:16px;margin-bottom:24px}
+.intro h2,.section-heading h2{margin:0 0 6px;color:var(--navy);font-size:23px}
+.intro p,.section-heading p{margin:0;color:var(--muted)}
+.student-session{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid #dce4ef;color:var(--muted);font-size:14px}
+.student-session strong{color:var(--navy)}
+.logout,.library-link{border:1px solid #b8c8dc;border-radius:9px;padding:10px 14px;min-height:44px;background:#fff;color:var(--navy);font:inherit;font-weight:bold;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.student-actions{display:flex;gap:8px;flex-wrap:wrap}
+.school-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:20px}
+.school-tabs button{font:inherit;font-weight:750;border:1px solid #aebfd6;background:#f4f7fc;color:var(--navy);padding:14px 8px;border-radius:12px;cursor:pointer;min-height:68px}
+.school-tabs small{display:block;font-size:14px;font-weight:400;margin-top:2px}
+.school-tabs button[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:white;box-shadow:0 4px 10px #173d7020}
+.school-panel{padding-top:22px;scroll-margin-top:16px}
+.school-panel h3{margin:0 0 6px;font-size:20px;color:var(--navy)}
+.panel-description,.panel-note{color:var(--muted);font-size:14px;margin:8px 0 14px}
+.panel-note{margin:16px 0 0}
+.elementary-grade{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;text-align:left;scroll-margin-top:16px}
+.elementary-grade summary{padding:17px 18px;font-size:18px;font-weight:700;color:var(--navy);cursor:pointer;min-height:60px}
+.elementary-grade summary span{font-size:14px;font-weight:400;color:var(--muted);margin-left:8px}
+.elementary-grade[open]{border-color:#789ac3;background:#f8fbff}
+.elementary-grade[open]>summary{border-bottom:1px solid #dce4ef;margin-bottom:14px}
+.subjects{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+.subject{border:none;border-radius:10px;padding:15px 10px;min-height:52px;background:var(--blue);color:white;font:inherit;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
+.subject:hover{background:#144f9d}
+#school-elementary .subject{background:#117656}
+#school-elementary .subject:hover{background:#09553d}
+#school-high .subject{background:#2a4d83}
+button:focus-visible,a:focus-visible,summary:focus-visible,.school-panel:focus-visible{outline:3px solid #b77a0b;outline-offset:3px}
 .subject.suneung-route{
     grid-column:1 / -1;
-    min-height:64px;
-    background:linear-gradient(135deg,#c38a15,#e0ae3d);
-    color:#07162d;
-    box-shadow:0 6px 16px rgba(151,103,9,.24);
+    width:100%;margin-top:12px;background:linear-gradient(135deg,#c38a15,#e0ae3d);color:#07162d;padding:17px
 }
-
-.subject.suneung-route:hover{
-    background:linear-gradient(135deg,#ad7610,#cf9b2d);
-}
-
-.elementary-route{
-    margin-bottom:25px;
-    padding:22px;
-    border-radius:16px;
-    background:linear-gradient(135deg,#eaf5ff,#ffffff);
-    border:1px solid #c9def5;
-    box-shadow:0 5px 18px rgba(23,61,112,.08);
-}
-
-.elementary-grade { margin-top:12px; border:1px solid #c9def5; border-radius:12px; background:#fff; overflow:hidden; text-align:left; scroll-margin-top:20px; }
-.elementary-grade summary { padding:18px; font-size:18px; font-weight:bold; color:#173d70; cursor:pointer; }
-.elementary-grade .subjects { padding:0 14px 14px; }
-.elementary-grade .subject { background:#117656; font-size:16px; }
-.elementary-grade .subject:hover { background:#09553d; }
-.elementary-route .elementary-note { margin:16px 0 0; font-size:14px; }
-.elementary-route h2{ margin:0 0 8px; color:#173d70; }
-.elementary-route p{ margin:0 0 17px; color:#52657e; line-height:1.6; }
-.elementary-link{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:100%;
-    min-height:62px;
-    border-radius:13px;
-    background:linear-gradient(135deg,#16845f,#0f6e50);
-    color:#fff;
-    text-decoration:none;
-    font-size:20px;
-    font-weight:bold;
-    box-shadow:0 7px 16px rgba(15,110,80,.22);
-}
-
-.notice{
-    margin-top:28px;
-    padding:20px;
-    background:#fff8e5;
-    border:1px solid #ecd38c;
-    border-radius:14px;
-    line-height:1.7;
-}
-
-footer{
-    margin-top:40px;
-    padding:24px 15px;
-    background:#07162d;
-    color:#dce6f5;
-    font-size:14px;
-}
-
+.suneung-route small{display:block;font-size:14px;font-weight:400;margin-top:3px}
+#ged-entrance>details{margin:12px}
+#ged-entrance>details>p,#ged-entrance>details>h3{margin:14px;font-size:16px;line-height:1.6}
+#ged-entrance>details>.subject{margin:0 0 10px 3%;width:45.5%;font-size:16px}
+.extra-courses>.elementary-grade>.panel-note{padding:0 14px 14px}
+.notice{margin-top:24px;padding:18px 20px;background:#fff8e5;border:1px solid #ecd38c;border-radius:14px;line-height:1.7;text-align:center;font-size:14px}
+footer{padding:24px 15px;background:#07162d;color:#dce6f5;font-size:14px;text-align:center}
 @media(max-width:600px){
-    h1{
-        font-size:27px;
-    }
-
-    header p{
-        font-size:16px;
-    }
-
-    .subjects{
-        grid-template-columns:1fr;
-    }
+header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
+.intro,.course-picker,.extra-courses{padding:18px 14px;margin-bottom:18px}
+.intro h2,.section-heading h2{font-size:21px}.school-tabs{gap:6px}.school-tabs button{font-size:16px;padding:12px 5px}
+.subjects{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 10px 12px}
+.elementary-grade summary{padding:15px 12px;font-size:17px}.elementary-grade summary span{display:inline-block;margin-left:6px}
+.student-session{align-items:flex-start}.student-actions{width:100%}.student-actions>*{flex:1}
 }
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
 
 <body class="auth-pending">
-<a href="/materials.html" style="display:block;text-align:center;padding:14px;background:#e8f1fc;color:#174d8c;font-weight:700">📚 수업 자료실 · Lesson library · PDF</a>
 
 
 <header>
@@ -212,73 +79,127 @@ footer{
 
     <section class="intro">
         <h2>나만의 학습 홈페이지</h2>
-        <p>
-            학생의 학년, 현재 수준, 학습 목표에 따라 필요한 과목을 구성합니다.<br>
-            AI 선생님과 사람 담임 선생님이 학습 과정과 수업 기록을 함께 관리합니다.
-        </p>
+        <p>초등·중등·고등 과정별로 원하는 과목을 찾아 수업을 시작하세요.</p>
         <div class="student-session">
             <span><strong id="student-name">등록 학생</strong> · <span id="student-id"></span> · <span id="student-registration"></span></span>
-            <button id="logout" class="logout" type="button">수업 종료·나가기</button>
+            <div class="student-actions"><a class="library-link" href="/materials.html">📚 수업 자료실</a><button id="logout" class="logout" type="button">수업 종료·나가기</button></div>
         </div>
     </section>
 
-    <section class="elementary-route" aria-labelledby="elementary-title">
-        <h2 id="elementary-title">초등학교 1~6학년</h2>
-        <p>학년을 누르고 과목을 선택하세요. AI 선생님과 말하거나 글로 공부합니다.</p>
-        <details class="elementary-grade" id="elementary-grade-1"><summary>초등학교 1학년 · 4과목</summary><div class="subjects">
-          <button class="subject" data-href="/learn.html?course=e1-korean">📘 초1 국어 Lv.1</button>
-          <button class="subject" data-href="/learn.html?course=e1-math">📐 초1 수학 Lv.1</button>
-          <button class="subject" data-href="/learn.html?course=e1-english">🔤 초1 영어 Lv.1</button>
-          <button class="subject" data-href="/learn.html?course=e1-integrated">🌱 초1 통합교과 Lv.1</button>
+    <section class="course-picker" aria-labelledby="course-picker-title">
+        <div class="section-heading"><h2 id="course-picker-title">학년별 과목 찾기</h2><p>학교 과정과 학년을 선택한 뒤, 공부할 과목을 누르세요.</p></div>
+        <div class="school-tabs" role="tablist" aria-label="학교 과정 선택">
+            <button type="button" id="tab-elementary" role="tab" aria-selected="true" aria-controls="school-elementary" data-school="elementary">초등학교 <small>1~6학년</small></button>
+            <button type="button" id="tab-middle" role="tab" aria-selected="false" aria-controls="school-middle" data-school="middle" tabindex="-1">중학교 <small>1~3학년</small></button>
+            <button type="button" id="tab-high" role="tab" aria-selected="false" aria-controls="school-high" data-school="high" tabindex="-1">고등학교 <small>1~3학년</small></button>
+        </div>
+        <section class="school-panel" id="school-elementary" role="tabpanel" aria-labelledby="tab-elementary" tabindex="0">
+          <h3>초등학교 1~6학년</h3>
+        <details class="elementary-grade" id="elementary-grade-1"><summary>초등학교 1학년 <span>4과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=e1-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e1-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e1-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e1-integrated">🌱 통합교과</button>
         </div></details>
-        <details class="elementary-grade" id="elementary-grade-2"><summary>초등학교 2학년 · 4과목</summary><div class="subjects">
-          <button class="subject" data-href="/learn.html?course=e2-korean">📘 초2 국어 Lv.2</button>
-          <button class="subject" data-href="/learn.html?course=e2-math">📐 초2 수학 Lv.2</button>
-          <button class="subject" data-href="/learn.html?course=e2-english">🔤 초2 영어 Lv.2</button>
-          <button class="subject" data-href="/learn.html?course=e2-integrated">🌱 초2 통합교과 Lv.2</button>
+        <details class="elementary-grade" id="elementary-grade-2"><summary>초등학교 2학년 <span>4과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=e2-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e2-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e2-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e2-integrated">🌱 통합교과</button>
         </div></details>
-        <details class="elementary-grade" id="elementary-grade-3"><summary>초등학교 3학년 · 6과목</summary><div class="subjects">
-          <button class="subject" data-href="/learn.html?course=e3-korean">📘 초3 국어 Lv.3</button>
-          <button class="subject" data-href="/learn.html?course=e3-math">📐 초3 수학 Lv.3</button>
-          <button class="subject" data-href="/learn.html?course=e3-english">🔤 초3 영어 Lv.3</button>
-          <button class="subject" data-href="/learn.html?course=e3-social">🌏 초3 사회 Lv.3</button>
-          <button class="subject" data-href="/learn.html?course=e3-science">🔬 초3 과학 Lv.3</button>
-          <button class="subject" data-href="/learn.html?course=e3-ethics">🤝 초3 도덕 Lv.3</button>
+        <details class="elementary-grade" id="elementary-grade-3"><summary>초등학교 3학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=e3-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e3-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e3-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e3-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e3-science">🔬 과학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e3-ethics">🤝 도덕</button>
         </div></details>
-        <details class="elementary-grade" id="elementary-grade-4"><summary>초등학교 4학년 · 6과목</summary><div class="subjects">
-          <button class="subject" data-href="/learn.html?course=e4-korean">📘 초4 국어 Lv.4</button>
-          <button class="subject" data-href="/learn.html?course=e4-math">📐 초4 수학 Lv.4</button>
-          <button class="subject" data-href="/learn.html?course=e4-english">🔤 초4 영어 Lv.4</button>
-          <button class="subject" data-href="/learn.html?course=e4-social">🌏 초4 사회 Lv.4</button>
-          <button class="subject" data-href="/learn.html?course=e4-science">🔬 초4 과학 Lv.4</button>
-          <button class="subject" data-href="/learn.html?course=e4-ethics">🤝 초4 도덕 Lv.4</button>
+        <details class="elementary-grade" id="elementary-grade-4"><summary>초등학교 4학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=e4-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e4-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e4-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e4-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e4-science">🔬 과학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e4-ethics">🤝 도덕</button>
         </div></details>
-        <details class="elementary-grade" id="elementary-grade-5"><summary>초등학교 5학년 · 6과목</summary><div class="subjects">
-          <button class="subject" data-href="/learn.html?course=e5-korean">📘 초5 국어 Lv.5</button>
-          <button class="subject" data-href="/learn.html?course=e5-math">📐 초5 수학 Lv.5</button>
-          <button class="subject" data-href="/learn.html?course=e5-english">🔤 초5 영어 Lv.5</button>
-          <button class="subject" data-href="/learn.html?course=e5-social">🌏 초5 사회 Lv.5</button>
-          <button class="subject" data-href="/learn.html?course=e5-science">🔬 초5 과학 Lv.5</button>
-          <button class="subject" data-href="/learn.html?course=e5-ethics">🤝 초5 도덕 Lv.5</button>
+        <details class="elementary-grade" id="elementary-grade-5"><summary>초등학교 5학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=e5-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e5-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e5-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e5-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e5-science">🔬 과학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e5-ethics">🤝 도덕</button>
         </div></details>
-        <details class="elementary-grade" id="elementary-grade-6"><summary>초등학교 6학년 · 6과목</summary><div class="subjects">
-          <button class="subject" data-href="/learn.html?course=e6-korean">📘 초6 국어 Lv.6</button>
-          <button class="subject" data-href="/learn.html?course=e6-math">📐 초6 수학 Lv.6</button>
-          <button class="subject" data-href="/learn.html?course=e6-english">🔤 초6 영어 Lv.6</button>
-          <button class="subject" data-href="/learn.html?course=e6-social">🌏 초6 사회 Lv.6</button>
-          <button class="subject" data-href="/learn.html?course=e6-science">🔬 초6 과학 Lv.6</button>
-          <button class="subject" data-href="/learn.html?course=e6-ethics">🤝 초6 도덕 Lv.6</button>
+        <details class="elementary-grade" id="elementary-grade-6"><summary>초등학교 6학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=e6-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e6-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e6-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e6-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e6-science">🔬 과학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=e6-ethics">🤝 도덕</button>
         </div></details>
-        <p class="elementary-note">초1·초2 영어는 기초 체험 과정입니다.</p>
+
+          <p class="panel-note">초1·초2 영어는 기초 체험 과정입니다.</p>
+        </section>
+        <section class="school-panel" id="school-middle" role="tabpanel" aria-labelledby="tab-middle" tabindex="0" hidden>
+          <h3>중학교 1~3학년</h3><p class="panel-description">국어 · 수학 · 영어 · 사회 · 한국사 · 과학</p>
+        <details class="elementary-grade" id="middle-grade-1"><summary>중학교 1학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=m1-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m1-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m1-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m1-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m1-history">🏛️ 한국사</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m1-science">🔬 과학</button>
+        </div></details>
+        <details class="elementary-grade" id="middle-grade-2"><summary>중학교 2학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=m2-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m2-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m2-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m2-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m2-history">🏛️ 한국사</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m2-science">🔬 과학</button>
+        </div></details>
+        <details class="elementary-grade" id="middle-grade-3"><summary>중학교 3학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=m3-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m3-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m3-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m3-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m3-history">🏛️ 한국사</button>
+          <button type="button" class="subject" data-href="/learn.html?course=m3-science">🔬 과학</button>
+        </div></details>
+        </section>
+        <section class="school-panel" id="school-high" role="tabpanel" aria-labelledby="tab-high" tabindex="0" hidden>
+          <h3>고등학교 1~3학년</h3><p class="panel-description">국어 · 수학 · 영어 · 사회 · 한국사 · 과학</p>
+        <details class="elementary-grade" id="high-grade-1"><summary>고등학교 1학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=h1-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h1-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h1-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h1-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h1-history">🏛️ 한국사</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h1-science">🔬 과학</button>
+        </div></details>
+        <details class="elementary-grade" id="high-grade-2"><summary>고등학교 2학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=h2-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h2-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h2-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h2-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h2-history">🏛️ 한국사</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h2-science">🔬 과학</button>
+        </div></details>
+        <details class="elementary-grade" id="high-grade-3"><summary>고등학교 3학년 <span>6과목</span></summary><div class="subjects">
+          <button type="button" class="subject" data-href="/learn.html?course=h3-korean">📘 국어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h3-math">📐 수학</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h3-english">🔤 영어</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h3-social">🌏 사회</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h3-history">🏛️ 한국사</button>
+          <button type="button" class="subject" data-href="/learn.html?course=h3-science">🔬 과학</button>
+        </div></details>
+        </section>
     </section>
 
-    <section class="subjects">
-        <button class="subject" data-href="/learn.html?course=m1-korean">📘 중1 국어 Lv.7</button>
-        <button class="subject" data-href="/learn.html?course=m2-korean">📘 중2 국어 Lv.8</button>
-        <button class="subject" data-href="/learn.html?course=m3-korean">📘 중3 국어 Lv.9</button>
-        <button class="subject" data-href="/learn.html?course=h1-korean">📘 고1 국어 Lv.10</button>
-        <button class="subject" data-href="/learn.html?course=h2-korean">📘 고2 국어 Lv.11</button>
-        <button class="subject" data-href="/learn.html?course=h3-korean">📘 고3 국어 Lv.12</button>
+    <section class="extra-courses" aria-labelledby="extra-title">
+      <div class="section-heading"><h2 id="extra-title">시험 대비 · 추가학습</h2><p>필요한 과정을 선택하세요.</p></div>
         <details id="ged-entrance" class="elementary-grade" style="grid-column:1/-1"><summary>🎓 검정고시반 · 초졸·중졸·고졸</summary>
         <details id="ged-elementary" class="elementary-grade" style="grid-column:1/-1">
           <summary>🎓 초졸 검정고시</summary>
@@ -330,32 +251,16 @@ footer{
           <button class="subject" data-href="/learn.html?course=ged-high-art">미술</button>
         </details>
         </details>
-        <button class="subject suneung-route" data-href="/suneung.html">🎯 한국 대학수학능력시험 수능관</button>
-        <button class="subject" data-href="/english.html">🔤 영어 통합 학습관</button>
-        <button class="subject" data-href="/learn.html?course=m1-math">📐 중1 수학 Lv.7</button>
-        <button class="subject" data-href="/learn.html?course=m2-math">📐 중2 수학 Lv.8</button>
-        <button class="subject" data-href="/learn.html?course=m3-math">📐 중3 수학 Lv.9</button>
-        <button class="subject" data-href="/learn.html?course=h1-math">📐 고1 수학 Lv.10</button>
-        <button class="subject" data-href="/learn.html?course=h2-math">📐 고2 수학 Lv.11</button>
-        <button class="subject" data-href="/learn.html?course=h3-math">📐 고3 수학 Lv.12</button>
-        <button class="subject" data-href="/learn.html?course=m1-history">🏛️ 중1 한국사 Lv.7</button>
-        <button class="subject" data-href="/learn.html?course=m2-history">🏛️ 중2 한국사 Lv.8</button>
-        <button class="subject" data-href="/learn.html?course=m3-history">🏛️ 중3 한국사 Lv.9</button>
-        <button class="subject" data-href="/learn.html?course=h1-history">🏛️ 고1 한국사 Lv.10</button>
-        <button class="subject" data-href="/learn.html?course=h2-history">🏛️ 고2 한국사 Lv.11</button>
-        <button class="subject" data-href="/learn.html?course=h3-history">🏛️ 고3 한국사 Lv.12</button>
-        <button class="subject" data-href="/learn.html?course=m1-social">🌏 중1 사회 Lv.7</button>
-        <button class="subject" data-href="/learn.html?course=m2-social">🌏 중2 사회 Lv.8</button>
-        <button class="subject" data-href="/learn.html?course=m3-social">🌏 중3 사회 Lv.9</button>
-        <button class="subject" data-href="/learn.html?course=h1-social">🌏 고1 사회 Lv.10</button>
-        <button class="subject" data-href="/learn.html?course=h2-social">🌏 고2 사회 Lv.11</button>
-        <button class="subject" data-href="/learn.html?course=h3-social">🌏 고3 사회 Lv.12</button>
-        <button class="subject" data-href="/learn.html?course=m1-science">🔬 중1 과학 Lv.7</button>
-        <button class="subject" data-href="/learn.html?course=m2-science">🔬 중2 과학 Lv.8</button>
-        <button class="subject" data-href="/learn.html?course=m3-science">🔬 중3 과학 Lv.9</button>
-        <button class="subject" data-href="/learn.html?course=h1-science">🔬 고1 과학 Lv.10</button>
-        <button class="subject" data-href="/learn.html?course=h2-science">🔬 고2 과학 Lv.11</button>
-        <button class="subject" data-href="/learn.html?course=h3-science">🔬 고3 과학 Lv.12</button>
+
+        <button type="button" class="subject suneung-route" data-href="/suneung.html">🎯 한국 대학수학능력시험 수능관 <small>2027 · 2028학년도</small></button>
+        <details class="elementary-grade" id="english-extra"><summary>🔤 영어 추가학습 <span>단어 · TOEFL · TOEIC</span></summary>
+          <div class="subjects">
+            <button type="button" class="subject" data-href="/learn.html?course=m1-english-word">중1 영어 단어</button>
+            <button type="button" class="subject" data-href="/learn.html?course=toefl">TOEFL</button>
+            <button type="button" class="subject" data-href="/learn.html?course=toeic">TOEIC</button>
+            <button type="button" class="subject" data-href="/english.html">영어 통합 학습관</button>
+          </div><p class="panel-note">TOEFL·TOEIC은 GEM의 비공식 자율 연습 과정입니다.</p>
+        </details>
     </section>
 
     <section class="notice">
@@ -400,16 +305,41 @@ document.getElementById("logout").addEventListener("click", async () => {
     location.replace("/");
 });
 
+const schoolTabs = [...document.querySelectorAll('[role="tab"][data-school]')];
+function selectSchool(school, focusTab = false){
+    const selected = schoolTabs.find(tab => tab.dataset.school === school);
+    if(!selected) return;
+    schoolTabs.forEach(tab => {
+        const active = tab === selected;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+        document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
+    });
+    if(focusTab) selected.focus();
+}
+schoolTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectSchool(tab.dataset.school));
+    tab.addEventListener('keydown', event => {
+        let next;
+        if(event.key === 'ArrowRight') next = (index + 1) % schoolTabs.length;
+        else if(event.key === 'ArrowLeft') next = (index + schoolTabs.length - 1) % schoolTabs.length;
+        else if(event.key === 'Home') next = 0;
+        else if(event.key === 'End') next = schoolTabs.length - 1;
+        if(next !== undefined){ event.preventDefault(); selectSchool(schoolTabs[next].dataset.school, true); }
+    });
+});
 function restoreElementaryGrade(){
     const target = document.getElementById(location.hash.slice(1));
-    if(target?.classList.contains("elementary-grade")) {
-        target.open = true;
-        for(let parent = target.parentElement; parent; parent = parent.parentElement){
-            if(parent.tagName === "DETAILS") parent.open = true;
-        }
+    if(!target?.classList.contains('elementary-grade')) return;
+    const panel = target.closest('[role="tabpanel"]');
+    if(panel) selectSchool(panel.id.replace('school-', ''));
+    target.open = true;
+    for(let parent = target.parentElement; parent; parent = parent.parentElement){
+        if(parent.tagName === 'DETAILS') parent.open = true;
     }
+    requestAnimationFrame(() => target.scrollIntoView({block:'start'}));
 }
-window.addEventListener("hashchange", restoreElementaryGrade);
+window.addEventListener('hashchange', restoreElementaryGrade);
 restoreElementaryGrade();
 loadStudentSession();
 </script>
