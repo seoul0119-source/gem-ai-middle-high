@@ -24,6 +24,7 @@ function scienceRunHistory(student) {
 }
 
 function newCourseRunId(courseId, student) {
+  if (getCourse(courseId)?.ged) return `ged-v2:${randomUUID()}`;
   if (!isGuardedSuneungScienceCourse(courseId)) return randomUUID();
   const openingSignature = seed => {
     const first = createScienceLessonEngine(seed, courseId).questions[0];

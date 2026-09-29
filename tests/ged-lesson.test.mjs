@@ -11,7 +11,7 @@ import {recordScore} from '../lib/record-progress.js';
 import {readFileSync} from 'node:fs';
 process.env.OPENAI_API_KEY='ged-test-only';
 const capture=()=>({headers:{},statusCode:0,status(n){this.statusCode=n;return this;},setHeader(k,v){this.headers[k]=v;return this;},end(s){this.body=s;this.data=JSON.parse(s||'{}');}});
-const studentFor=courseId=>({id:'TEST_GED',name:'검증 전용',session:'ged-test-session',courseId,courseRunId:'ged-test-run',startedAt:new Date().toISOString(),endedAt:null});
+const studentFor=courseId=>({id:'TEST_GED',name:'검증 전용',session:'ged-test-session',courseId,courseRunId:'ged-v2:test-run',startedAt:new Date().toISOString(),endedAt:null});
 const req=(student,body)=>({method:'POST',headers:{cookie:`${SESSION_COOKIE}=${createSessionToken(student)}`},body});
 for(const courseId of Object.keys(GED_COURSES)){
  test(`${courseId}: ten questions, wrong/hint/retry and authenticated record transfer`,async()=>{
@@ -56,7 +56,22 @@ test('GED API denies missing student and wrong active run',async()=>{const stude
 test('course start records GED subject in existing Sheets integration',async()=>{
  const previous=fetch;const urls=[];try{globalThis.fetch=async url=>{urls.push(String(url));return new Response(JSON.stringify({success:true,message:'수업 시작 기록 저장 완료'}),{status:200,headers:{'Content-Type':'application/json'}});};
  const student=studentFor('ged-high-korean');student.courseId=null;student.courseRunId=null;student.startedAt=null;
- const res=capture();await sessionHandler(req(student,{action:'start',courseId:'ged-high-korean'}),res);assert.equal(res.statusCode,200,res.body);assert.ok(urls.some(url=>decodeURIComponent(url).includes('검정고시')));assert.ok(res.data.recordPermit);
+ const res=capture();await sessionHandler(req(student,{action:'start',courseId:'ged-high-korean'}),res);assert.equal(res.statusCode,200,res.body);assert.ok(urls.some(url=>decodeURIComponent(url).includes('검정고시')));assert.ok(res.data.recordPermit);assert.match(res.data.courseRunId,/^ged-v2:/);
  }finally{globalThis.fetch=previous;}
 });
 test('catalog, launch buttons, assessment persistence and resume retain GED identity',()=>{const html=readFileSync('learn.html','utf8'),catalog=JSON.parse(readFileSync('lib/material-catalog.json','utf8'));for(const id of Object.keys(GED_COURSES)){assert.ok(catalog.some(c=>c.id===id));assert.ok(readFileSync('class.html','utf8').includes('course='+id));}assert.match(html,/COURSE.ged&&data.record\?\{assessment:data.record\}/);assert.match(readFileSync('api/session.js','utf8'),/course.suneung\|\|course.ged/);});
+
+test('new GED runs distribute answers 2–3 per letter without changing answer content',()=>{
+ for(const courseId of Object.keys(GED_COURSES))for(let seed=0;seed<100;seed++){
+  const qs=createGedQuestions(courseId,'ged-v2:'+seed),counts=[0,0,0,0];
+  for(const q of qs)counts['ABCD'.indexOf(q.answer)]++;
+  assert.deepEqual([...counts].sort(),[2,2,3,3]);
+  assert.ok(!qs.some((q,i)=>i>1&&q.answer===qs[i-1].answer&&q.answer===qs[i-2].answer));
+  assert.deepEqual(qs,createGedQuestions(courseId,'ged-v2:'+seed));
+ }
+});
+test('existing GED questions, choices and grades remain unchanged after balancing',async()=>{
+ const {createHash}=await import('node:crypto');
+ const expected={korean:'c913749fd76366c99de0760e091ce28528096900cefdda1c052bd14b6c7876b8',math:'94a2ec448801f576bb35bd6cb54b34656f1eebc6b90d2c2b5402d553b445c951',english:'37ec21a72891ff1f55bfdf0da88f674bfb61724b09e79b08d6fb0b55d16f3486'};
+ for(const [subject,hash]of Object.entries(expected))assert.equal(createHash('sha256').update(JSON.stringify(createGedQuestions('ged-high-'+subject,'saved-before-balance'))).digest('hex'),hash);
+});
