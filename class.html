@@ -26,7 +26,7 @@ header p{margin:8px 0 0;font-size:16px;color:#e3ecf8}
 .school-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:20px}
 .school-tabs button{font:inherit;font-weight:750;border:1px solid #aebfd6;background:#f4f7fc;color:var(--navy);padding:14px 8px;border-radius:12px;cursor:pointer;min-height:68px}
 .school-tabs small{display:block;font-size:14px;font-weight:400;margin-top:2px}
-.school-tabs button[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:white;box-shadow:0 4px 10px #173d7020}
+.school-tabs button[aria-expanded="true"]{background:var(--navy);border-color:var(--navy);color:white;box-shadow:0 4px 10px #173d7020}
 .school-panel{padding-top:22px;scroll-margin-top:16px}
 .school-panel h3{margin:0 0 6px;font-size:20px;color:var(--navy)}
 .panel-description,.panel-note{color:var(--muted);font-size:14px;margin:8px 0 14px}
@@ -37,6 +37,7 @@ header p{margin:8px 0 0;font-size:16px;color:#e3ecf8}
 .elementary-grade[open]{border-color:#789ac3;background:#f8fbff}
 .elementary-grade[open]>summary{border-bottom:1px solid #dce4ef;margin-bottom:14px}
 .subjects{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+#english-extra .subjects{grid-template-columns:repeat(2,minmax(0,1fr))}
 .subject{border:none;border-radius:10px;padding:15px 10px;min-height:52px;background:var(--blue);color:white;font:inherit;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
 .subject:hover{background:#144f9d}
 #school-elementary .subject{background:#117656}
@@ -88,12 +89,12 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
 
     <section class="course-picker" aria-labelledby="course-picker-title">
         <div class="section-heading"><h2 id="course-picker-title">학년별 과목 찾기</h2><p>학교 과정과 학년을 선택한 뒤, 공부할 과목을 누르세요.</p></div>
-        <div class="school-tabs" role="tablist" aria-label="학교 과정 선택">
-            <button type="button" id="tab-elementary" role="tab" aria-selected="true" aria-controls="school-elementary" data-school="elementary">초등학교 <small>1~6학년</small></button>
-            <button type="button" id="tab-middle" role="tab" aria-selected="false" aria-controls="school-middle" data-school="middle" tabindex="-1">중학교 <small>1~3학년</small></button>
-            <button type="button" id="tab-high" role="tab" aria-selected="false" aria-controls="school-high" data-school="high" tabindex="-1">고등학교 <small>1~3학년</small></button>
+        <div class="school-tabs" role="group" aria-label="학교 과정 선택">
+            <button type="button" id="tab-elementary" aria-expanded="false" aria-controls="school-elementary" data-school="elementary">초등학교 <small>1~6학년</small></button>
+            <button type="button" id="tab-middle" aria-expanded="false" aria-controls="school-middle" data-school="middle">중학교 <small>1~3학년</small></button>
+            <button type="button" id="tab-high" aria-expanded="false" aria-controls="school-high" data-school="high">고등학교 <small>1~3학년</small></button>
         </div>
-        <section class="school-panel" id="school-elementary" role="tabpanel" aria-labelledby="tab-elementary" tabindex="0">
+        <section class="school-panel" id="school-elementary" role="region" aria-labelledby="tab-elementary" tabindex="0" hidden>
           <h3>초등학교 1~6학년</h3>
         <details class="elementary-grade" id="elementary-grade-1"><summary>초등학교 1학년 <span>4과목</span></summary><div class="subjects">
           <button type="button" class="subject" data-href="/learn.html?course=e1-korean">📘 국어</button>
@@ -142,7 +143,7 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
 
           <p class="panel-note">초1·초2 영어는 기초 체험 과정입니다.</p>
         </section>
-        <section class="school-panel" id="school-middle" role="tabpanel" aria-labelledby="tab-middle" tabindex="0" hidden>
+        <section class="school-panel" id="school-middle" role="region" aria-labelledby="tab-middle" tabindex="0" hidden>
           <h3>중학교 1~3학년</h3><p class="panel-description">국어 · 수학 · 영어 · 사회 · 한국사 · 과학</p>
         <details class="elementary-grade" id="middle-grade-1"><summary>중학교 1학년 <span>6과목</span></summary><div class="subjects">
           <button type="button" class="subject" data-href="/learn.html?course=m1-korean">📘 국어</button>
@@ -169,7 +170,7 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
           <button type="button" class="subject" data-href="/learn.html?course=m3-science">🔬 과학</button>
         </div></details>
         </section>
-        <section class="school-panel" id="school-high" role="tabpanel" aria-labelledby="tab-high" tabindex="0" hidden>
+        <section class="school-panel" id="school-high" role="region" aria-labelledby="tab-high" tabindex="0" hidden>
           <h3>고등학교 1~3학년</h3><p class="panel-description">국어 · 수학 · 영어 · 사회 · 한국사 · 과학</p>
         <details class="elementary-grade" id="high-grade-1"><summary>고등학교 1학년 <span>6과목</span></summary><div class="subjects">
           <button type="button" class="subject" data-href="/learn.html?course=h1-korean">📘 국어</button>
@@ -199,7 +200,7 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
     </section>
 
     <section class="extra-courses" aria-labelledby="extra-title">
-      <div class="section-heading"><h2 id="extra-title">시험 대비 · 추가학습</h2><p>필요한 과정을 선택하세요.</p></div>
+      <div class="section-heading"><h2 id="extra-title">시험 대비 · 토익 토플</h2><p>필요한 과정을 선택하세요.</p></div>
         <details id="ged-entrance" class="elementary-grade" style="grid-column:1/-1"><summary>🎓 검정고시반 · 초졸·중졸·고졸</summary>
         <details id="ged-elementary" class="elementary-grade" style="grid-column:1/-1">
           <summary>🎓 초졸 검정고시</summary>
@@ -253,12 +254,10 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
         </details>
 
         <button type="button" class="subject suneung-route" data-href="/suneung.html">🎯 한국 대학수학능력시험 수능관 <small>2027 · 2028학년도</small></button>
-        <details class="elementary-grade" id="english-extra"><summary>🔤 영어 추가학습 <span>단어 · TOEFL · TOEIC</span></summary>
+        <details class="elementary-grade" id="english-extra"><summary>🔤 토익 토플 <span>TOEIC · TOEFL</span></summary>
           <div class="subjects">
-            <button type="button" class="subject" data-href="/learn.html?course=m1-english-word">중1 영어 단어</button>
-            <button type="button" class="subject" data-href="/learn.html?course=toefl">TOEFL</button>
-            <button type="button" class="subject" data-href="/learn.html?course=toeic">TOEIC</button>
-            <button type="button" class="subject" data-href="/english.html">영어 통합 학습관</button>
+            <button type="button" class="subject" data-href="/learn.html?course=toeic">토익 TOEIC</button>
+            <button type="button" class="subject" data-href="/learn.html?course=toefl">토플 TOEFL</button>
           </div><p class="panel-note">TOEFL·TOEIC은 GEM의 비공식 자율 연습 과정입니다.</p>
         </details>
     </section>
@@ -305,20 +304,19 @@ document.getElementById("logout").addEventListener("click", async () => {
     location.replace("/");
 });
 
-const schoolTabs = [...document.querySelectorAll('[role="tab"][data-school]')];
+const schoolTabs = [...document.querySelectorAll('.school-tabs [data-school]')];
 function selectSchool(school, focusTab = false){
     const selected = schoolTabs.find(tab => tab.dataset.school === school);
-    if(!selected) return;
+    if(school && !selected) return;
     schoolTabs.forEach(tab => {
         const active = tab === selected;
-        tab.setAttribute('aria-selected', String(active));
-        tab.tabIndex = active ? 0 : -1;
+        tab.setAttribute('aria-expanded', String(active));
         document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
     });
-    if(focusTab) selected.focus();
+    if(focusTab && selected) selected.focus();
 }
 schoolTabs.forEach((tab, index) => {
-    tab.addEventListener('click', () => selectSchool(tab.dataset.school));
+    tab.addEventListener('click', () => selectSchool(tab.getAttribute('aria-expanded') === 'true' ? null : tab.dataset.school));
     tab.addEventListener('keydown', event => {
         let next;
         if(event.key === 'ArrowRight') next = (index + 1) % schoolTabs.length;
@@ -331,7 +329,7 @@ schoolTabs.forEach((tab, index) => {
 function restoreElementaryGrade(){
     const target = document.getElementById(location.hash.slice(1));
     if(!target?.classList.contains('elementary-grade')) return;
-    const panel = target.closest('[role="tabpanel"]');
+    const panel = target.closest('.school-panel');
     if(panel) selectSchool(panel.id.replace('school-', ''));
     target.open = true;
     for(let parent = target.parentElement; parent; parent = parent.parentElement){

@@ -199,23 +199,23 @@ function runSuneungUi(initialHash = "") {
   };
 }
 
-test("places the Suneung hall between Grade 12 Korean and the English hub", () => {
+test("places the Suneung hall between Grade 12 Korean and TOEIC/TOEFL", () => {
   const koreanIndex = classHtml.indexOf('data-href="/learn.html?course=h3-korean"');
   const suneungIndex = classHtml.indexOf('data-href="/suneung.html"');
-  const englishIndex = classHtml.indexOf('data-href="/english.html"');
+  const englishIndex = classHtml.indexOf('id="english-extra"');
 
   assert.ok(koreanIndex >= 0, "Grade 12 Korean entrance must remain");
   assert.ok(suneungIndex > koreanIndex, "Suneung hall must follow Grade 12 Korean");
-  assert.ok(englishIndex > suneungIndex, "English hub must follow the Suneung hall");
+  assert.ok(englishIndex > suneungIndex, "TOEIC/TOEFL must follow the Suneung hall");
   assert.equal(classHtml.split('data-href="/suneung.html"').length - 1, 1);
   assert.match(classHtml, /\.subject\.suneung-route\{[\s\S]*?grid-column:1 \/ -1;/);
 });
 
-test("keeps every existing classroom destination", () => {
+test("keeps core classroom destinations and the TOEIC/TOEFL entrances", () => {
   const originalDestinations = [
     "/learn.html?course=m1-korean", "/learn.html?course=m2-korean", "/learn.html?course=m3-korean",
     "/learn.html?course=h1-korean", "/learn.html?course=h2-korean", "/learn.html?course=h3-korean",
-    "/english.html",
+    "/learn.html?course=toeic", "/learn.html?course=toefl",
     "/learn.html?course=m1-math", "/learn.html?course=m2-math", "/learn.html?course=m3-math",
     "/learn.html?course=h1-math", "/learn.html?course=h2-math", "/learn.html?course=h3-math",
     "/learn.html?course=m1-history", "/learn.html?course=m2-history", "/learn.html?course=m3-history",
