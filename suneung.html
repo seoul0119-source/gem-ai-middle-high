@@ -832,7 +832,7 @@
 
     startLearningButton.addEventListener("click", () => {
       const courseId = selectedCourseId();
-      if (courseId) { const original=`/learn.html?course=${encodeURIComponent(courseId)}`; location.href=window.gemPreparedEntry?window.gemPreparedEntry(courseId,original):original; }
+      if (courseId) { const original=`/learn.html?course=${encodeURIComponent(courseId)}`; location.href=globalThis.gemPreparedEntry?globalThis.gemPreparedEntry(courseId,original):original; }
     });
 
     const savedSelection = new URLSearchParams(location.hash.slice(1));
