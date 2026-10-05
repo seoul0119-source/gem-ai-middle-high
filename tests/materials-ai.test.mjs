@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {handleMaterials,validMaterial,materialFormatIssues} from '../lib/materials-ai.js';import catalog from '../lib/material-catalog.json' with {type:'json'};
+import {test} from 'node:test';import assert from 'node:assert/strict';import {handleMaterials,validMaterial,materialFormatIssues,disclosesMaterialAnswer} from '../lib/materials-ai.js';import catalog from '../lib/material-catalog.json' with {type:'json'};
 const fixture={title:'Review',questions:Array.from({length:10},(_,i)=>({prompt:`What is ${i}+1?`,choices:[String(i+1),'30','40','50'],answerIndex:0,hints:['Add one.','Count the next number.'],explanation:`${i}+1=${i+1}`}))};
 const replacements=(sheet,...numbers)=>({replacements:numbers.map(number=>({number,question:structuredClone(sheet.questions[number-1])}))});
 test('credit exhaustion is distinguished from temporary rate limits, without retrying or leaking provider messages',async()=>{
@@ -177,4 +177,29 @@ test('a null GED question is repaired before novelty checking and the whole work
 test('excluded distractors and explanations are rejected before a worksheet can be saved',async()=>{
  const saved=globalThis.fetch;
  try{for(const [field,value] of [['choices','공통 조상'],['hints','human evolution'],['explanation','théorie de l’évolution']]){const bad=structuredClone(fixture);if(Array.isArray(bad.questions[0][field]))bad.questions[0][field][0]=value;else bad.questions[0][field]=value;globalThis.fetch=async()=>Response.json({output_text:JSON.stringify(bad)});await assert.rejects(handleMaterials({mode:'generate',courseId:'m1-science',topic:'세포'}),/교육 기준/);}}finally{globalThis.fetch=saved;}
+});
+
+test('generated question progress markers and premature answer labels trigger repair',()=>{
+ const bad=structuredClone(fixture);bad.questions[0].prompt='문제 1/10 — 대화를 읽으세요.';bad.questions[1].choices[0]='정답: B';
+ const issues=materialFormatIssues(bad);assert.ok(issues.some(i=>i.question===1));assert.ok(issues.some(i=>i.question===2));
+ const math=structuredClone(fixture);math.questions[0].prompt='Calculate 1/10 + 3/10.';assert.equal(materialFormatIssues(math).length,0);
+});
+test('ordinary classes use fresh variation and reject previously studied prompts before independent review',async()=>{
+ const saved=globalThis.fetch,requests=[],previous='What is 0+1?',fresh=structuredClone(fixture);fresh.questions[0].prompt='A map scale compares which two measurements?';
+ // All numeric variants in the fixture must be replaced by genuinely distinct tasks.
+ fresh.questions.forEach((q,i)=>q.prompt=['A map uses a scale. What does it compare?','Which material conducts electricity?','Why does ice melt in sunlight?','Where do roots absorb water?','Which organ pumps blood?','What causes a shadow outdoors?','How does a magnet attract iron?','What happens when water evaporates?','Which planet is closest to the Sun?','Why do we measure volume?'][i]);
+ const responses=[fixture,{replacements:fresh.questions.map((question,i)=>({number:i+1,question}))},{valid:true,issues:[]}];
+ globalThis.fetch=async(_url,o)=>{requests.push(JSON.parse(o.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+ try{assert.deepEqual((await handleMaterials({mode:'generate',courseId:'m1-science',topic:'',variation:'fresh-session',noveltyHistory:[previous]})).material,fresh);assert.match(requests[0].instructions,/fresh-session/);assert.match(requests[1].input[0].content,/near-duplicate/);assert.equal(requests.at(-1).text.format.name,'worksheet_review');}finally{globalThis.fetch=saved;}
+});
+test('open-question tutor cannot return a leaked choice or replay previous leaked replies',async()=>{
+ const saved=globalThis.fetch,requests=[];globalThis.fetch=async(_url,o)=>{requests.push(JSON.parse(o.body));return Response.json({output_text:'정답은 B, photosynthesis입니다.'});};
+ try{const result=await handleMaterials({mode:'tutor',courseId:'m1-science',question:{prompt:'Which process?',choices:['respiration','photosynthesis','melting','freezing'],result:'open'},answerGuard:{choice:'photosynthesis',label:'B'},history:[{role:'assistant',content:'정답은 B입니다.'}],message:'답을 알려주세요'});assert.doesNotMatch(result.text,/photosynthesis|정답은 B/);assert.equal(requests[0].input.length,1);assert.doesNotMatch(requests[0].instructions,/answerIndex/);}finally{globalThis.fetch=saved;}
+});
+
+test('answer protection catches short answers and final calculations without treating articles as option labels',()=>{
+ for(const text of ['답은 A입니다.','The answer is 7.','3 + 4 = 7.'])assert.equal(disclosesMaterialAnswer(text,{choice:'7',label:'A'}),true,text);
+ assert.equal(disclosesMaterialAnswer('융해라고 합니다.',{choice:'융해',label:'B'}),true);
+ for(const text of ['Choose between the methods by checking the units.','Select a method that matches the information.'])assert.equal(disclosesMaterialAnswer(text,{choice:'7',label:'A'}),false,text);
+ const bad=structuredClone(fixture);bad.questions[0].choices='invalid';bad.questions[1].hints={};assert.doesNotThrow(()=>materialFormatIssues(bad));assert.ok(materialFormatIssues(bad).length>=2);
 });
