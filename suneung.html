@@ -832,7 +832,7 @@
 
     startLearningButton.addEventListener("click", () => {
       const courseId = selectedCourseId();
-      if (courseId) location.href = `/learn.html?course=${encodeURIComponent(courseId)}`;
+      if (courseId) { const original=`/learn.html?course=${encodeURIComponent(courseId)}`; location.href=window.gemPreparedEntry?window.gemPreparedEntry(courseId,original):original; }
     });
 
     const savedSelection = new URLSearchParams(location.hash.slice(1));
@@ -858,5 +858,6 @@
 
     loadStudentSession();
   </script>
+<script src="/prepared-entry.js"></script>
 </body>
 </html>

@@ -28,5 +28,6 @@
   <script>
     (async()=>{try{const r=await fetch('/api/session',{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();document.getElementById('student').textContent=`${d.student.name} · ${d.student.id}`;document.body.classList.remove('auth-pending')}catch(_){location.replace('/')}})();
   </script>
+<script src="/prepared-entry.js"></script>
 </body>
 </html>

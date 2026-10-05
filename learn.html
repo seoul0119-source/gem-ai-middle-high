@@ -510,7 +510,7 @@
   </style>
 </head>
 <body class="auth-pending">
-<a id="course-materials-link" href="/materials.html" style="display:block;text-align:center;padding:12px;background:#e8f1fc;color:#174d8c">📚 같은 자료로 공부하기 · 수업 자료실 / PDF</a>
+<a id="course-materials-link" href="/materials.html" style="display:block;text-align:center;padding:12px;background:#e8f1fc;color:#174d8c">📚 학습지 준비 → PDF → 같은 문제로 수업</a>
 
   <header>
     <div class="brand">GEM AI LEARNING MISSION CLASS</div>
@@ -920,6 +920,9 @@
     const recordNotice=document.createElement('p');
     recordNotice.setAttribute('role','status');recordNotice.style.cssText='font-size:13px;color:#244b6a;margin:8px 0';
     {const link=document.createElement('a');link.href='/materials.html?course='+encodeURIComponent(COURSE_ID);link.textContent='학습 기록 · 이어하기 · 음성 복습 · 자료실';link.style.marginLeft='12px';const line=document.createElement('div');line.append(recordNotice,link);document.getElementById('chat').after(line);}
+    const preparedLink=document.getElementById('course-materials-link');
+    preparedLink.href='/materials.html?classroom=1&course='+encodeURIComponent(COURSE_ID);
+    preparedLink.addEventListener('click',async event=>{event.preventDefault();saveClassSnapshot('stopped');if(recordClient&&!await recordClient.flush())return;await endCourseTracking();location.assign(preparedLink.href);});
     function saveClassSnapshot(status=lessonManuallyEnded?'stopped':'studying',exiting=false){
       if(!recordClient||messages.length<2)return;
       recordClient.queue(courseRunId,recordPermit,{revision:++recordRevision,status,lessonSeed,messages:messages.map(m=>({role:m.role,content:m.content,...(m.progress?{progress:m.progress}:{}),...(m.assessment?{assessment:m.assessment}:{})})),counters:JSON.parse(JSON.stringify(turnCounters))},exiting);
