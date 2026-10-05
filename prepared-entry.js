@@ -4,8 +4,8 @@
  const bar=document.createElement('section');bar.setAttribute('aria-label','수업 방식');bar.style.cssText='padding:16px;margin:16px 0;border:1px solid #c5d7eb;border-radius:14px;background:#f1f6ff;color:#173758';
  const title=document.createElement('strong');title.textContent='수업 방식 선택';
  const select=document.createElement('select');select.setAttribute('aria-label','수업 방식 선택');select.style.cssText='font:inherit;padding:10px;margin:8px;border-radius:8px;max-width:100%';
- for(const [value,label]of [['worksheet','학습지 수업 · 미리 PDF 받기'],['conversation','기존 대화형 수업']]){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);}
- const note=document.createElement('p');note.textContent='과목을 선택한 뒤 학습지 준비 → PDF → 같은 10문제로 수업 → 이어하기·학부모 보고서 순서로 이용하세요.';note.style.margin='4px 0';bar.append(title,select,note);
+ for(const [value,label]of [['worksheet','자동 10문제 학습지 수업'],['conversation','기존 대화형 수업']]){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);}
+ const note=document.createElement('p');note.textContent='과목만 선택하면 AI가 10문제를 자동으로 준비해요. PDF를 받고 같은 문제로 수업하세요. 풀던 학습지는 이어서 열려요.';note.style.margin='4px 0';bar.append(title,select,note);
  window.gemPreparedEntry=(course,original)=>select.value==='worksheet'&&available.has(course)?'/materials.html?classroom=1&course='+encodeURIComponent(course):original;
  const main=document.querySelector('main')||document.body;main.prepend(bar);
  document.addEventListener('click',event=>{if(select.value!=='worksheet'||event.defaultPrevented||event.ctrlKey||event.metaKey||event.shiftKey)return;const target=event.target.closest?.('[data-href],a[href]');if(!target)return;let url;try{url=new URL(target.dataset.href||target.href,location.href);}catch{return;}if(url.origin!==location.origin||!/^\/learn(?:\.html)?$/.test(url.pathname)||url.searchParams.has('resume'))return;const course=url.searchParams.get('course');if(!available.has(course))return;event.preventDefault();event.stopImmediatePropagation();location.assign('/materials.html?classroom=1&course='+encodeURIComponent(course));},true);

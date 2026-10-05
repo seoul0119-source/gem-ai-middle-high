@@ -510,7 +510,7 @@
   </style>
 </head>
 <body class="auth-pending">
-<a id="course-materials-link" href="/materials.html" style="display:block;text-align:center;padding:12px;background:#e8f1fc;color:#174d8c">📚 학습지 준비 → PDF → 같은 문제로 수업</a>
+<a id="course-materials-link" href="/materials.html" style="display:block;text-align:center;padding:18px 12px;background:#e8f1fc;color:#174d8c;text-decoration:none;line-height:1.7"><strong style="display:inline-block;background:#155bc4;color:white;padding:10px 22px;border-radius:10px;font-size:18px">📚 10문제 자동 학습지로 수업하기</strong><span style="display:block;font-size:16px;margin-top:7px">이 과목의 문제를 AI가 준비해요 · PDF 받기 · 같은 문제로 수업 · 이어하기</span></a>
 
   <header>
     <div class="brand">GEM AI LEARNING MISSION CLASS</div>
@@ -919,7 +919,7 @@
     let recordClient=null, recordPermit="", recordRevision=0;
     const recordNotice=document.createElement('p');
     recordNotice.setAttribute('role','status');recordNotice.style.cssText='font-size:13px;color:#244b6a;margin:8px 0';
-    {const link=document.createElement('a');link.href='/materials.html?course='+encodeURIComponent(COURSE_ID);link.textContent='학습 기록 · 이어하기 · 음성 복습 · 자료실';link.style.marginLeft='12px';const line=document.createElement('div');line.append(recordNotice,link);document.getElementById('chat').after(line);}
+    {const link=document.createElement('a');link.href='/materials.html?browse=1&course='+encodeURIComponent(COURSE_ID);link.textContent='학습 기록 · 이어하기 · 음성 복습 · 자료실';link.style.marginLeft='12px';const line=document.createElement('div');line.append(recordNotice,link);document.getElementById('chat').after(line);}
     const preparedLink=document.getElementById('course-materials-link');
     preparedLink.href='/materials.html?classroom=1&course='+encodeURIComponent(COURSE_ID);
     preparedLink.addEventListener('click',async event=>{event.preventDefault();saveClassSnapshot('stopped');if(recordClient&&!await recordClient.flush())return;await endCourseTracking();location.assign(preparedLink.href);});
@@ -2995,5 +2995,5 @@
       }
     }
   </script>
-<script>document.getElementById("course-materials-link").href="/materials.html?course="+encodeURIComponent(new URLSearchParams(location.search).get("course")||"");</script></body>
+</body>
 </html>
