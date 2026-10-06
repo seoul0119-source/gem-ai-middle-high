@@ -203,3 +203,24 @@ test('answer protection catches short answers and final calculations without tre
  for(const text of ['Choose between the methods by checking the units.','Select a method that matches the information.'])assert.equal(disclosesMaterialAnswer(text,{choice:'7',label:'A'}),false,text);
  const bad=structuredClone(fixture);bad.questions[0].choices='invalid';bad.questions[1].hints={};assert.doesNotThrow(()=>materialFormatIssues(bad));assert.ok(materialFormatIssues(bad).length>=2);
 });
+
+test('a missing TOEIC picture is repaired before independent review while text-only Part 6 remains valid',async()=>{
+ const bad=structuredClone(fixture),fixed=structuredClone(fixture);
+ bad.questions[0].prompt='[Listening Part 1] Look at the picture and choose the correct description.';
+ fixed.questions[0]={prompt:'[Listening Part 1] 그림을 보고 알맞은 설명을 고르세요.\n[TOEIC 그림 시작]\n장소: office\n인물: 1\n행동: typing-computer\n배경: desk, monitor, chair\n[TOEIC 그림 끝]',choices:['A person is typing at a computer.','A person is carrying a box.','A person is cleaning a window.','A person is reading a menu.'],answerIndex:0,hints:['Look at the person’s hands.','Compare the objects with each description.'],explanation:'The person is using the keyboard at a computer.'};
+ assert.equal(materialFormatIssues(bad,true)[0].question,1);
+ assert.match(materialFormatIssues(bad,true)[0].reason,/picture/);
+ const reading=structuredClone(fixture);reading.questions[0].prompt='[Reading Part 6] Choose a connector. Employees may borrow a projector. ____, they must record the return time.';
+ assert.deepEqual(materialFormatIssues(reading,true),[]);
+ const saved=globalThis.fetch,requests=[],responses=[bad,replacements(fixed,1),{valid:true,issues:[]}];
+ globalThis.fetch=async(_url,o)=>{requests.push(JSON.parse(o.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+ try{
+  const result=await handleMaterials({mode:'generate',courseId:'toeic',topic:'Mixed review'});
+  assert.deepEqual(result.material,fixed);assert.equal(requests.length,3);
+  assert.equal(requests[1].text.format.name,'worksheet_repair');
+  assert.equal(requests[2].text.format.name,'worksheet_review');
+  assert.deepEqual(JSON.parse(requests[2].input[0].content),fixed);
+  assert.match(requests[0].instructions,/Only mention visible objects/);
+  assert.match(requests[2].instructions,/Never repeat A–D choices in prompt/);
+ }finally{globalThis.fetch=saved;}
+});
