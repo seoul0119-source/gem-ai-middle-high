@@ -1,4 +1,5 @@
 import {handleMaterials} from '../lib/materials-ai.js';
+import {worksheetSpeech} from '../lib/worksheet-speech.js';
 import {verifyReviewRequest,reviewModelRequest,reviewOutput} from '../lib/review-tutor.js';
 import {providerAiServiceError,AiServiceError} from '../lib/ai-service-error.js';
 function send(res,status,data){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(data));}
@@ -7,6 +8,9 @@ export default async function handler(req,res){
  const body=typeof req.body==='object'?req.body:null;
  const payload=await verifyReviewRequest(body);
  if(!payload)return send(res,401,{code:'invalid_review_signature'});
+ if(payload.purpose==='gem-materials-v1'&&payload.mode==='speech'){
+  try{return send(res,200,await worksheetSpeech(payload));}catch(error){if(error instanceof AiServiceError)return send(res,error.status,error.payload);return send(res,503,{code:'speech_unavailable'});}
+ }
  if(payload.purpose==='gem-math-review-v1'&&payload.mode==='korean-display-v1'){
   if(payload.classroom!=='en'||!['en','fr'].includes(payload.sourceLanguage)||!Array.isArray(payload.texts)||payload.texts.length<1||payload.texts.length>80||payload.texts.some(t=>typeof t!=='string'||t.length>4000)||payload.texts.join('').length>12000)return send(res,400,{code:'invalid_translation'});
   if(!process.env.OPENAI_API_KEY)return send(res,503,{code:'ai_service_unavailable'});
