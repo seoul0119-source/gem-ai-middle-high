@@ -1,13 +1,21 @@
 import {handleMaterials} from '../lib/materials-ai.js';
 import {worksheetSpeech} from '../lib/worksheet-speech.js';
+import {worksheetTranscription} from '../lib/worksheet-transcription.js';
 import {verifyReviewRequest,reviewModelRequest,reviewOutput} from '../lib/review-tutor.js';
-import {providerAiServiceError,AiServiceError} from '../lib/ai-service-error.js';
+import {providerAiServiceError,AiServiceError,aiServiceUnavailable} from '../lib/ai-service-error.js';
 function send(res,status,data){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(data));}
 export default async function handler(req,res){
  if(req.method!=='POST')return send(res,405,{code:'method_not_allowed'});
  const body=typeof req.body==='object'?req.body:null;
  const payload=await verifyReviewRequest(body);
  if(!payload)return send(res,401,{code:'invalid_review_signature'});
+ if(payload.purpose==='gem-materials-v1'&&payload.mode==='transcribe'){
+  try{return send(res,200,await worksheetTranscription(payload));}catch(error){
+   if(error instanceof AiServiceError)return send(res,error.status,error.payload);
+   if(error.message==='invalid_transcription'||error.message==='speech_not_heard')return send(res,error.message==='invalid_transcription'?400:422,{code:error.message,error:'음성을 확인하지 못했어요. 마이크를 누르고 다시 말씀해 주세요.'});
+   const unavailable=aiServiceUnavailable();return send(res,unavailable.status,unavailable.payload);
+  }
+ }
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='speech'){
   try{return send(res,200,await worksheetSpeech(payload));}catch(error){if(error instanceof AiServiceError)return send(res,error.status,error.payload);return send(res,503,{code:'speech_unavailable'});}
  }
