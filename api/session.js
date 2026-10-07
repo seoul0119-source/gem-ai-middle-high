@@ -9,6 +9,7 @@ import { SCIENCE_VARIANT_PREFIX } from "../lib/suneung-science-variants.js";
 import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
 import { isGuardedSuneungScienceCourse } from "../lib/suneung-science-safety.js";
 import {
+  assertStudentAccess,
   studentRegistration,
   clearStudentSession,
   isBlockedStudentId,
@@ -143,7 +144,7 @@ function findLoginRedirect(html, expectedId) {
 }
 
 async function loginStudent(rawId) {
-  const id = String(rawId || "").trim().toUpperCase();
+  const id = String(rawId || "").trim().toUpperCase().replace(/^([A-Z])-([0-9]{6})$/, "$1$2");
   if (!/^[A-Z][0-9]{6}$/.test(id)) {
     const error = new Error("학생 ID 형식을 확인해 주세요. 예: T260123");
     error.status = 400;
@@ -340,8 +341,8 @@ export default async function handler(request, response) {
     return serveStudentPage(request, response);
   }
   if (request.method === "GET") {
-    const student = readStudentSession(request);
-    if (!student) return sendJson(response, 401, { error: "등록된 학생 ID로 먼저 입장해 주세요." });
+    const student = await requireStudentSession(request,response);
+    if (!student) return;
     return sendJson(response, 200, {
       authenticated: true,
       student: { id: student.id, name: student.name, ...studentRegistration(student.id), ...(student.membership ? {membership:student.membership} : {}) },
@@ -365,15 +366,19 @@ export default async function handler(request, response) {
       return sendJson(response, valid?200:401, {valid});
     }
     if (action === "exchange-record-pass") {
+      const checked=verifyClassroomPass(body.ticket,body.audience);
+      if (checked) await assertStudentAccess(checked);
       const token=exchangeRecordPass(body.ticket,body.audience);
       return sendJson(response,token?200:401,token?{token}:{error:'Invalid entry'});
     }
     if (action === "verify-record-session") {
       const session=verifyRecordSession(body.token);
+      if (session) await assertStudentAccess(session);
       return sendJson(response,session?200:401,session?{session}:{error:'Invalid session'});
     }
     if (action === "verify-classroom-pass") {
       const pass = verifyClassroomPass(body.ticket, body.audience);
+      if (pass) await assertStudentAccess(pass);
       return sendJson(response, pass ? 200 : 401, pass ? {success:true, pass} : {error:"Invalid entry pass"});
     }
 
@@ -394,7 +399,7 @@ export default async function handler(request, response) {
       });
     }
 
-    const student = requireStudentSession(request, response);
+    const student = await requireStudentSession(request, response);
     if (!student) return;
 
     if (action === "resume-class-record") {

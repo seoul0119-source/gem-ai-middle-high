@@ -281,15 +281,15 @@ export default async function handler(req, res) {
   const action = String(req.method === "GET" ? req.query?.action || "session" : req.body?.action || "chat");
   if (req.method === "GET") {
     if (action !== "session") return sendJson(res, 400, { error:"Action non prise en charge." });
-    const student = readStudentSession(req);
-    if (!student) return sendJson(res, 401, { error:"Connecte-toi d'abord avec un identifiant d'élève enregistré." });
+    const student = await requireStudentSession(req,res);
+    if (!student) return;
     return sendJson(res, 200, { authenticated:true, student:{ id:student.id, name:student.name } });
   }
   if (req.method !== "POST") {
     res.setHeader("Allow", "GET, POST");
     return sendJson(res, 405, { error:"Requête non prise en charge." });
   }
-  const student = requireStudentSession(req, res);
+  const student = await requireStudentSession(req, res);
   if (!student) return;
   if (action === "session-start" || action === "session-end") {
     return sendJson(res, 410, {

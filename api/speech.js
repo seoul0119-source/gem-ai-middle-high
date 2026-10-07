@@ -287,7 +287,7 @@ export default async function handler(request, response) {
     return sendJson(response, 405, { error: "POST 요청만 사용할 수 있습니다." });
   }
 
-  const student = requireStudentSession(request, response);
+  const student = await requireStudentSession(request, response);
   if (!student) return;
 
   const apiKey = process.env.OPENAI_API_KEY;

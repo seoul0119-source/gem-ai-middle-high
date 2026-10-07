@@ -11,6 +11,9 @@ function doGet(e) {
     const params = (e && e.parameter) || {};
     const action = String(params.action || "login").trim();
 
+    if (action === 'member-admin') return gemAdminPage_(params);
+    if (action === 'access') return gemAccessResponse_(params);
+
     if (action === "start") {
       return startLesson_(params);
     }
@@ -523,7 +526,7 @@ var GEM_PLANS = {
   free1: {prefix:'F', label:'1개월 무료', months:1, amount:0},
   legacy: {prefix:'R', label:'기존 정규 등록', amount:0}
 };
-var GEM_COLUMNS = ['회원구분','이용시작일','이용만료시각','후원약정금액','발급요청키'];
+var GEM_COLUMNS = ['회원구분','이용시작일','이용만료시각','후원약정금액','발급요청키','이용승인상태','국제스피킹허용','승인요청메일','승인처리일'];
 function gemExpiry_(plan, start) {
   var p = GEM_PLANS[plan];
   if (!p) throw new Error('회원 구분을 확인해 주세요.');
@@ -555,7 +558,10 @@ function gemMembership_(sheet,row,values) {
   var start=cols[1]>=0 && values[cols[1]] ? new Date(values[cols[1]]) : new Date(values[0]);
   var expiry=cols[2]>=0 && values[cols[2]] ? new Date(values[cols[2]]) : gemExpiry_(plan,start);
   if((expiry && !isFinite(expiry.getTime())) || (!isFinite(start.getTime()) && plan!=='legacy'))throw new Error('이용 기간을 확인하지 못했습니다. 선교사무실에 문의해 주세요.');
-  return {plan:plan,label:GEM_PLANS[plan].label,startsAt:isFinite(start.getTime())?start.toISOString():null,expiresAt:expiry?expiry.toISOString():null};
+  var approval=cols[5]>=0 ? String(values[cols[5]]||'') : '';
+  var speaking=cols[6]>=0 ? String(values[cols[6]]||'') : '';
+  return {plan:plan,label:GEM_PLANS[plan].label,startsAt:isFinite(start.getTime())?start.toISOString():null,expiresAt:expiry?expiry.toISOString():null,
+    approvalStatus:approval || 'approved',speakingAllowed:plan!=='trial' && plan!=='free1' && speaking!=='차단',accessPolicyVersion:1};
 }
 function gemFindStudent_(id) {
   var sheet=gemSheet_(), rows=sheet.getDataRange().getValues();
@@ -563,6 +569,9 @@ function gemFindStudent_(id) {
   throw new Error('등록되지 않은 학생 ID입니다.');
 }
 function gemRequireActive_(student) {
+  if(student.membership.approvalStatus==='pending')throw new Error('후원 확인 후 이용할 수 있습니다. 확인 중이니 잠시 기다려 주세요.');
+  if(student.membership.approvalStatus==='blocked')throw new Error('이용이 중지된 회원 ID입니다. 선교사무실에 문의해 주세요.');
+  if(student.membership.approvalStatus!=='approved')throw new Error('회원 승인 상태를 확인해 주세요.');
   if(String(student.values[1]).trim().toUpperCase()==='R260001' || String(student.values[5]).trim()!=='등록')throw new Error('현재 이용할 수 없는 학생 ID입니다.');
   if(student.membership.expiresAt && new Date(student.membership.expiresAt).getTime()<=Date.now())throw new Error('학생 ID의 이용 기간이 만료되었습니다. 후원 안내에서 새 회원 ID를 발급받아 주세요.');
 }
@@ -616,17 +625,142 @@ function gemIssue_(params, representative) {
   var start=new Date(), expiry=gemExpiry_(data.plan,start), rowValues=new Array(Math.max(sheet.getLastColumn(),9)).fill('');
   rowValues[0]=start; rowValues[1]=id; rowValues[2]=data.name; rowValues[3]=data.grade; rowValues[4]=GEM_PLANS[data.plan].label; rowValues[5]='등록';
   rowValues[cols[0]]=data.plan; rowValues[cols[1]]=start.toISOString(); rowValues[cols[2]]=expiry?expiry.toISOString():''; rowValues[cols[3]]=data.amount; rowValues[cols[4]]=data.key;
+  var needsApproval=['month1','month2','month3','lifetime'].indexOf(data.plan)>=0;
+  rowValues[cols[5]]=needsApproval?'pending':'approved';
+  rowValues[cols[6]]=['trial','free1'].indexOf(data.plan)>=0?'차단':'허용';
+  rowValues[cols[7]]=needsApproval?'pending':'';
   sheet.appendRow(rowValues); SpreadsheetApp.flush();
-  return {success:true,studentId:id,name:data.name,grade:data.grade,membership:{plan:data.plan,label:GEM_PLANS[data.plan].label,startsAt:start.toISOString(),expiresAt:expiry?expiry.toISOString():null}};
+  return {success:true,studentId:id,name:data.name,grade:data.grade,membership:gemMembership_(sheet,sheet.getLastRow(),rowValues)};
 }
 function doPost(e) {
   var lock=LockService.getScriptLock();
-  try {lock.waitLock(15000); return createResponse_(gemIssue_(e && e.parameter || {}));}
-  catch(error){console.error(error.message);return createResponse_({success:false,message:error.message||'학생 등록에 실패했습니다.'});}
+  var params=e && e.parameter || {};
+  try {
+    lock.waitLock(15000);
+    if(params.action==='member-manage')return gemAdminAction_(params);
+    var result=gemIssue_(params);
+    if(result.membership.approvalStatus==='pending'){try{gemApprovalMail_(result.studentId);}catch(mailError){console.error('membership-mail-unavailable');}}
+    return createResponse_(result);
+  }
+  catch(error){console.error(error.message);return params.action==='member-manage'?createMessagePage_(error.message):createResponse_({success:false,message:error.message||'학생 등록에 실패했습니다.'});}
   finally{if(lock.hasLock())lock.releaseLock();}
 }
 function issueGemRepresentative_() {
   var lock=LockService.getScriptLock();
   try {lock.waitLock(15000);var result=gemIssue_({}, {name:'GEM 대표',grade:'GEM 대표',plan:'representative',amount:0,key:'gem-representative-owner-v1'}); console.log(JSON.stringify(result));}
   finally{if(lock.hasLock())lock.releaseLock();}
+}
+
+// Membership approval v1. GET requests never change approval or issue an ID.
+var GEM_APPROVAL_EMAIL = 'gemissions@gmail.com';
+function gemAdminIdentity_() {
+  var email=String(Session.getActiveUser().getEmail()||'').toLowerCase();
+  var owner=String(Session.getEffectiveUser().getEmail()||'').toLowerCase();
+  if(!email || email!==owner)throw new Error('학생관리 프로그램 소유자의 Google 계정으로 로그인한 뒤 이메일 링크를 다시 열어 주세요.');
+  return email;
+}
+function gemAdminUrl_(id) {
+  return ScriptApp.getService().getUrl()+'?action=member-admin'+(id?'&id='+encodeURIComponent(id):'');
+}
+function gemApprovalMail_(id) {
+  var s=gemFindStudent_(id),cols=gemColumns_(s.sheet,true),cell=s.sheet.getRange(s.row,cols[7]+1);
+  if(s.membership.approvalStatus!=='pending' || ['sending','sent','review'].indexOf(String(cell.getValue()))>=0)return;
+  if(MailApp.getRemainingDailyQuota()<1)return;
+  var link=gemAdminUrl_(id),name=String(s.values[2]),plan=s.membership.label;
+  // Once sending starts, an unknown outcome is reviewed by the owner rather
+  // than retried blindly. Replayed registration returns the original ID.
+  cell.setValue('sending');SpreadsheetApp.flush();
+  try {
+    MailApp.sendEmail({to:GEM_APPROVAL_EMAIL,subject:'[GEM] 회원 이용 승인 요청 · '+id,
+      body:name+'님 · '+id+' · '+plan+'\n후원 입금을 확인한 후 이용을 승인해 주세요.\n회원 확인·승인: '+link+'\n승인일부터 이용 기간이 시작됩니다.',
+      htmlBody:'<p>'+escapeHtml_(name)+'님 · '+escapeHtml_(id)+' · '+escapeHtml_(plan)+'</p><p>후원 입금을 확인한 후 이용을 승인해 주세요.</p><p><a href="'+escapeHtml_(link)+'">회원 확인·승인하기</a></p><p>승인일부터 이용 기간이 시작됩니다.</p>'});
+    cell.setValue('sent');
+  } catch(error) {cell.setValue('review');console.error('membership-approval-mail-unconfirmed');}
+}
+function gemCsrf_() {
+  var token=Utilities.getUuid()+Utilities.getUuid();
+  CacheService.getScriptCache().put('member-admin:'+token,gemAdminIdentity_(),1800);
+  return token;
+}
+function gemCheckCsrf_(token) {
+  var email=gemAdminIdentity_(),cache=CacheService.getScriptCache();
+  if(!token || cache.get('member-admin:'+token)!==email)throw new Error('관리 화면이 만료되었습니다. 이메일 링크에서 다시 열어 주세요.');
+  cache.remove('member-admin:'+token);
+}
+function gemAdminPage_(params,notice) {
+  gemAdminIdentity_();
+  var token=gemCsrf_(),url=ScriptApp.getService().getUrl(),esc=escapeHtml_;
+  function form_(command,content,id) {
+    return '<form method="post" action="'+esc(url)+'" target="_top"><input type="hidden" name="action" value="member-manage"><input type="hidden" name="command" value="'+esc(command)+'"><input type="hidden" name="csrf" value="'+esc(token)+'"><input type="hidden" name="id" value="'+esc(id||'')+'">'+content+'</form>';
+  }
+  var html='<h1>GEM 회원 관리</h1><p>후원 확인 후 승인 · 무료 이용권 발급 · 이용 중지</p>';
+  if(notice)html+='<p role="status" class="notice">'+esc(notice)+'</p>';
+  html+='<form method="get" action="'+esc(url)+'" target="_top"><input type="hidden" name="action" value="member-admin"><label>회원 ID <input name="id" maxlength="8" required placeholder="예: M260123"></label><button>회원 찾기</button></form>';
+  var id=String(params.id||'').trim().toUpperCase().replace(/^([A-Z])-([0-9]{6})$/,'$1$2');
+  if(id) {
+    var s=gemFindStudent_(id),m=s.membership,status={pending:'승인 대기',approved:'승인',blocked:'이용 중지'}[m.approvalStatus]||'확인 필요';
+    html+='<section><h2>'+esc(id)+' · '+esc(s.values[2])+'</h2><p>'+esc(s.values[3])+' · '+esc(m.label)+' · '+esc(status)+'</p><p>'+(m.approvalStatus==='pending'?'이용 기간은 승인일부터 시작합니다.':('이용 만료: '+esc(m.expiresAt?Utilities.formatDate(new Date(m.expiresAt),'Asia/Seoul','yyyy-MM-dd HH:mm')+' (한국 시간)':'없음')))+'</p><p>국제 스피킹반: '+(m.speakingAllowed?'허용':'차단')+'</p>';
+    if(m.approvalStatus==='pending')html+=form_('approve','<button>후원 확인 · 이용 승인</button>',id);
+    else if(m.approvalStatus==='blocked')html+=form_('restore','<button>기존 이용 기간으로 중지 해제</button>',id);
+    else html+=form_('block','<label><input type="checkbox" name="confirmed" value="yes" required> 이 회원의 수업 이용을 중지합니다.</label><button>이용 중지</button>',id);
+    if(id.charAt(0)!=='D' && m.plan!=='trial' && m.speakingAllowed)html+=form_('speaking-block','<button>무료 이용권으로 관리 · 국제 스피킹반 차단</button><p>현재 ID와 만료일을 유지합니다.</p>',id);
+    if(m.plan!=='trial' && m.plan!=='free1' && !m.speakingAllowed)html+=form_('speaking-allow','<button>후원 회원 · 국제 스피킹반 허용</button>',id);
+    var cols=gemColumns_(s.sheet,false),mail=cols[7]>=0?String(s.values[cols[7]]||''):'';
+    if(m.approvalStatus==='pending')html+='<p>승인 요청 이메일: '+esc(({pending:'발송 대기',sending:'발송 결과 확인 필요',sent:'발송 완료',review:'발송 결과 확인 필요'})[mail]||'기존 등록')+'</p>';
+    html+='</section>';
+  }
+  var sheet=gemSheet_(),rows=sheet.getDataRange().getValues(),cols=gemColumns_(sheet,false),pending=cols[5]<0?[]:rows.slice(1).filter(function(r){return r[cols[5]]==='pending';});
+  html+='<section><h2>승인 대기 '+pending.length+'명</h2><ul>';
+  pending.slice(-100).reverse().forEach(function(r){html+='<li><a href="'+esc(gemAdminUrl_(r[1]))+'" target="_top">'+esc(r[1])+' · '+esc(r[2])+'</a></li>';});
+  html+='</ul></section><section><h2>무료 1개월 이용권 발급</h2><p>F로 시작하는 ID · 후원 승인 없이 1개월 이용 · 국제 스피킹반 제외</p>';
+  html+=form_('free','<input type="hidden" name="requestKey" value="'+esc(Utilities.getUuid())+'"><label>학생 이름<input name="name" maxlength="40" required></label><label>학년<input name="grade" maxlength="40" required placeholder="예: 초등학교 3학년"></label><button>무료 ID 발급</button>');
+  html+='</section>';
+  return HtmlService.createHtmlOutput('<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>GEM 회원 관리</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 18px;color:#183344;background:#f5fafb}section{background:white;border:1px solid #dce6eb;border-radius:14px;padding:20px;margin:20px 0}label{display:block;margin:12px 0}input:not([type=checkbox]){display:block;font:inherit;padding:9px;width:90%;max-width:360px}button{font:inherit;background:#166078;color:white;border:0;padding:11px 18px;border-radius:8px;cursor:pointer;margin:6px 0}a{color:#125b83}.notice{background:#e4f5ec;padding:16px}</style></head><body>'+html+'</body></html>');
+}
+function gemAdminAction_(params) {
+  gemCheckCsrf_(String(params.csrf||''));
+  var command=String(params.command||''),id=String(params.id||'').trim().toUpperCase();
+  if(command==='free') {
+    var name=String(params.name||'').trim(),grade=String(params.grade||'').trim(),key=String(params.requestKey||'');
+    if(!name || !grade || name.length>40 || grade.length>40 || /^[=+@-]/.test(name) || /^[=+@-]/.test(grade) || /[<>\x00-\x1f]/.test(name+grade) || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(key))throw new Error('학생 이름과 학년을 확인해 주세요.');
+    var issued=gemIssue_({}, {name:name,grade:grade,plan:'free1',amount:0,key:key});
+    return gemAdminPage_({id:issued.studentId},'무료 1개월 ID가 발급되었습니다. 학생에게 이 ID를 전달해 주세요.');
+  }
+  var s=gemFindStudent_(id),cols=gemColumns_(s.sheet,true),m=s.membership;
+  if(command==='approve') {
+    if(m.approvalStatus!=='pending')return gemAdminPage_({id:id},'이미 처리된 회원입니다. 이용 기간은 변경하지 않았습니다.');
+    var start=new Date(),expiry=gemExpiry_(m.plan,start);
+    s.sheet.getRange(s.row,cols[1]+1).setValue(start.toISOString());
+    s.sheet.getRange(s.row,cols[2]+1).setValue(expiry?expiry.toISOString():'');
+    s.sheet.getRange(s.row,cols[8]+1).setValue(start.toISOString());
+    s.sheet.getRange(s.row,cols[5]+1).setValue('approved');
+  } else if(command==='block') {
+    if(id.charAt(0)==='D' || params.confirmed!=='yes')throw new Error('대표 ID는 여기서 중지할 수 없습니다. 일반 회원 중지는 확인란을 선택해 주세요.');
+    s.sheet.getRange(s.row,cols[5]+1).setValue('blocked');
+  } else if(command==='restore') {
+    if(m.approvalStatus!=='blocked')throw new Error('중지된 회원만 해제할 수 있습니다.');
+    s.sheet.getRange(s.row,cols[5]+1).setValue('approved');
+  } else if(command==='speaking-block' || command==='speaking-allow') {
+    if(id.charAt(0)==='D' || (command==='speaking-allow' && ['trial','free1'].indexOf(m.plan)>=0))throw new Error('이 회원의 국제 스피킹반 권한은 변경할 수 없습니다.');
+    s.sheet.getRange(s.row,cols[6]+1).setValue(command==='speaking-block'?'차단':'허용');
+  } else throw new Error('관리 작업을 확인해 주세요.');
+  SpreadsheetApp.flush();return gemAdminPage_({id:id},'회원 이용 설정이 저장되었습니다.');
+}
+function gemAccessResponse_(params) {
+  var data;
+  try {
+    var session=String(params.session||'');
+    if(!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session))throw new Error('등록된 학생 ID로 먼저 입장해 주세요.');
+    var log=getOrCreateLogSheet_(SpreadsheetApp.openById(SPREADSHEET_ID)),row=findSessionRow_(log,session);
+    if(!row)throw new Error('등록된 학생 ID로 먼저 입장해 주세요.');
+    var id=String(log.getRange(row,3).getValue()).trim().toUpperCase(),student=gemFindStudent_(id);
+    gemRequireActive_(student);data={success:true,id:id,membership:student.membership};
+  }catch(error){data={success:false,message:error.message||'회원 이용 상태를 확인해 주세요.'};}
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function authorizeGemMembership_() {
+  gemAdminIdentity_();
+  MailApp.getRemainingDailyQuota();
+  console.log('회원 승인 이메일 권한을 확인했습니다.');
 }

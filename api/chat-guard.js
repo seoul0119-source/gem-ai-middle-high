@@ -86,7 +86,7 @@ export default async function handler(request, response) {
   if (course?.kind === "english") {
     // The no-answer branch below returns before chat.js, so validate the exact
     // active course run here before mutating prompts or returning any content.
-    const student = requireStudentSession(request, response);
+    const student = await requireStudentSession(request, response);
     if (!student) return;
     if (!isActiveCourseRun(student, courseId, request.body?.courseRunId)) {
       return sendJson(response, 409, {

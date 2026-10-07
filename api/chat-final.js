@@ -215,7 +215,7 @@ export default async function handler(request, response) {
 
   // This wrapper can answer a no-answer request before the shared chat handler
   // runs, so it must enforce the same signed course-run boundary itself.
-  const student = requireStudentSession(request, response);
+  const student = await requireStudentSession(request, response);
   if (!student) return;
   if (!isActiveCourseRun(student, courseId, request.body?.courseRunId)) {
     return sendJson(response, 409, {
