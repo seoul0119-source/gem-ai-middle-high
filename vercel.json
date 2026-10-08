@@ -29,6 +29,18 @@
     },
     "api/chat-final.js": {
       "maxDuration": 300
+    },
+    "api/library-job.js": {
+      "maxDuration": 300
+    },
+    "api/library-daily.js": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/library-daily",
+      "schedule": "0 21 * * *"
+    }
+  ]
 }
