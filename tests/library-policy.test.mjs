@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {allowedUrl,blockedText,acceptReview,inspectBook,reviewSchema} from '../lib/library-core.js';
-import {verifyLibraryRequest,narrationText} from '../api/library-job.js';
+import {verifyLibraryRequest,narrationText} from '../lib/library-job.js';
 test('only approved HTTPS source pages and assets are fetched',()=>{
  assert.equal(allowedUrl('https://bookdash.org/books/hello/'),true);
  for(const u of ['http://bookdash.org/books/hello/','https://bookdash.org.evil.test/books/hello/','https://bookdash.org@127.0.0.1/books/hello/','https://bookdash.org:444/books/hello/','https://bookdash.org/books/hello/?url=evil'])assert.equal(allowedUrl(u),false);

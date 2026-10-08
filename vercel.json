@@ -16,6 +16,14 @@
       "dest": "/api/chat-final"
     },
     {
+      "src": "/api/library-job/?",
+      "dest": "/api/chat-final?gemLibrary=job-v1"
+    },
+    {
+      "src": "/api/library-daily/?",
+      "dest": "/api/chat-final?gemLibrary=daily-v1"
+    },
+    {
       "handle": "filesystem"
     }
   ],
@@ -28,12 +36,6 @@
       "maxDuration": 180
     },
     "api/chat-final.js": {
-      "maxDuration": 300
-    },
-    "api/library-job.js": {
-      "maxDuration": 300
-    },
-    "api/library-daily.js": {
       "maxDuration": 300
     }
   },

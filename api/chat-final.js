@@ -1,3 +1,5 @@
+import libraryJob from "../lib/library-job.js";
+import libraryDaily from "../lib/library-daily.js";
 import chatHandler from "./chat.js";
 import { getCourse } from "./courses.js";
 import { isActiveCourseRun, requireStudentSession } from "../lib/student-session.js";
@@ -209,6 +211,9 @@ function collectMessageActivities(messages) {
 }
 
 export default async function handler(request, response) {
+  // Dedicated signed library routes share capacity without changing classroom handling.
+  if (request.query?.gemLibrary === "job-v1") return libraryJob(request, response);
+  if (request.query?.gemLibrary === "daily-v1") return libraryDaily(request, response);
   const courseId = String(request.body?.courseId || "");
   const course = getCourse(courseId);
   if (course?.kind !== "english" || course.suneung || course.ged) return chatHandler(request, response);
