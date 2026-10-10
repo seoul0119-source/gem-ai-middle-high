@@ -6,6 +6,20 @@
   <title>GEM AI CLASS 학생 입장</title>
 
   <style>
+    [hidden] { display: none !important; }
+    .entrance-modes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 22px; }
+    .entrance-mode { margin:0; min-height:66px; padding:12px 8px; border:2px solid #d4deec; border-radius:12px; background:#f8fbff; color:#173d70; line-height:1.4; font-size:16px; }
+    .entrance-mode small { display:block; margin-top:4px; font-size:12px; font-weight:normal; }
+    .entrance-mode[aria-pressed="true"] { border-color:#1e67c6; background:#eaf3ff; box-shadow:0 0 0 3px #1e67c618; }
+    .entrance-mode[data-mode="exams"][aria-pressed="true"] { border-color:#7654b3; background:#f4edff; }
+    .korean-grade-section { margin:-12px 0 28px; padding:18px; border:1px solid #d7e2f0; border-radius:14px; background:#f7faff; }
+    .korean-grade-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .korean-subject-section { display:block; }
+    .lesson-mode { width:100%; font:inherit; color:#173d70; padding:12px; border:1px solid #c5d7eb; border-radius:10px; background:white; }
+    .lesson-mode-label { margin-top:18px; font-size:14px; }
+    .support-option[data-support="ged"] { grid-column:1 / -1; }
+    .support-section#exam-program { margin-top:0; }
+    button:focus-visible, select:focus-visible { outline:3px solid #1684ef; outline-offset:3px; }
     * {
       box-sizing: border-box;
     }
@@ -342,6 +356,11 @@
       background: #144f9d;
     }
 
+    .entrance-mode:hover, .language-option:hover, .school-level-option:hover,
+    .subject-option:hover, .support-option:hover, .high-school-pathway-option:hover {
+      background: #edf4ff;
+    }
+
     button:disabled {
       cursor: wait;
       opacity: .7;
@@ -386,15 +405,19 @@
       }
 
       .language-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .language-option {
         min-height: 0;
+        padding: 12px 5px;
+        font-size: 12px;
       }
 
+      .language-option strong, .school-level-option strong { font-size: 13px; }
+
       .school-level-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .high-school-pathway-grid {
@@ -531,6 +554,11 @@
         등록된 학생 ID로 입장합니다.
       </p>
 
+      <div class="entrance-modes" role="group" aria-label="일반 과정과 시험·연구반 선택">
+        <button type="button" class="entrance-mode" data-mode="regular" aria-pressed="true" aria-controls="regular-program">📚 일반 과정반<small>한국 · 영어 · 프랑스</small></button>
+        <button type="button" class="entrance-mode" data-mode="exams" aria-pressed="false" aria-controls="exam-program">🎯 시험·연구반<small>수능 · 토익 토플 · 검정고시 등</small></button>
+      </div>
+      <div id="regular-program">
       <div class="language-grid" role="group" aria-label="언어와 교육과정 선택">
         <button class="language-option" type="button" data-language="ko" aria-pressed="true">
           <span aria-hidden="true">🇰🇷</span>
@@ -567,6 +595,21 @@
         </div>
       </div>
 
+      <div id="korean-course-section">
+        <div class="korean-grade-section">
+          <span id="korean-grade-title" class="school-level-title">학년 선택</span>
+          <div id="korean-grade-grid" class="korean-grade-grid" role="group" aria-labelledby="korean-grade-title"></div>
+        </div>
+        <div class="subject-section korean-subject-section">
+          <span id="korean-subject-title" class="subject-title">과목 선택</span>
+          <div id="korean-subject-grid" class="subject-grid" role="group" aria-labelledby="korean-subject-title"></div>
+          <label class="lesson-mode-label" for="korean-lesson-mode">수업 방식 선택</label>
+          <select id="korean-lesson-mode" class="lesson-mode">
+            <option value="worksheet">자동 10문제 학습지 수업</option>
+            <option value="conversation">기존 대화형 수업</option>
+          </select>
+        </div>
+      </div>
       <div id="subject-section" class="subject-section" aria-live="polite">
         <span id="subject-title" class="subject-title">Choose a subject</span>
         <div class="subject-grid" role="group" aria-labelledby="subject-title">
@@ -596,8 +639,9 @@
         <div id="high-school-pathway-grid" class="high-school-pathway-grid" role="group" aria-labelledby="high-school-pathway-title"></div>
       </div>
 
-      <div class="support-section" aria-live="polite">
-        <span class="support-title">시험·연구·글쓰기 선택과목</span>
+      </div>
+      <div id="exam-program" class="support-section" aria-live="polite" hidden>
+        <span class="support-title">시험·연구반</span>
         <span class="support-subtitle">Exam &amp; Academic Support · 학생 ID로 입장합니다.</span>
         <div class="support-grid" role="group" aria-label="시험 및 학술 선택과목">
           <button class="support-option" type="button" data-support="sat" aria-pressed="false">
@@ -611,6 +655,15 @@
           </button>
           <button class="support-option" type="button" data-support="bac" aria-pressed="false">
             <strong>🇫🇷 Bac Méthodologie</strong><span>Écrit · Oral · Recherche</span>
+          </button>
+          <button class="support-option" type="button" data-support="suneung" aria-pressed="false">
+            <strong>🎯 한국 수능반</strong><span>2027 · 2028학년도</span>
+          </button>
+          <button class="support-option" type="button" data-support="toeic-toefl" aria-pressed="false">
+            <strong>🔤 토익 토플반</strong><span>TOEIC · TOEFL</span>
+          </button>
+          <button class="support-option" type="button" data-support="ged" aria-pressed="false">
+            <strong>🎓 검정고시반</strong><span>초졸 · 중졸 · 고졸</span>
           </button>
         </div>
       </div>
@@ -669,6 +722,7 @@
       </button>
     </div>
   </dialog>
+  <script src="/entrance-catalog.js"></script>
   <script>
     let registrationLanguage = "ko";
     let registrationState = "";
@@ -782,7 +836,11 @@
     document.getElementById("choose-class").addEventListener("click", () => {
       const grade = document.getElementById("registration-grade").value || sessionValue("gem-issued-grade-v1");
       const gradeIndex = registrationGrades[registrationLanguage].indexOf(grade);
-      if (registrationLanguage !== "ko" && gradeIndex >= 0) {
+      selectLanguage(registrationLanguage);
+      if (registrationLanguage === "ko" && gradeIndex >= 0) {
+        selectedKoreanGrade = gradeIndex < 6 ? gradeIndex + 1 : gradeIndex < 9 ? gradeIndex - 5 : gradeIndex - 8;
+        selectSchoolLevel(gradeIndex < 6 ? "elementary" : gradeIndex < 9 ? "middle" : "high");
+      } else if (gradeIndex >= 0) {
         const middleEnd = registrationLanguage === "en" ? 8 : 9;
         selectSchoolLevel(gradeIndex < 5 ? "elementary" : gradeIndex < middleEnd ? "middle" : "high");
       }
@@ -845,7 +903,10 @@
       sat: "https://gem-sat-prep-support.seoul0119.chatgpt.site",
       act: "https://gem-act-prep-support.seoul0119.chatgpt.site",
       ib: "https://gem-ib-diploma-support.seoul0119.chatgpt.site",
-      bac: "https://gem-baccalaureat-methodologie.seoul0119.chatgpt.site"
+      bac: "https://gem-baccalaureat-methodologie.seoul0119.chatgpt.site",
+      suneung: "/suneung.html",
+      "toeic-toefl": "/class.html?mode=exams#english-extra",
+      ged: "/class.html?mode=exams#ged-entrance"
     };
     const languageRoutes = {
       ko: "/class.html",
@@ -967,6 +1028,55 @@
     let selectedHighSchoolPathway = "general";
     let selectedSubject = "math";
     let selectedSupportCourse = "";
+    let selectedEntranceMode = "regular";
+    let selectedKoreanGrade = 1;
+    let selectedKoreanSubject = "math";
+    const entranceModes = [...document.querySelectorAll(".entrance-mode")];
+
+    function selectEntranceMode(mode) {
+      selectedEntranceMode = mode === "exams" ? "exams" : "regular";
+      const exams = selectedEntranceMode === "exams";
+      document.getElementById("regular-program").hidden = exams;
+      document.getElementById("exam-program").hidden = !exams;
+      entranceModes.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === selectedEntranceMode)));
+      if (exams) {
+        selectedSupportCourse ||= "suneung";
+        supportOptions.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.support === selectedSupportCourse)));
+      } else {
+        selectedSupportCourse = "";
+        supportOptions.forEach(button => button.setAttribute("aria-pressed", "false"));
+        writeLocalStorageValue("gem-support-course", "");
+      }
+      loginError.textContent = "";
+      updateLoginButtonLabel();
+    }
+
+    function updateKoreanChoices() {
+      document.getElementById("korean-course-section").hidden = selectedLanguage !== "ko";
+      if (selectedLanguage !== "ko") return;
+      const school = GEMEntrance.schools[selectedSchoolLevel];
+      if (selectedKoreanGrade > school.grades) selectedKoreanGrade = 1;
+      const choices = GEMEntrance.choices(selectedSchoolLevel, selectedKoreanGrade);
+      if (!choices.some(item => item.subject === selectedKoreanSubject)) selectedKoreanSubject = "math";
+      document.getElementById("korean-grade-grid").innerHTML = Array.from({length:school.grades}, (_, i) =>
+        `<button type="button" class="school-level-option" data-korean-grade="${i+1}" aria-pressed="${selectedKoreanGrade === i+1}">${i+1}학년</button>`).join("");
+      document.getElementById("korean-subject-grid").innerHTML = choices.map(item =>
+        `<button type="button" class="subject-option" data-korean-subject="${item.subject}" aria-pressed="${selectedKoreanSubject === item.subject}"><strong>${item.label}</strong><span>${item.grade}</span></button>`).join("");
+      document.querySelectorAll("[data-korean-grade]").forEach(button => button.addEventListener("click", () => {
+        selectedKoreanGrade = Number(button.dataset.koreanGrade); updateKoreanChoices(); updateLoginButtonLabel();
+      }));
+      document.querySelectorAll("[data-korean-subject]").forEach(button => button.addEventListener("click", () => {
+        selectedKoreanSubject = button.dataset.koreanSubject; updateKoreanChoices(); updateLoginButtonLabel();
+      }));
+    }
+
+    function selectedKoreanCourse() {
+      return GEMEntrance.course(selectedSchoolLevel, selectedKoreanGrade, selectedKoreanSubject);
+    }
+
+    function koreanDestination(materials = false) {
+      return GEMEntrance.destination(selectedKoreanCourse(), document.getElementById("korean-lesson-mode").value, materials);
+    }
 
     function writeLocalStorageValue(key, value) {
       try {
@@ -982,7 +1092,12 @@
     function updateLoginButtonLabel() {
       if (selectedSupportCourse) {
         const label = document.querySelector(`[data-support="${selectedSupportCourse}"] strong`)?.textContent || "Academic Support";
-        loginButton.textContent = `🚀 Enter ${label.replace(/^\S+\s/, "")}`;
+        loginButton.textContent = `🚀 ${label} 입장`;
+        return;
+      }
+      if (selectedLanguage === "ko") {
+        const item = selectedKoreanCourse();
+        loginButton.textContent = item ? `${item.grade} ${item.label} 입장` : "학년과 과목을 선택해 주세요";
         return;
       }
       if ((selectedLanguage === "en" || selectedLanguage === "fr") && selectedSubject === "social") {
@@ -1055,6 +1170,7 @@
     }
 
     function updateSubjectSection() {
+      updateKoreanChoices();
       const isVisible = selectedLanguage === "en" || selectedLanguage === "fr";
       subjectSection.classList.toggle("is-visible", isVisible);
       if (isVisible) {
@@ -1085,6 +1201,7 @@
     function selectLanguage(language) {
       if (registrationBusy && !registrationForm.hidden) return;
       selectedLanguage = language;
+      selectEntranceMode("regular");
       updateRegistrationLanguage(language);
       selectedSupportCourse = "";
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
@@ -1092,9 +1209,17 @@
       languageOptions.forEach((option) => {
         option.setAttribute("aria-pressed", String(option.dataset.language === language));
       });
-      const hasSchoolLevels = language === "en" || language === "fr";
+      const hasSchoolLevels = ["ko", "en", "fr"].includes(language);
       schoolLevelSection.classList.toggle("is-visible", hasSchoolLevels);
-      if (language === "fr") {
+      if (language === "ko") {
+        schoolLevelTitle.textContent = "학교급 선택";
+        elementaryLabel.textContent = "초등학교";
+        elementaryGrades.textContent = "1–6학년";
+        middleLabel.textContent = "중학교";
+        middleGrades.textContent = "1–3학년";
+        highLabel.textContent = "고등학교";
+        highGrades.textContent = "1–3학년";
+      } else if (language === "fr") {
         schoolLevelTitle.textContent = "Choisir le niveau scolaire";
         elementaryLabel.textContent = "École primaire";
         elementaryGrades.textContent = "CP–CM2";
@@ -1208,6 +1333,10 @@
         "https://gem-french-middle-school-math.seoul0119.chatgpt.site": "fr"
       };
       const target = new URL(destination, location.origin);
+      if (target.origin === location.origin) {
+        location.replace(target.pathname + target.search + target.hash);
+        return;
+      }
       const classroom = classrooms[target.origin];
       if (!classroom) {
         const {RECORD_CLASSROOMS}=await import('/lib/classroom-catalog.js');
@@ -1223,7 +1352,7 @@
         const input = document.createElement("input"); input.type="hidden"; input.name="ticket"; input.value=data.ticket;
         form.append(input); document.body.append(form); form.submit();
       } catch(error) {
-        loginError.textContent=error.message; loginButton.disabled=false; updateLoginButtonLabel();
+        loginError.textContent=error.message; loginButton.disabled=false; document.getElementById("materials-login").disabled=false; updateLoginButtonLabel();
       }
     }
 
@@ -1272,14 +1401,15 @@
     });
 
     function selectSupportCourse(course) {
+      if (!supportRoutes[course]) return;
       selectedSupportCourse = course;
+      selectEntranceMode("exams");
       writeLocalStorageValue("gem-support-course", course);
       supportOptions.forEach((option) => option.setAttribute("aria-pressed", String(option.dataset.support === course)));
-      subjectOptions.forEach((option) => option.setAttribute("aria-pressed", "false"));
-      highSchoolPathwayGrid.querySelectorAll(".high-school-pathway-option").forEach((option) => option.setAttribute("aria-pressed", "false"));
       updateLoginButtonLabel();
     }
 
+    entranceModes.forEach(button => button.addEventListener("click", () => selectEntranceMode(button.dataset.mode)));
     languageOptions.forEach((option) => {
       if (!option.disabled) {
         option.addEventListener("click", () => selectLanguage(option.dataset.language));
@@ -1306,11 +1436,18 @@
       if (registrationGrades[savedProgram].includes(savedGrade)) document.getElementById("registration-grade").value = savedGrade;
     }
 
+    const entranceParams = new URLSearchParams(location.search);
+    if (["ko", "en", "fr"].includes(entranceParams.get("language"))) selectLanguage(entranceParams.get("language"));
+    if (entranceParams.get("mode") === "exams") selectEntranceMode("exams");
+    if (supportRoutes[entranceParams.get("exam")]) selectSupportCourse(entranceParams.get("exam"));
+
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const studentId = studentIdInput.value.trim().toUpperCase();
       loginError.textContent = "";
+      if (loginButton.disabled) return;
       loginButton.disabled = true;
+      document.getElementById("materials-login").disabled = true;
       loginButton.textContent = "등록 확인 및 입장 기록 중…";
 
       try {
@@ -1325,22 +1462,30 @@
         const selectedRoute = selectedSupportCourse
           ? supportRoutes[selectedSupportCourse]
           : selectedLanguage === "ko"
-          ? languageRoutes.ko
+          ? koreanDestination()
           : selectedSchoolLevel !== "high"
             ? schoolLevelRoute?.[selectedSubject]
           : selectedSchoolLevel === "high"
             ? schoolLevelRoute?.[selectedSubject]?.[selectedHighSchoolPathway]
             : schoolLevelRoute;
         const wantsMaterials = event.submitter?.id === "materials-login" || new URLSearchParams(location.search).has("materials");
-        const params=new URLSearchParams(location.search);params.delete("materials");if(!params.has("language"))params.set("language",selectedLanguage);
+        const params=new URLSearchParams(location.search);params.delete("materials");
+        // Keep an explicit return-to-materials course intact; otherwise use the visible selection.
+        if (!entranceParams.has("materials")) {
+          ["course", "classroom", "recordClassroom", "mode", "exam", "entry"].forEach(key => params.delete(key));
+          params.set("language", selectedSupportCourse ? (selectedSupportCourse === "bac" ? "fr" : ["sat","act","ib"].includes(selectedSupportCourse) ? "en" : "ko") : selectedLanguage);
+        }
+        const materialsDestination = selectedLanguage === "ko" && !selectedSupportCourse && !entranceParams.has("materials")
+          ? koreanDestination(true) : "/materials.html?" + params.toString();
         const recordClassroom = new URLSearchParams(location.search).get("recordClassroom");
-        const destination = recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? "/materials.html?"+params.toString() : selectedRoute || data.redirect || "/class.html";
+        const destination = recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? materialsDestination : selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
-        void enterClassroom(destination);
+        await enterClassroom(destination);
       } catch (error) {
         loginError.textContent = error.message || "입장 연결 중 문제가 발생했습니다.";
         loginButton.disabled = false;
+        document.getElementById("materials-login").disabled = false;
         updateLoginButtonLabel();
         studentIdInput.focus();
       }

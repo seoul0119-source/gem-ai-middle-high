@@ -6,6 +6,12 @@
 <title>GEM AI CLASS 초·중·고 학습관</title>
 
 <style>
+[hidden]{display:none!important}
+.entrance-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 20px}
+.entrance-nav a{padding:14px 10px;border:2px solid #d4deec;border-radius:12px;text-align:center;text-decoration:none;color:#173d70;background:#fff;font-weight:700}
+.entrance-nav a[aria-current="page"]{border-color:#2167c2;background:#eaf3ff}
+.entrance-nav a:focus-visible{outline:3px solid #1684ef;outline-offset:3px}
+
 :root{--navy:#173d70;--blue:#1e67c6;--line:#ccdaea;--muted:#52657e}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -79,14 +85,18 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
 <main class="container">
 
     <section class="intro">
-        <h2>나만의 학습 홈페이지</h2>
-        <p>초등·중등·고등 과정별로 원하는 과목을 찾아 수업을 시작하세요.</p>
+        <h2 id="class-home-title">일반 과정반 · 한국 교육과정</h2>
+        <p id="class-home-description">초등·중등·고등 과정별로 원하는 과목을 찾아 수업을 시작하세요.</p>
         <div class="student-session">
             <span><strong id="student-name">등록 학생</strong> · <span id="student-id"></span> · <span id="student-registration"></span></span>
             <div class="student-actions"><a class="library-link" href="/materials.html">📚 수업 자료실</a><button id="logout" class="logout" type="button">수업 종료·나가기</button></div>
         </div>
     </section>
 
+    <nav class="entrance-nav" aria-label="수업 과정 이동">
+      <a href="/class.html" data-entrance="regular" aria-current="page">📚 일반 과정반</a>
+      <a href="/class.html?mode=exams" data-entrance="exams">🎯 시험·연구반</a>
+    </nav>
     <section class="course-picker" aria-labelledby="course-picker-title">
         <div class="section-heading"><h2 id="course-picker-title">학년별 과목 찾기</h2><p>학교 과정과 학년을 선택한 뒤, 공부할 과목을 누르세요.</p></div>
         <div class="school-tabs" role="group" aria-label="학교 과정 선택">
@@ -199,8 +209,8 @@ header{padding:22px 16px}.container{width:calc(100% - 24px);margin-top:16px}
         </section>
     </section>
 
-    <section class="extra-courses" aria-labelledby="extra-title">
-      <div class="section-heading"><h2 id="extra-title">시험 대비 · 토익 토플</h2><p>필요한 과정을 선택하세요.</p></div>
+    <section class="extra-courses" aria-labelledby="extra-title" hidden>
+        <div class="section-heading"><h2 id="extra-title">수능 · 토익 토플 · 검정고시</h2><p>필요한 과정을 선택하세요. SAT·ACT·IB·Bac는 <a href="/?mode=exams">시험·연구반 입구</a>에서 선택할 수 있습니다.</p></div>
         <details id="ged-entrance" class="elementary-grade" style="grid-column:1/-1"><summary>🎓 검정고시반 · 초졸·중졸·고졸</summary>
         <details id="ged-elementary" class="elementary-grade" style="grid-column:1/-1">
           <summary>🎓 초졸 검정고시</summary>
@@ -326,9 +336,21 @@ schoolTabs.forEach((tab, index) => {
         if(next !== undefined){ event.preventDefault(); selectSchool(schoolTabs[next].dataset.school, true); }
     });
 });
+function showCourseGroup(exams){
+    document.querySelector('.course-picker').hidden = exams;
+    document.querySelector('.extra-courses').hidden = !exams;
+    document.getElementById('class-home-title').textContent = exams ? '시험·연구반 · 한국 과정' : '일반 과정반 · 한국 교육과정';
+    document.getElementById('class-home-description').textContent = exams ? '수능·토익 토플·검정고시 중 공부할 과정을 선택하세요.' : '초등·중등·고등 과정별로 원하는 과목을 찾아 수업을 시작하세요.';
+    document.querySelectorAll('[data-entrance]').forEach(link => {
+        if(link.dataset.entrance === (exams ? 'exams' : 'regular')) link.setAttribute('aria-current','page');
+        else link.removeAttribute('aria-current');
+    });
+}
+showCourseGroup(new URLSearchParams(location.search).get('mode') === 'exams' || /^(#ged-|#english-extra)/.test(location.hash));
 function restoreElementaryGrade(){
     const target = document.getElementById(location.hash.slice(1));
     if(!target?.classList.contains('elementary-grade')) return;
+    showCourseGroup(Boolean(target.closest('.extra-courses')));
     const panel = target.closest('.school-panel');
     if(panel) selectSchool(panel.id.replace('school-', ''));
     target.open = true;

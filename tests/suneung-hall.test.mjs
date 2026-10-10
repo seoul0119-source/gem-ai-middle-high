@@ -1047,7 +1047,7 @@ test("offers the seven requested Suneung subject groups behind the student sessi
   assert.match(suneungHtml, /location\.replace\("\/"\)/);
   assert.match(suneungHtml, /method:\s*"POST"/);
   assert.match(suneungHtml, /JSON\.stringify\(\{ action:\s*"logout" \}\)/);
-  assert.match(suneungHtml, /href="\/class\.html"/);
+  assert.match(suneungHtml, /href="\/class\.html\?mode=exams"/);
   assert.match(suneungHtml, /role="status" aria-live="polite"/);
   assert.match(suneungHtml, /subjectButtons\.forEach\(\(item\) => item\.setAttribute\("aria-pressed", String\(item === button\)\)\)/);
   assert.match(suneungHtml, /if \(!selectedYear\) return;/);
