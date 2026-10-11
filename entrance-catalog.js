@@ -6,9 +6,9 @@
     high: { label: '고등학교', prefix: 'h', grades: 3 }
   };
   const subjects = {
-    korean: '📘 국어', math: '📐 수학', english: '🔤 영어',
-    integrated: '🌱 통합교과', social: '🌏 사회', science: '🔬 과학',
-    ethics: '🤝 도덕', history: '🏛️ 한국사'
+    korean: '국어', math: '수학', english: '영어',
+    integrated: '통합교과', social: '사회', science: '과학',
+    ethics: '도덕', history: '한국사'
   };
   function choices(level, grade) {
     const school = schools[level];
