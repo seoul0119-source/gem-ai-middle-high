@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateScienceIntro,generateScienceRemainder,generateSciencePractice,askScienceBoard,SCIENCE_TOPICS,getScienceTopic,scienceLessonIssues,scienceSceneIssues} from '../lib/science-board-content.js';
 const approved={valid:true,issues:[]};
-const narration='코일을 지나는 자기 선속은 자기장과 코일의 면적 및 방향에 따라 정해집니다. 자기장이 일정하더라도 코일의 방향이 달라지면 선속이 변할 수 있습니다. 반대로 코일을 움직여도 선속이 일정하면 유도 기전력이 생기지 않습니다. 여기서는 자기장이 코일 면에 수직이고 면 안에서 균일한 경우를 먼저 생각하겠습니다. 선속의 변화와 변화에 걸린 시간을 각각 확인하면 다음 단계의 계산을 이해할 수 있습니다.';
+const narration='자석과 닫힌 도선 코일을 준비하고, 코일은 움직이지 않게 둡니다. 자석을 코일 가까이 가져가면 코일을 지나는 자기 선속이 변하면서 유도 기전력이 생깁니다. 여기서 자기 선속은 코일을 통과하는 자기장을 면적과 방향까지 고려해 나타낸 양이라고 이해하면 됩니다. 닫힌 도선으로 연결되어 있으므로 이때 유도 전류가 흐를 수 있습니다. 반대로 자석을 멈추고 다른 조건도 그대로 두면 선속이 변하지 않아 유도 기전력이 생기지 않습니다. 핵심은 움직임 자체가 아니라 선속의 변화입니다. 또한 도선이 끊어진 경우에는 기전력이 생기더라도 닫힌 경로가 없어 전류가 계속 흐르지 못합니다.';
 const scene=(title='자기 선속의 변화')=>({title,lines:['코일을 지나는 자기 선속','선속 변화 → 유도 기전력'],narration});
 const intro=()=>({id:'123e4567-e89b-12d3-a456-426614174000',topicId:'induction',title:'전자기 유도',courseId:'h3-science',language:'ko',createdAt:1791790000000,scenes:[scene()],complete:false});
 const worksheetItems=[
@@ -34,7 +34,7 @@ test('runtime intro is independently reviewed before release, using Korean high-
  const mock=provider({scenes:[scene()]},approved);
  const lesson=await generateScienceIntro('induction',{...mock,now:()=>1791791234567});
  assert.equal(lesson.createdAt,1791791234567);assert.equal(lesson.complete,false);assert.deepEqual(lesson.scenes,[scene()]);assert.deepEqual(scienceLessonIssues(lesson),[]);assert.equal(mock.requests.length,2);
- assert.equal(mock.requests[0].text.format.strict,true);assert.equal(mock.requests[0].store,false);assert.match(mock.requests[0].instructions,/고등학교 3학년/);assert.match(mock.requests[0].instructions,/Create ONLY scene 1/);
+ assert.equal(mock.requests[0].text.format.strict,true);assert.equal(mock.requests[0].store,false);assert.match(mock.requests[0].instructions,/고등학교 3학년/);assert.match(mock.requests[0].instructions,/Create ONLY scene 1/);assert.match(mock.requests[0].instructions,/FIRST-SCENE CONTRACT/);assert.match(mock.requests[0].instructions,/Do not use flux formulas/);assert.match(mock.requests[0].instructions,/closed conducting circuit/);assert.match(mock.requests[0].instructions,/Whenever introducing or using a formula/);assert.equal(mock.requests[0].model,process.env.OPENAI_SCIENCE_BOARD_MODEL||process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
  assert.match(mock.requests[1].instructions,/Independently solve every numerical example/);assert.deepEqual(JSON.parse(mock.requests[1].input[0].content).candidate,{scenes:[scene()]});
 });
 test('review rejection repairs and rechecks the exact corrected segment once',async()=>{
@@ -95,4 +95,18 @@ test('provider errors are sanitized and incomplete generation is never released'
  await assert.rejects(generateScienceIntro('induction',exhausted),error=>{assert.equal(error.payload.code,'ai_credit_exhausted');assert(!error.message.includes('private'));return true;});
  const incomplete=provider(Response.json({status:'incomplete',output_text:JSON.stringify({scenes:[scene()]})}));await assert.rejects(generateScienceIntro('induction',incomplete),/끝까지/);assert.equal(incomplete.requests.length,1);
  const mock=provider();await assert.rejects(generateScienceIntro('induction',{...mock,deadline:Date.now()-1}),/검토 시간/);assert.equal(mock.requests.length,0);
+});
+
+test('high-three generation uses the configured review model by default, a science override when supplied, and a separate fast tutor',async()=>{
+ const names=['OPENAI_SCIENCE_BOARD_MODEL','OPENAI_WHITEBOARD_MODEL','OPENAI_REVIEW_MODEL','OPENAI_MODEL'],saved=Object.fromEntries(names.map(name=>[name,process.env[name]]));
+ try{
+  delete process.env.OPENAI_SCIENCE_BOARD_MODEL;process.env.OPENAI_REVIEW_MODEL='review-test-model';process.env.OPENAI_MODEL='legacy-test-model';process.env.OPENAI_WHITEBOARD_MODEL='tutor-test-model';
+  const defaultRun=provider({scenes:[scene()]},approved);await generateScienceIntro('induction',defaultRun);assert.deepEqual(defaultRun.requests.map(request=>request.model),['review-test-model','review-test-model']);
+  process.env.OPENAI_SCIENCE_BOARD_MODEL='science-test-model';const overrideRun=provider({scenes:[scene()]},approved);await generateScienceIntro('induction',overrideRun);assert.deepEqual(overrideRun.requests.map(request=>request.model),['science-test-model','review-test-model']);
+  const tutor=provider('선속이 변하는지 먼저 살펴보세요.');await askScienceBoard(intro(),{scene:0,text:'무엇을 봐야 하나요?'},tutor);assert.equal(tutor.requests[0].model,'tutor-test-model');
+ }finally{for(const name of names){if(saved[name]===undefined)delete process.env[name];else process.env[name]=saved[name];}}
+});
+test('premature flux formulas in scene one are removed before an independent review',async()=>{
+ const premature=scene();premature.lines=['Φ = BA','자기 선속의 크기'];const mock=provider({scenes:[premature]},{scenes:[scene()]},approved);
+ const result=await generateScienceIntro('induction',mock);assert.deepEqual(result.scenes,[scene()]);assert.equal(mock.requests.length,3);assert.match(mock.requests[1].input[0].content,/defer flux formulas/);assert.match(mock.requests[1].instructions,/FIRST-SCENE CONTRACT/);assert.equal(mock.requests[2].text.format.name,'science_board_review');
 });

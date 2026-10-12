@@ -4,10 +4,11 @@
 export const SCIENCE_TOPICS = Object.freeze([
  {
   id:'induction',title:'전자기 유도',description:'자기 선속의 변화와 유도 기전력, 렌츠 법칙을 연결합니다.',
+  introGuide:'Scene 1 teaches the observable induction phenomenon qualitatively. Start with a magnet approaching a stationary coil connected in a closed conducting loop, then compare the magnet at rest. State that a change in magnetic flux through the coil induces an emf; a closed conducting circuit is required for induced current. Motion alone is not the condition. Keep emf and current distinct. Explain flux informally as the magnetic field passing through the coil while avoiding a quantitative definition. Do not use flux formulas, equals signs, Φ or θ notation, angles, turn counts, BA, cosines, units or numerical examples yet; introduce those only in scenes 2–3. Write an original useful explanation of 260–350 Korean characters, not a syllabus.',
   practiceTopic:'전자기 유도: 자기 선속, 평균 유도 기전력, 렌츠 법칙. 직류 회로·일정 저항·선속의 선형 변화 조건을 명시한 기초 계산과 정성 비교.',
   outline:['코일을 지나는 자기 선속이 변할 때 나타나는 현상','자기 선속의 뜻과 면에 수직인 자기장','시간당 자기 선속 변화와 평균 유도 기전력','렌츠 법칙: 변화를 방해하는 방향','조건을 정리한 계산 예와 핵심 개념 정리'],
   facts:[
-   '균일한 자기장이 평면 코일의 면에 수직일 때 한 바퀴를 지나는 자기 선속은 Φ = BA이다. B는 자기장 세기(T), A는 면적(m²), Φ의 단위는 Wb이다. 비스듬한 경우를 쓰려면 면의 법선과 자기장 사이 각 θ를 정의하여 Φ = BA cosθ라고 한다.',
+   '평면 코일의 면 전체에서 자기장이 공간적으로 균일하고 자기장의 방향이 그 면에 수직일 때, 한 바퀴를 지나는 자기 선속은 Φ = BA이다. B는 자기장 세기(T), A는 면적(m²), Φ의 단위는 Wb이다. 비스듬한 경우를 쓰려면 면의 법선과 자기장 사이 각 θ를 정의하여 Φ = BA cosθ라고 한다.',
    'N회 감긴 코일의 각 바퀴를 동일한 선속이 지날 때 구간 평균 유도 기전력의 크기는 |ε평균| = N|ΔΦ|/Δt이다. ΔΦ는 한 바퀴의 선속 변화이다. ε의 단위는 V이다. 순간 값은 선속이 시간에 대해 일정한 비율로 변할 때에만 이 평균 값과 같다.',
    '자석이나 코일이 움직인다는 사실만으로 유도 기전력이 생기는 것은 아니다. 코일의 자기 선속이 변해야 한다. 코일의 크기와 방향이 일정하고 자기장이 일정하면 선속도 일정하다.',
    '렌츠 법칙에서 유도 전류에 의한 자기장은 원래 자기장 자체가 아니라 원래 자기 선속의 변화를 방해하는 방향이다. 선속의 증가와 감소를 구별한다.',
@@ -17,6 +18,7 @@ export const SCIENCE_TOPICS = Object.freeze([
  },
  {
   id:'momentum',title:'운동량과 충격량',description:'방향을 포함한 운동량 변화와 평균 알짜힘을 설명합니다.',
+  introGuide:'Scene 1 teaches what momentum describes: compare moving objects qualitatively by mass, speed and direction. State that momentum has direction, so equal speeds in opposite directions are different motions. Define the chosen positive direction if needed. Defer force, impulse and numerical calculation to later scenes. Write an original useful explanation of 260–350 Korean characters, not a syllabus.',
   practiceTopic:'일차원 운동량과 충격량: p=mv, J=Δp=평균 알짜힘×시간, 힘-시간 그래프 면적, 같은 운동량 변화와 충돌 시간. 운동량 보존·충돌 후 속도는 제외.',
   outline:['질량과 속도로 정하는 운동량과 방향','처음과 나중의 운동량 차이','충격량과 평균 알짜힘의 관계','힘-시간 그래프의 면적과 충돌 시간','방향과 단위를 확인하는 계산 예와 정리'],
   facts:[
@@ -31,6 +33,7 @@ export const SCIENCE_TOPICS = Object.freeze([
  },
  {
   id:'capacitors',title:'축전기와 전기 에너지',description:'전기 용량과 전하량·전압의 관계, 저장 에너지를 다룹니다.',
+  introGuide:'Scene 1 teaches a capacitor as two conductors carrying equal and opposite separated charges with energy stored in the electric field. Distinguish charge magnitude on one conductor from the zero net charge of the pair, without saying energy is the same as charge. Defer capacitance formulas, geometry formulas, energy formulas and calculations to later scenes. Write an original useful explanation of 260–350 Korean characters, not a syllabus.',
   practiceTopic:'이상적인 축전기: Q=CV, C=εA/d, U=CV²/2, 전원 연결 여부에 따른 Q·V·U 변화. 일정한 선형 유전체와 가장자리 효과 무시. 교류·RC 과도현상 제외.',
   outline:['두 도체에 분리하여 저장한 전하와 전압','전기 용량과 Q = CV의 뜻','평행판 축전기의 면적과 간격','저장된 전기 에너지와 전원 연결 조건','조건에 따른 변화 비교와 단위 확인'],
   facts:[
