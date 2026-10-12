@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {handleScienceBoard} from '../lib/science-board-handler.js';
 import {BOARD_COURSES,getBoardCourse,getBoardTopic,isBoardCourse} from '../whiteboard/board-courses.js';
-import {SCIENCE_TOPICS,scienceLessonIssues,generateScienceIntro} from '../lib/science-board-content.js';
+import {SCIENCE_TOPICS,scienceLessonIssues,generateScienceIntro,askScienceBoard} from '../lib/science-board-content.js';
 import {verifyScienceHandoff,SCIENCE_HANDOFF_AUDIENCE} from '../lib/science-handoff.js';
 import {emptyBoardProgress} from '../whiteboard/board-progress.js';
 
@@ -197,6 +197,18 @@ test('the real chemistry concept generator grounds generation, independent revie
   assert(!req.instructions.includes('flux through ONE turn'),'chemistry must not inherit the special electromagnetic induction contract');
  }
  assert(calls[2].instructions.includes('Repair the proposed scenes'));assert(calls[2].input[0].content.includes('Clarify that the mole'));
+ const tutorRequests=[],tutorFetcher=async(_url,options)=>{
+  const req=JSON.parse(options.body);tutorRequests.push(req);
+  return Response.json({status:'completed',output_text:req.instructions.includes('CHEMISTRY QUANTITIES AND SPOKEN UNITS')?'몰 질량은 물질의 양당 질량으로, 단위는 그램 퍼 몰입니다. 시료의 질량은 그램으로 나타냅니다.':'코일을 지나는 자기 선속이 시간에 따라 변하는지를 먼저 확인해 보세요.'});
+ };
+ await askScienceBoard(lesson,{scene:0,text:'몰 질량 M과 시료 질량 m의 단위는 무엇인가요?'},{fetcher:tutorFetcher});
+ assert(tutorRequests[0].instructions.includes('molar mass M in g/mol (read 그램 퍼 몰)'));
+ assert(tutorRequests[0].instructions.includes('sample mass m in g (그램)'));
+ assert(tutorRequests[0].instructions.includes('mass of a 1 mol sample'));
+ assert(tutorRequests[0].instructions.includes('Explain what M, m, n and N_A mean'));
+ assert(tutorRequests[0].instructions.includes('Honor the exact or rounded N_A value supplied'));
+ await askScienceBoard(makeLesson(PHYSICS,'induction'),{scene:0,text:'유도 기전력은 언제 생기나요?'},{fetcher:tutorFetcher});
+ assert(!tutorRequests[1].instructions.includes('CHEMISTRY QUANTITIES AND SPOKEN UNITS'),'the existing high-three science tutor must not inherit chemistry-specific instructions');
 });
 
 test('authenticated refresh after re-login reads newer canonical attempts without renewing the original lesson deadline',async()=>{

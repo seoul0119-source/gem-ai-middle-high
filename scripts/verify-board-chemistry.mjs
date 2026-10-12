@@ -72,8 +72,9 @@ for(let index=1;index<5;index+=2){
  const batch=await Promise.all([index,index+1].filter(scene=>scene<5).map(async scene=>mp3Seconds(await call('speech',{token:complete.token,scene,kind:'scene'}))));
  durations.push(...batch);
 }
-const answer=await call('ask',{token:complete.token,quizToken:intro.quizToken,scene:2,text:'같은 몰 수인 두 물질은 입자 수와 질량이 모두 같나요? 몰 질량과 연결해서 설명해 주세요.',history:[]});
+const answer=await call('ask',{token:complete.token,quizToken:intro.quizToken,scene:2,text:'같은 몰 수인 두 물질은 입자 수와 질량이 모두 같나요? 몰 질량 M과 시료의 질량 m을 구별하고 각각의 단위를 말해 주세요.',history:[]});
 assert(answer.answer.length>30);
+assert.match(answer.answer,/(?:g\s*\/\s*mol|g\s*[·⋅]?\s*mol\s*(?:⁻¹|\^\s*-1)|그램\s*(?:퍼|\/|나누기)\s*몰|몰\s*당\s*(?:\d+(?:\.\d+)?\s*)?그램)/iu,'Chemistry reply must name the molar-mass unit, not only sample mass in grams');
 const answerAudio=await call('speech',{token:complete.token,scene:2,kind:'answer',text:answer.answer});
 const answerVoiceSeconds=mp3Seconds(answerAudio);
 console.log('Chemistry board teacher reply',answer.answer);
