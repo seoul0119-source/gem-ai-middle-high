@@ -44,6 +44,13 @@ const [complete,practice,firstAudio]=await Promise.all([
 ]);
 assert.equal(complete.lesson.complete,true);assert.equal(scienceLessonIssues(complete.lesson,{allowIntro:false}).length,0);
 assert.deepEqual(complete.lesson.scenes[0],intro.lesson.scenes[0]);assert(validMaterial(practice.material));
+// Returning from Mei under a fresh login must reuse the reviewed content and
+// keep speech/questions functional, without generating a replacement lesson.
+student.authenticatedAt=Math.floor(Date.now()/1000);
+const resumed=await call('resume',{token:complete.token,quizToken:practice.quizToken});
+assert.deepEqual(resumed.lesson,complete.lesson);assert.deepEqual(resumed.material,practice.material);
+complete.token=resumed.token;practice.quizToken=resumed.quizToken;
+console.log('Science pilot fresh-login resume passed',{scenes:resumed.lesson.scenes.length,questions:resumed.material.questions.length});
 console.log('Science pilot generated lesson',JSON.stringify({topic:complete.lesson.topicId,scenes:complete.lesson.scenes}));
 console.log('Science pilot reviewed practice',JSON.stringify(practice.material));
 const durations=[mp3Seconds(firstAudio)];

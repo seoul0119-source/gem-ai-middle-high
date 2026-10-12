@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash,createHmac} from 'node:crypto';
 import {handleScienceBoard} from '../lib/science-board-handler.js';
 import {SCIENCE_TOPICS,scienceLessonIssues} from '../lib/science-board-content.js';
 
@@ -21,6 +21,9 @@ function dependencies(member=student()){
  return {authenticate:async()=>member,now:()=>time,generateIntro:async()=>intro,generateRemainder:async old=>({...lesson(true,old.id),scenes:[old.scenes[0],...lesson(true,old.id).scenes.slice(1)]}),generatePractice:async()=>({material:material()}),ask:async()=>({answer:'자기 선속의 변화율과 코일의 방향을 함께 살펴봅시다.'})};
 }
 async function start(deps){const res=await call({action:'start',topicId:SCIENCE_TOPICS[0].id},deps);assert.equal(res.code,200,res.body);return JSON.parse(res.body);}
+const tokenPayload=token=>JSON.parse(Buffer.from(token.split('.')[0],'base64url').toString());
+function signFixture(value){const encoded=Buffer.from(JSON.stringify(value)).toString('base64url'),key=createHash('sha256').update(`gem-science-board-token-v1:${process.env.OPENAI_API_KEY}`).digest();return encoded+'.'+createHmac('sha256',key).update(encoded).digest('base64url');}
+function legacyFixture(token){const {subject,resumeUntil,...value}=tokenPayload(token);return signFixture({...value,v:1});}
 
 test('science API authenticates before content generation and validates origin, method and request bounds',async()=>{
  const absent=await call({action:'start',topicId:SCIENCE_TOPICS[0].id});assert.equal(absent.code,401);
@@ -69,6 +72,75 @@ test('practice can start from intro and remains bound to the same completed less
   const res=await call({action:'ask',token:begun.token,scene:0,text:'설명해 주세요.',questionIndex:0,quizToken,...progress},{...deps,ask:async(current,args)=>{assert.equal(args.question.result,result);assert.equal(args.question.answerIndex,0);return {answer:'정확한 개념을 다시 살펴봅시다.'};}});assert.equal(res.code,200,res.body);
  }
  for(const progress of [{choiceIndex:4},{choiceIndex:'0'},{revealed:'true'}])assert.equal((await call({action:'ask',token:begun.token,scene:0,text:'설명해 주세요.',questionIndex:0,quizToken,...progress},deps)).code,400);
+});
+
+test('resume reauthenticates expired v2 content without generating or replacing the exact lesson and quiz',async()=>{
+ const member=student(),deps=dependencies(member),begun=await start(deps);
+ const completed=JSON.parse((await call({action:'continue',token:begun.token},deps)).body),practiced=JSON.parse((await call({action:'practice',token:begun.token},deps)).body);
+ const later=time+4*3600000,at=Math.floor(later/1000),fresh={...member,session:'fresh-session',authenticatedAt:at,exp:at+90};let providerCalls=0;
+ const rejectProvider=async()=>{providerCalls++;throw Error('resume must not generate');};
+ const resumedDeps={...deps,authenticate:async()=>fresh,now:()=>later,generateIntro:rejectProvider,generateRemainder:rejectProvider,generatePractice:rejectProvider,ask:rejectProvider,fetcher:rejectProvider};
+ const response=await call({action:'resume',token:completed.token,quizToken:practiced.quizToken,lesson:{title:'untrusted replacement'},material:{questions:[]}},resumedDeps);
+ assert.equal(response.code,200,response.body);const resumed=JSON.parse(response.body);
+ assert.deepEqual(resumed.lesson,completed.lesson);assert.deepEqual(resumed.material,practiced.material);assert.equal(providerCalls,0);
+ for(const token of [resumed.token,resumed.quizToken]){const payload=tokenPayload(token);assert.equal(payload.v,2);assert.equal(payload.iat,at);assert.equal(payload.exp,fresh.exp);assert.equal(payload.resumeUntil,tokenPayload(begun.token).resumeUntil);assert(!JSON.stringify(payload).includes(fresh.id));assert(!JSON.stringify(payload).includes(fresh.session));}
+ assert.equal((await call({action:'continue',token:resumed.token},resumedDeps)).code,200);
+ assert.equal((await call({action:'continue',token:resumed.token},{...resumedDeps,authenticate:async()=>member})).code,403);
+ assert.equal((await call({action:'continue',token:completed.token},resumedDeps)).code,403);
+ assert.equal(providerCalls,0);
+});
+
+test('resume deadline is fixed through continue, practice and repeated renewals and clips final action expiry',async()=>{
+ const member=student(),deps=dependencies(member),begun=await start(deps),deadline=tokenPayload(begun.token).resumeUntil;
+ const laterDeps={...deps,now:()=>time+3600000};
+ const completed=JSON.parse((await call({action:'continue',token:begun.token},laterDeps)).body),practiced=JSON.parse((await call({action:'practice',token:begun.token},laterDeps)).body);
+ assert.equal(tokenPayload(completed.token).resumeUntil,deadline);assert.equal(tokenPayload(practiced.quizToken).resumeUntil,deadline);
+ let latest={token:completed.token,quizToken:practiced.quizToken};
+ for(const at of [Math.floor(time/1000)+6*86400,deadline-20]){
+  const fresh={...member,authenticatedAt:at,exp:at+12*3600},renewed=await call({action:'resume',...latest},{...deps,authenticate:async()=>fresh,now:()=>at*1000});
+  assert.equal(renewed.code,200,renewed.body);latest=JSON.parse(renewed.body);
+  assert.equal(tokenPayload(latest.token).resumeUntil,deadline);assert.equal(tokenPayload(latest.quizToken).resumeUntil,deadline);
+  assert.equal(tokenPayload(latest.token).exp,Math.min(at+3*3600,deadline));
+ }
+ const final=await call({action:'resume',token:latest.token,quizToken:latest.quizToken},{...deps,authenticate:async()=>({...member,authenticatedAt:deadline,exp:deadline+3600}),now:()=>deadline*1000});
+ assert.equal(final.code,410);assert.equal(JSON.parse(final.body).error,'lesson_expired');
+});
+
+test('legacy tokens migrate only under their original login and never trust a replacement client lesson',async()=>{
+ const member=student(),deps=dependencies(member),begun=await start(deps),practiced=JSON.parse((await call({action:'practice',token:begun.token},deps)).body);
+ const token=legacyFixture(begun.token),quizToken=legacyFixture(practiced.quizToken),later=time+4*3600000;
+ const migrated=await call({action:'resume',token,quizToken},{...deps,now:()=>later});
+ assert.equal(migrated.code,200,migrated.body);const result=JSON.parse(migrated.body);
+ assert.equal(tokenPayload(result.token).v,2);assert.deepEqual(result.lesson,begun.lesson);assert.deepEqual(result.material,practiced.material);
+ assert.equal(tokenPayload(result.token).resumeUntil,tokenPayload(token).iat+7*86400);
+ const refused=await call({action:'resume',token,quizToken,lesson:begun.lesson},{...deps,now:()=>later,authenticate:async()=>({...member,authenticatedAt:Math.floor(later/1000),exp:Math.floor(later/1000)+3600})});
+ assert.equal(refused.code,409);assert.equal(JSON.parse(refused.body).error,'lesson_reentry_required');
+ const malformed=signFixture({...tokenPayload(token),data:{...begun.lesson,scenes:[]}});
+ assert.equal((await call({action:'resume',token:malformed},{...deps,now:()=>later,authenticate:async()=>({...member,authenticatedAt:member.authenticatedAt+1})})).code,403);
+ const expired=await call({action:'resume',token},{...deps,now:()=>time+7*86400000});assert.equal(expired.code,410);
+});
+
+test('resume rejects tampering, a different student, mismatched quiz and malformed signed claims',async()=>{
+ const member=student(),deps=dependencies(member),begun=await start(deps),practiced=JSON.parse((await call({action:'practice',token:begun.token},deps)).body),payload=tokenPayload(begun.token);
+ const otherDeps=dependencies(),other=await start(otherDeps),otherQuiz=JSON.parse((await call({action:'practice',token:other.token},otherDeps)).body);
+ const second=await start({...deps,generateIntro:async()=>lesson()}),secondQuiz=JSON.parse((await call({action:'practice',token:second.token},deps)).body);
+ for(const token of [begun.token+'x',practiced.quizToken,other.token,signFixture({...payload,iat:payload.iat+1}),signFixture({...payload,iat:0}),signFixture({...payload,resumeUntil:payload.iat+7*86400+1}),signFixture({...payload,resumeUntil:payload.exp-1}),signFixture({...payload,resumeUntil:undefined}),signFixture({...payload,subject:'incorrect'}),signFixture({...payload,owner:'invalid'}),signFixture({...payload,data:{...begun.lesson,scenes:[]}})]){
+  const res=await call({action:'resume',token},deps);assert.equal(res.code,403,res.body);assert.equal(JSON.parse(res.body).error,'invalid_lesson_token');
+ }
+ for(const quizToken of [null,'',practiced.quizToken+'x',begun.token,otherQuiz.quizToken,secondQuiz.quizToken]){
+  const res=await call({action:'resume',token:begun.token,quizToken},deps);assert.equal(res.code,403,res.body);assert.equal(JSON.parse(res.body).error,'invalid_quiz_token');
+ }
+ const onlyLesson=await call({action:'resume',token:begun.token},deps);assert.equal(onlyLesson.code,200);assert.equal('material' in JSON.parse(onlyLesson.body),false);assert.equal('quizToken' in JSON.parse(onlyLesson.body),false);
+});
+
+test('resume requires current student access and has a stable per-student limit across logins',async()=>{
+ const member=student(),deps=dependencies(member),begun=await start(deps);
+ assert.equal((await call({action:'resume',token:begun.token})).code,401);
+ const denied=await call({action:'resume',token:begun.token},{...deps,authenticate:async(req,res)=>{res.status(403).end(JSON.stringify({error:'access_denied'}));return null;}});assert.equal(denied.code,403);assert.equal(JSON.parse(denied.body).error,'access_denied');
+ for(let i=0;i<30;i++)assert.equal((await call({action:'resume',token:begun.token},deps)).code,200);
+ const now=time+1000,relogged={...member,authenticatedAt:Math.floor(now/1000)};
+ const limited=await call({action:'resume',token:begun.token},{...deps,authenticate:async()=>relogged,now:()=>now});assert.equal(limited.code,429);
+ assert.equal((await call({action:'resume',token:begun.token},{...deps,now:()=>time+600001})).code,200);
 });
 
 test('science request validation prevents provider work for malformed questions, history, speech or microphone data',async()=>{
