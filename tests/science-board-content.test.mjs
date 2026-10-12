@@ -6,16 +6,16 @@ const narration='자석과 닫힌 도선 코일을 준비하고, 코일은 움�
 const scene=(title='자기 선속의 변화')=>({title,lines:['코일을 지나는 자기 선속','선속 변화 → 유도 기전력'],narration});
 const intro=()=>({id:'123e4567-e89b-12d3-a456-426614174000',topicId:'induction',title:'전자기 유도',courseId:'h3-science',language:'ko',createdAt:1791790000000,scenes:[scene()],complete:false});
 const worksheetItems=[
- ['면에 수직이고 균일한 자기장이 2 T, 면적이 3 m²이면 자기 선속은?', ['6 Wb','2 Wb','3 Wb','5 Wb'],'자기장과 면적의 곱은 6 Wb입니다.'],
- ['10회 감은 코일의 한 바퀴 선속이 1초 동안 0.2 Wb 변했다. 평균 유도 기전력의 크기는?', ['2 V','1 V','4 V','20 V'],'10 곱하기 0.2를 1로 나누면 2 V입니다.'],
- ['유도 기전력의 SI 단위는?', ['V','A','T','Wb'],'기전력의 단위는 볼트입니다.'],
- ['렌츠 법칙에서 유도 전류는 무엇을 방해하는 방향인가?', ['자기 선속의 변화','원래 자기장 항상','코일의 저항','전하의 크기'],'원래 선속의 변화를 방해하는 방향입니다.'],
- ['지속적인 유도 전류가 흐르려면 코일은 어떤 상태여야 하는가?', ['닫힌 회로','열린 회로','무조건 멈춤','면적이 0'],'유도 전류에는 닫힌 경로가 필요합니다.'],
- ['자기 선속이 변하지 않는 코일에서 유도 기전력은?', ['0 V','1 V','2 V','3 V'],'선속의 변화량이 0이므로 기전력은 0입니다.'],
- ['같은 코일에서 같은 선속 변화가 더 짧은 시간에 일어나면 평균 유도 기전력 크기는?', ['커진다','작아진다','변하지 않는다','반드시 0이다'],'같은 변화량을 짧은 시간으로 나누면 크기가 커집니다.'],
- ['각 바퀴의 선속 변화율이 같고 감은 수만 두 배로 늘면 유도 기전력은?', ['두 배','절반','네 배','같다'],'기전력은 감은 수에 비례합니다.'],
- ['자체 유도를 무시한 닫힌 저항 회로에서 저항이 4 Ω, 기전력이 8 V이면 전류 크기는?', ['2 A','4 A','8 A','32 A'],'전류는 8을 4로 나눈 2 A입니다.'],
- ['구간 평균 기전력과 순간 기전력이 구간 내내 같은 조건은?', ['선속이 시간에 따라 선형 변화','선속이 항상 제곱에 비례','코일 감은 수가 항상 변함','회로가 열렸다는 사실만'],'선속의 변화율이 일정하면 두 값이 같습니다.']
+ ['고정된 코일을 지나는 자기 선속이 증가한다. 코일에서 나타나는 것은?', ['유도 기전력','전기 저항의 소멸','질량 증가','전하 생성'],'자기 선속의 변화로 유도 기전력이 생깁니다.'],
+ ['지속적인 유도 전류가 흐르려면 도선 코일은 어떤 상태여야 하는가?', ['닫힌 회로','열린 회로','무조건 멈춤','면적이 0'],'유도 전류에는 닫힌 도선 경로가 필요합니다.'],
+ ['평면 코일 한 바퀴의 면적이 3 m²이다. 면 전체에 균일한 2 T 자기장의 방향이 면에 수직이면 자기 선속은?', ['6 Wb','2 Wb','3 Wb','5 Wb'],'자기장과 한 바퀴 면적의 곱은 6 Wb입니다.'],
+ ['면적 0.4 m²인 한 바퀴의 평면 코일에 공간적으로 균일한 0.5 T 자기장이 면에 수직으로 지나간다. 선속을 구하면?', ['0.2 Wb','0.4 Wb','0.5 Wb','0.9 Wb'],'0.5와 0.4의 곱은 0.2 Wb입니다.'],
+ ['10회 감은 동일한 코일의 각 바퀴를 지나는 선속이 0.1 Wb에서 0.3 Wb로 1초 동안 변했다. 구간 평균 유도 기전력의 크기는?', ['2 V','1 V','4 V','20 V'],'10 곱하기 0.2를 1로 나누면 2 V입니다.'],
+ ['모든 바퀴를 같은 선속이 지나는 5회 코일에서 한 바퀴의 선속이 2초 동안 0.2 Wb에서 0.6 Wb로 증가했다. 구간 평균 유도 기전력의 크기는?', ['1 V','2 V','4 V','5 V'],'감은 수 5에 변화량 0.4를 곱하고 2로 나누면 1 V입니다.'],
+ ['네 바퀴의 같은 코일에 동일한 자기 선속이 지난다. 한 바퀴의 선속이 0.9 Wb에서 0.3 Wb로 3초 동안 감소하면 이 구간의 평균 유도 기전력 크기는?', ['0.8 V','0.2 V','0.6 V','1.2 V'],'4 곱하기 변화량의 크기 0.6을 3으로 나누면 0.8 V입니다.'],
+ ['닫힌 평면 도선 고리의 면에 수직인 균일한 자기장이 화면 안쪽으로 증가한다. 고리가 고정되어 있을 때 유도 전류의 자기장 방향은?', ['화면 바깥쪽','화면 안쪽','면에 평행한 위쪽','면에 평행한 아래쪽'],'안쪽 선속의 증가를 방해하므로 바깥쪽입니다.'],
+ ['고정된 닫힌 평면 코일을 수직으로 지나는 균일한 자기장이 화면 안쪽 방향을 유지하며 감소한다. 유도 자기장의 방향은?', ['화면 안쪽','화면 바깥쪽','코일 면을 따라 오른쪽','코일 면을 따라 왼쪽'],'안쪽 선속의 감소를 방해하므로 안쪽입니다.'],
+ ['각 바퀴의 선속 변화량과 구간 길이는 같고 감은 수만 두 배로 늘면 구간 평균 유도 기전력의 크기는?', ['두 배','절반','네 배','같다'],'나머지 조건이 같으면 구간 평균 기전력은 감은 수에 비례합니다.']
 ];
 const sheet=()=>({title:'전자기 유도 연습',questions:worksheetItems.map(([prompt,choices,explanation])=>({prompt,choices,answerIndex:0,hints:['문제에서 주어진 조건을 먼저 확인해 보세요.','단원에서 배운 관계와 각 보기를 비교해 보세요.'],explanation}))});
 function provider(...values){
@@ -28,7 +28,7 @@ function provider(...values){
 test('science unit catalog fixes a bounded original physics scope and useful assumptions',()=>{
  assert.deepEqual(SCIENCE_TOPICS.map(topic=>topic.id),['induction','momentum','capacitors']);assert.equal(getScienceTopic('arbitrary lecture'),null);
  for(const topic of SCIENCE_TOPICS){assert.equal(topic.outline.length,5);assert(topic.facts.length>=6);assert(topic.practiceTopic.length<=160);assert(Object.isFrozen(topic.facts));}
- assert.match(getScienceTopic('induction').facts.join(' '),/평균/);assert.match(getScienceTopic('momentum').facts.join(' '),/알짜힘/);assert.match(getScienceTopic('capacitors').facts.join(' '),/전원을 분리/);
+ assert.match(getScienceTopic('induction').facts.join(' '),/평균/);assert.match(getScienceTopic('induction').practiceGuide,/TEN-QUESTION BLUEPRINT/);assert.match(getScienceTopic('induction').practiceGuide,/no induced-current calculations/);assert(!getScienceTopic('induction').facts.some(fact=>fact.includes('I =')));assert.match(getScienceTopic('momentum').facts.join(' '),/알짜힘/);assert.match(getScienceTopic('capacitors').facts.join(' '),/전원을 분리/);
 });
 test('runtime intro is independently reviewed before release, using Korean high-three objectives',async()=>{
  const mock=provider({scenes:[scene()]},approved);
@@ -72,7 +72,7 @@ test('invalid or tampered lesson shape is rejected before provider calls',async(
 test('partial lesson starts existing ten-question generation with the complete shared outline and independent review',async()=>{
  const fixture=sheet(),mock=provider(fixture,{valid:true,issues:[]});
  const result=await generateSciencePractice(intro(),{...mock,noveltyHistory:['이전 단원에서 풀었던 다른 문제']});assert.deepEqual(result.material,fixture);assert.equal(mock.requests.length,2);
- for(const request of mock.requests){assert.match(request.instructions,/Restrict questions to the supplied lesson goals/);assert(request.instructions.includes('렌츠 법칙'));assert(request.instructions.includes('평균 유도 기전력'));}
+ for(const request of mock.requests){assert.match(request.instructions,/Restrict questions to the supplied lesson goals/);assert(request.instructions.includes('렌츠 법칙'));assert(request.instructions.includes('평균 유도 기전력'));assert(request.instructions.includes('TEN-QUESTION BLUEPRINT'));assert(request.instructions.includes('no induced-current calculations'));assert(request.instructions.includes('fixed-orientation stem'));}
  assert.match(mock.requests[0].instructions,/이전 단원에서 풀었던 다른 문제/);assert.match(mock.requests[1].instructions,/Independently solve and review all ten/);
 });
 test('teacher uses exact paused scene and prior question without claiming control of playback',async()=>{
@@ -109,4 +109,13 @@ test('high-three generation uses the configured review model by default, a scien
 test('premature flux formulas in scene one are removed before an independent review',async()=>{
  const premature=scene();premature.lines=['Φ = BA','자기 선속의 크기'];const mock=provider({scenes:[premature]},{scenes:[scene()]},approved);
  const result=await generateScienceIntro('induction',mock);assert.deepEqual(result.scenes,[scene()]);assert.equal(mock.requests.length,3);assert.match(mock.requests[1].input[0].content,/defer flux formulas/);assert.match(mock.requests[1].instructions,/FIRST-SCENE CONTRACT/);assert.equal(mock.requests[2].text.format.name,'science_board_review');
+});
+
+test('induction practice scope and blueprint survive targeted repair and complete rereview',async()=>{
+ const fixture=sheet(),fixed=structuredClone(fixture);fixed.questions[3].explanation='한 바퀴 선속은 균일하고 면에 수직인 자기장 0.5 T와 면적 0.4 m²의 곱인 0.2 Wb입니다.';
+ const issue={question:4,reason:'The common fixed-orientation condition conflicts with a proposed correct rotation option.',fix:'Replace the question coherently within the supplied one-turn flux blueprint.'};
+ const mock=provider(fixture,{valid:false,issues:[issue]},{replacements:[{number:4,question:fixed.questions[3]}]},{valid:true,issues:[]});
+ assert.deepEqual((await generateSciencePractice(intro(),mock)).material,fixed);assert.equal(mock.requests.length,4);
+ for(const request of mock.requests){assert(request.instructions.includes('TEN-QUESTION BLUEPRINT'));assert(request.instructions.includes('no induced-current calculations'));assert(request.instructions.includes('INTERVAL AVERAGE'));assert(request.instructions.includes('fixed-orientation stem'));}
+ assert.equal(mock.requests[2].text.format.name,'worksheet_repair');assert.equal(mock.requests[3].text.format.name,'worksheet_review');
 });
