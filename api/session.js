@@ -2,6 +2,7 @@ import {MEMBERSHIP_PLANS,validatedMembership,requiresMembership,membershipDeadli
 import supportHandler from '../lib/support-handler.js';
 import {issueRecordPermit,saveClassRecord,verifyRecordTransfer,resumeClassRecord} from '../lib/class-record.js';
 import { issueClassroomPass, verifyClassroomPass, exchangeRecordPass, verifyRecordSession } from "../lib/classroom-pass.js";
+import {verifyScienceHandoff,allowScienceHandoffVerification,SCIENCE_HANDOFF_MAX_REQUEST} from '../lib/science-handoff.js';
 import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
 import { randomUUID } from "node:crypto";
@@ -361,6 +362,16 @@ export default async function handler(request, response) {
   const action = String(body.action || "login");
 
   try {
+    if (action === 'verify-science-handoff') {
+      if (!allowScienceHandoffVerification(request)) return sendJson(response,429,{error:'too_many_requests'});
+      if (!/^application\/json(?:\s*;|$)/i.test(String(request.headers?.['content-type']||''))) return sendJson(response,415,{error:'invalid_content_type'});
+      let bytes;try{bytes=Buffer.byteLength(JSON.stringify(body));}catch{return sendJson(response,400,{error:'invalid_handoff_request'});}
+      if (bytes>SCIENCE_HANDOFF_MAX_REQUEST) return sendJson(response,413,{error:'request_too_large'});
+      const verified=verifyScienceHandoff(body.ticket,body.handoffToken,body.audience);
+      if (!verified) return sendJson(response,401,{error:'invalid_science_handoff'});
+      await assertStudentAccess(verified.pass);
+      return sendJson(response,200,verified);
+    }
     if (action === "verify-class-record") {
       const valid=verifyRecordTransfer(body.ticket,body.record);
       return sendJson(response, valid?200:401, {valid});
