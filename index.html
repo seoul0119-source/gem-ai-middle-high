@@ -1470,6 +1470,7 @@
     }
 
     const entranceParams = new URLSearchParams(location.search);
+    if (entranceParams.get('whiteboard') === '1' && ['ko','en','fr'].includes(entranceParams.get('lang'))) selectLanguage(entranceParams.get('lang'));
     if (["ko", "en", "fr"].includes(entranceParams.get("language"))) selectLanguage(entranceParams.get("language"));
     if (entranceParams.get("mode") === "exams") selectEntranceMode("exams");
     if (supportRoutes[entranceParams.get("exam")]) selectSupportCourse(entranceParams.get("exam"));
@@ -1511,7 +1512,8 @@
         const materialsDestination = selectedLanguage === "ko" && !selectedSupportCourse && !entranceParams.has("materials")
           ? koreanDestination(true) : "/materials.html?" + params.toString();
         const recordClassroom = new URLSearchParams(location.search).get("recordClassroom");
-        const destination = recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? materialsDestination : selectedRoute || data.redirect || "/class.html";
+        const pilotLanguage = ['ko','en','fr'].includes(entranceParams.get('lang')) ? entranceParams.get('lang') : selectedLanguage;
+        const destination = entranceParams.get('whiteboard') === '1' ? '/whiteboard.html?lang='+pilotLanguage : recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? materialsDestination : selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
         await enterClassroom(destination);

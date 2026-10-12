@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node --test tests/*.test.mjs && node scripts/verify-materials.mjs && node scripts/verify-suneung-2028.mjs --course=suneung-2028-english && node scripts/verify-ged.mjs",
+  "buildCommand": "node --test tests/*.test.mjs && node scripts/verify-materials.mjs && node scripts/verify-suneung-2028.mjs --course=suneung-2028-english && node scripts/verify-ged.mjs && node scripts/prepare-whiteboard-audio.mjs",
   "outputDirectory": ".",
   "routes": [
     {
@@ -24,6 +24,18 @@
       "dest": "/api/chat-final?gemLibrary=daily-v1"
     },
     {
+      "src": "/generated-whiteboard/(.*)",
+      "dest": "/api/session?page=not-found"
+    },
+    {
+      "src": "/whiteboard(?:\\.html)?/?",
+      "dest": "/api/session?page=whiteboard"
+    },
+    {
+      "src": "/api/whiteboard/?",
+      "dest": "/api/chat-final?gemWhiteboard=v1"
+    },
+    {
       "handle": "filesystem"
     }
   ],
@@ -36,6 +48,7 @@
       "maxDuration": 180
     },
     "api/chat-final.js": {
+      "includeFiles": "generated-whiteboard/*.mp3",
       "maxDuration": 300
     }
   },
