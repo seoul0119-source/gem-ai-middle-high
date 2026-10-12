@@ -119,3 +119,21 @@ test('induction practice scope and blueprint survive targeted repair and complet
  for(const request of mock.requests){assert(request.instructions.includes('TEN-QUESTION BLUEPRINT'));assert(request.instructions.includes('no induced-current calculations'));assert(request.instructions.includes('INTERVAL AVERAGE'));assert(request.instructions.includes('fixed-orientation stem'));}
  assert.equal(mock.requests[2].text.format.name,'worksheet_repair');assert.equal(mock.requests[3].text.format.name,'worksheet_review');
 });
+
+test('factual repair may receive one measured length repair, followed by an independent review of the exact final scene',async()=>{
+ const fixedTooLong=scene();fixedTooLong.narration+=' 조건을 먼저 확인하는 것이 중요합니다.'.repeat(4);assert(fixedTooLong.narration.length>350);
+ const issue={valid:false,issues:['State the closed conducting circuit before moving the magnet or discussing current.']};
+ const mock=provider({scenes:[scene()]},issue,{scenes:[fixedTooLong]},{scenes:[scene()]},approved);
+ const lesson=await generateScienceIntro('induction',mock);assert.deepEqual(lesson.scenes,[scene()]);assert.equal(mock.requests.length,5);
+ assert.match(mock.requests[0].instructions,/BEFORE describing movement/);
+ assert.equal(mock.requests[3].text.format.name,'science_board_scenes');assert(mock.requests[3].input[0].content.includes(String(fixedTooLong.narration.length)+' characters'));assert.match(mock.requests[3].input[0].content,/target about 300/);assert.match(mock.requests[3].instructions,/preserve previously corrected physical conditions/);
+ assert.equal(mock.requests[4].text.format.name,'science_board_review');assert.deepEqual(JSON.parse(mock.requests[4].input[0].content).candidate,{scenes:[scene()]});
+});
+test('combined content and formatting repair budgets stop at the third candidate without releasing a rejected scene',async()=>{
+ const short=scene();short.narration='닫힌 도선 코일의 자기 선속이 변하면 유도 기전력이 생깁니다. '.repeat(3);assert(short.narration.length<260);
+ const issue={valid:false,issues:['State the closed conducting circuit first.']};
+ const malformedFinal=provider({scenes:[scene()]},issue,{scenes:[short]},{scenes:[short]});
+ await assert.rejects(generateScienceIntro('induction',malformedFinal),/검토를 통과/);assert.equal(malformedFinal.requests.length,4);
+ const rejectedFinal=provider({scenes:[scene()]},issue,{scenes:[short]},{scenes:[scene()]},issue);
+ await assert.rejects(generateScienceIntro('induction',rejectedFinal),/검토를 통과/);assert.equal(rejectedFinal.requests.length,5);
+});
