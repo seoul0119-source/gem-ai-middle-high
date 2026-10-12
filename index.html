@@ -1514,7 +1514,11 @@
           ? koreanDestination(true) : "/materials.html?" + params.toString();
         const recordClassroom = new URLSearchParams(location.search).get("recordClassroom");
         const pilotLanguage = ['ko','en','fr'].includes(entranceParams.get('lang')) ? entranceParams.get('lang') : selectedLanguage;
-        const destination = entranceParams.get('scienceboard') === '1' ? '/science-board.html' : entranceParams.get('whiteboard') === '1' ? '/whiteboard.html?lang='+pilotLanguage : recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? materialsDestination : selectedRoute || data.redirect || "/class.html";
+        const boardCourse=['h3-science','suneung-2027-chemistry-1'].includes(entranceParams.get('course'))?entranceParams.get('course'):'h3-science';
+        const boardWorksheet=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entranceParams.get('worksheet')||'')?entranceParams.get('worksheet'):'';
+        const boardTransfer=new URLSearchParams(location.hash.slice(1)).get('transfer')||'';
+        const boardDestination='/science-board.html'+(boardCourse!=='h3-science'||boardWorksheet?'?course='+encodeURIComponent(boardCourse)+(boardWorksheet?'&worksheet='+boardWorksheet:''):'')+(/^[A-Za-z0-9._-]{32,1024}$/.test(boardTransfer)?'#transfer='+encodeURIComponent(boardTransfer):'');
+        const destination = entranceParams.get('scienceboard') === '1' ? boardDestination : entranceParams.get('whiteboard') === '1' ? '/whiteboard.html?lang='+pilotLanguage : recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? materialsDestination : selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;
         await enterClassroom(destination);

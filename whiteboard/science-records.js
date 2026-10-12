@@ -1,7 +1,8 @@
+import {getBoardCourse} from './board-courses.js';
 /* Reuse the existing signed classroom record path. Creating this adapter does
  * not start a tracked class; only an explicit learner start does. */
-export function createScienceRecords({studentId,notify=()=>{},fetcher=globalThis.fetch,recordsFactory=globalThis.GemClassRecords}={}){
-  const courseId='h3-science';
+export function createScienceRecords({studentId,courseId='h3-science',notify=()=>{},fetcher=globalThis.fetch,recordsFactory=globalThis.GemClassRecords}={}){
+  const course=getBoardCourse(courseId);if(!course)throw Error('unsupported_board_course');
   let selected=null,active=null,client=null,operation=Promise.resolve();
   const sequence=task=>{const result=operation.then(task,task);operation=result.catch(()=>{});return result;};
   const say=text=>{try{notify(text);}catch{}};
@@ -27,11 +28,11 @@ export function createScienceRecords({studentId,notify=()=>{},fetcher=globalThis
     return saved;
   }
   function start(lesson){
-    if(!studentId||!lesson||typeof lesson.id!=='string'||!lesson.id.trim()||lesson.id.length>140||typeof recordsFactory!=='function'){
+    if(!studentId||!lesson||(lesson.courseId&&lesson.courseId!==courseId)||typeof lesson.id!=='string'||!lesson.id.trim()||lesson.id.length>140||typeof recordsFactory!=='function'){
       say('학습 기록 연결을 준비하지 못했습니다.');return Promise.resolve(false);
     }
     const slot={id:lesson.id,title:text(lesson.title||lesson.topicId,300),messages:[],question:0,revision:0,runId:'',permit:''};
-    slot.messages.push({role:'user',content:'고3 과학 칠판 수업 시작: '+slot.title},{role:'assistant',content:slot.title+' — 개념 설명과 선택형 10문제 수업',progress:{event:'discussion',question:1,currentQuestion:1}});
+    slot.messages.push({role:'user',content:course.title+' 칠판 수업 시작: '+slot.title},{role:'assistant',content:slot.title+' — 개념 설명과 선택형 10문제 수업',progress:{event:'discussion',question:1,currentQuestion:1}});
     selected=slot;
     return sequence(async()=>{
       if(selected!==slot)return false;
