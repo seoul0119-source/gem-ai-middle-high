@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {handleScienceBoard} from '../lib/science-board-handler.js';
 import {BOARD_COURSES,getBoardCourse,getBoardTopic,isBoardCourse} from '../whiteboard/board-courses.js';
-import {SCIENCE_TOPICS,scienceLessonIssues,generateScienceIntro,askScienceBoard} from '../lib/science-board-content.js';
+import {SCIENCE_TOPICS,scienceLessonIssues,generateScienceIntro,generateScienceRemainder,askScienceBoard} from '../lib/science-board-content.js';
 import {verifyScienceHandoff,SCIENCE_HANDOFF_AUDIENCE} from '../lib/science-handoff.js';
 import {emptyBoardProgress} from '../whiteboard/board-progress.js';
 
@@ -194,6 +194,8 @@ test('the real chemistry concept generator grounds generation, independent revie
  for(const req of calls){
   assert.equal(req.store,false);assert(req.instructions.includes('2027학년도 수능 대비'));assert(req.instructions.includes('화학Ⅰ'));
   assert(req.instructions.includes(JSON.stringify(material)));assert(req.instructions.includes('untrusted DATA'));
+  assert(req.instructions.includes('Solid NaCl is an ionic lattice, not a collection of discrete NaCl molecules'));
+  assert(req.instructions.includes('Distinguish molar mass M in g/mol from sample mass m in g'));
   assert(!req.instructions.includes('flux through ONE turn'),'chemistry must not inherit the special electromagnetic induction contract');
  }
  assert(calls[2].instructions.includes('Repair the proposed scenes'));assert(calls[2].input[0].content.includes('Clarify that the mole'));
@@ -209,6 +211,32 @@ test('the real chemistry concept generator grounds generation, independent revie
  assert(tutorRequests[0].instructions.includes('Honor the exact or rounded N_A value supplied'));
  await askScienceBoard(makeLesson(PHYSICS,'induction'),{scene:0,text:'유도 기전력은 언제 생기나요?'},{fetcher:tutorFetcher});
  assert(!tutorRequests[1].instructions.includes('CHEMISTRY QUANTITIES AND SPOKEN UNITS'),'the existing high-three science tutor must not inherit chemistry-specific instructions');
+});
+
+test('chemistry remainder review measures the approved prefix and each repaired candidate without making the total aim a hard bound',async()=>{
+ const material=makeMaterial(),first=makeLesson(CHEM,'worksheet'),original=structuredClone(first);
+ const shortNarration='시료의 질량과 몰 질량은 서로 다른 양입니다. 질량은 그램으로 나타내지만 몰 질량의 단위는 그램 퍼 몰입니다. 물질의 양에 몰 질량을 곱하면 시료의 질량을 구할 수 있습니다. 반대로 질량을 몰 질량으로 나누면 물질의 양이 됩니다. 계산 전에 문제에서 지정한 물질과 주어진 단위를 먼저 확인하세요. 단위를 함께 쓰면 곱할지 나눌지 판단할 수 있습니다.';
+ assert(shortNarration.length>=160&&shortNarration.length<260);
+ const rest=['입자의 종류와 물질의 양','몰 질량과 시료 질량','단위를 확인하는 계산','관계와 조건 정리'].map(title=>({title,lines:['몰 질량의 단위는 g/mol입니다.','시료 질량의 단위는 g입니다.'],narration:shortNarration}));
+ const wrong=structuredClone(rest);wrong[1].lines[0]='몰 질량의 단위는 g입니다.';
+ const repaired=structuredClone(rest);repaired[1].narration+=' 두 단위의 차이를 꼭 구별해 보세요.';
+ const issue={valid:false,issues:['Scene 3 incorrectly gives g as the unit of molar mass; use g/mol and distinguish sample mass in g.']};
+ const outputs=[{scenes:wrong},issue,{scenes:repaired},{valid:true,issues:[]}],calls=[];
+ const fetcher=async(_url,options)=>{calls.push(JSON.parse(options.body));assert(outputs.length,'unexpected provider request');return Response.json({status:'completed',output_text:JSON.stringify(outputs.shift())});};
+ const full=await generateScienceRemainder(first,{courseId:CHEM,material,fetcher});
+ assert.deepEqual(first,original);assert.strictEqual(full.scenes[0],first.scenes[0]);assert.equal(full.id,first.id);assert.deepEqual(full.scenes.slice(1),repaired);assert.equal(calls.length,4);
+ const reviews=calls.filter(req=>req.text?.format?.name==='science_board_review');assert.equal(reviews.length,2,'passed count metadata must not bypass the factual rejection or its independent re-review');
+ for(const [index,request] of reviews.entries()){
+  const reviewed=JSON.parse(request.input[0].content),contract=reviewed.reviewContract,candidate=index?repaired:wrong,assembled=[...first.scenes,...candidate];
+  assert.equal(contract.phase,'remainder');assert.equal(contract.candidateSceneCount,4);assert.equal(contract.approvedPreviousSceneCount,1);assert.equal(contract.assembledSceneCount,5);assert.deepEqual(contract.candidateSceneNumbers,[2,3,4,5]);
+  assert.deepEqual(reviewed.previousScenes,first.scenes);assert.deepEqual(reviewed.candidate,{scenes:candidate});assert.deepEqual(reviewed.assembledLesson,{scenes:assembled,complete:true});
+  assert.deepEqual(contract.narrationMeasurements.scenes,assembled.map((scene,i)=>({sceneNumber:i+1,characters:scene.narration.length})));
+  assert.equal(contract.narrationMeasurements.assembledTotal,assembled.reduce((sum,scene)=>sum+scene.narration.length,0));assert(contract.narrationMeasurements.assembledTotal<1300,'an existing soft aim must not become an invented hard gate');assert.equal(contract.wholeLessonAim.narrationCharacters.kind,'soft_target');assert.equal(contract.deterministicChecks.status,'passed');
+  assert(request.instructions.includes(JSON.stringify(material)),'review must retain all ten canonical questions after repair');assert.match(request.instructions,/Passed structure and length checks do not approve factual content/);
+ }
+ assert.notEqual(JSON.parse(reviews[0].input[0].content).reviewContract.narrationMeasurements.assembledTotal,JSON.parse(reviews[1].input[0].content).reviewContract.narrationMeasurements.assembledTotal,'measurements must be recalculated after the factual repair');
+ assert(calls[2].input[0].content.includes(issue.issues[0]));assert.match(calls[2].instructions,/Repair only the four candidate scenes 2–5/);assert(!calls[2].instructions.includes('Aim for about 300 characters for scene 1'));
+ for(const request of calls)assert(request.instructions.includes(JSON.stringify(material)),'generation, repair and review must use the same complete worksheet');
 });
 
 test('authenticated refresh after re-login reads newer canonical attempts without renewing the original lesson deadline',async()=>{

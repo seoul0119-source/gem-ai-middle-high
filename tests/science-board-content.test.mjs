@@ -35,7 +35,13 @@ test('runtime intro is independently reviewed before release, using Korean high-
  const lesson=await generateScienceIntro('induction',{...mock,now:()=>1791791234567});
  assert.equal(lesson.createdAt,1791791234567);assert.equal(lesson.complete,false);assert.deepEqual(lesson.scenes,[scene()]);assert.deepEqual(scienceLessonIssues(lesson),[]);assert.equal(mock.requests.length,2);
  assert.equal(mock.requests[0].text.format.strict,true);assert.equal(mock.requests[0].store,false);assert.match(mock.requests[0].instructions,/고등학교 3학년/);assert.match(mock.requests[0].instructions,/Create ONLY scene 1/);assert.match(mock.requests[0].instructions,/FIRST-SCENE CONTRACT/);assert.match(mock.requests[0].instructions,/Do not use flux formulas/);assert.match(mock.requests[0].instructions,/closed conducting circuit/);assert.match(mock.requests[0].instructions,/Whenever introducing or using a formula/);assert.equal(mock.requests[0].model,process.env.OPENAI_SCIENCE_BOARD_MODEL||process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
- assert.match(mock.requests[1].instructions,/Independently solve every numerical example/);assert.deepEqual(JSON.parse(mock.requests[1].input[0].content).candidate,{scenes:[scene()]});
+ assert.match(mock.requests[1].instructions,/Independently solve every numerical example/);
+ const reviewed=JSON.parse(mock.requests[1].input[0].content),contract=reviewed.reviewContract;
+ assert.deepEqual(reviewed.candidate,{scenes:[scene()]});assert.deepEqual(reviewed.assembledLesson,{scenes:[scene()],complete:false});
+ assert.equal(contract.phase,'intro');assert.equal(contract.expectedCandidateSceneCount,1);assert.equal(contract.candidateSceneCount,1);assert.equal(contract.approvedPreviousSceneCount,0);assert.equal(contract.assembledSceneCount,1);assert.equal(contract.completeLessonSceneCount,5);
+ assert.deepEqual(contract.candidateSceneNumbers,[1]);assert.deepEqual(contract.narrationMeasurements.scenes,[{sceneNumber:1,characters:narration.length}]);assert.equal(contract.narrationMeasurements.assembledTotal,narration.length);
+ assert.equal(contract.deterministicChecks.status,'passed');assert.deepEqual(contract.deterministicChecks.narrationCharacters,{min:160,max:650});assert.deepEqual(contract.deterministicChecks.firstSceneNarrationCharacters,{min:260,max:350});
+ assert.match(mock.requests[1].instructions,/do not recount or estimate character lengths/);assert.match(mock.requests[1].instructions,/260–350-character hard bound has already passed/);
 });
 test('review rejection repairs and rechecks the exact corrected segment once',async()=>{
  const wrong=scene();wrong.lines=['자석이 움직이면 반드시 전류 발생','닫힌 회로 조건은 필요 없음'];
@@ -61,8 +67,21 @@ test('malformed review verdicts never approve content or trigger an unspecified 
 test('remainder keeps the published intro and identity unchanged while reviewing all new scenes',async()=>{
  const first=intro(),original=structuredClone(first);const rest=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene);const mock=provider({scenes:rest},approved);
  const full=await generateScienceRemainder(first,mock);assert.deepEqual(first,original);assert.equal(full.id,first.id);assert.strictEqual(full.scenes[0],first.scenes[0]);assert.equal(full.complete,true);assert.equal(full.scenes.length,5);assert.deepEqual(scienceLessonIssues(full,{allowIntro:false}),[]);
- assert.deepEqual(JSON.parse(mock.requests[1].input[0].content).previousScenes,first.scenes);assert.match(mock.requests[0].instructions,/scenes 2–5 only/);
+ const reviewed=JSON.parse(mock.requests[1].input[0].content),contract=reviewed.reviewContract;
+ assert.deepEqual(reviewed.previousScenes,first.scenes);assert.deepEqual(reviewed.candidate,{scenes:rest});assert.deepEqual(reviewed.assembledLesson,{scenes:full.scenes,complete:true});assert.match(mock.requests[0].instructions,/scenes 2–5 only/);
+ assert.equal(contract.phase,'remainder');assert.equal(contract.expectedCandidateSceneCount,4);assert.equal(contract.candidateSceneCount,4);assert.equal(contract.approvedPreviousSceneCount,1);assert.equal(contract.assembledSceneCount,5);assert.equal(contract.completeLessonSceneCount,5);assert.equal(contract.approvedPrefixImmutable,true);
+ assert.deepEqual(contract.candidateSceneNumbers,[2,3,4,5]);assert.deepEqual(contract.narrationMeasurements.scenes,full.scenes.map((scene,index)=>({sceneNumber:index+1,characters:scene.narration.length})));assert.equal(contract.narrationMeasurements.assembledTotal,narration.length*5);assert.equal(contract.narrationMeasurements.candidateTotal,narration.length*4);assert.equal(contract.narrationMeasurements.approvedPreviousTotal,narration.length);
+ assert.equal(contract.deterministicChecks.firstSceneNarrationCharacters,null,'the reviewer must not treat the first new scene as a new intro');assert.equal(contract.wholeLessonAim.narrationCharacters.kind,'soft_target');
+ assert.match(mock.requests[1].instructions,/Do not demand five candidate scenes/);assert.match(mock.requests[1].instructions,/propose repairs only to candidate scenes 2–5/);
  assert.strictEqual(await generateScienceRemainder(full,mock),full);assert.equal(mock.requests.length,2);
+});
+test('remainder format repair uses full-lesson scene numbers and preserves the approved first scene',async()=>{
+ const first=intro(),rest=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene),malformed=structuredClone(rest);
+ malformed[0].narration='이 설명은 너무 짧습니다.';
+ const mock=provider({scenes:malformed},{scenes:rest},approved),full=await generateScienceRemainder(first,mock);
+ assert.equal(mock.requests.length,3);assert.equal(mock.requests[1].text.format.name,'science_board_scenes');assert.equal(mock.requests[2].text.format.name,'science_board_review');
+ const repair=JSON.parse(mock.requests[1].input[0].content);assert.deepEqual(repair.previousScenes,first.scenes);assert(repair.issues.some(issue=>issue.startsWith('Scene 2:')));assert(!repair.issues.some(issue=>issue.startsWith('Scene 1:')));
+ assert.match(mock.requests[1].instructions,/keep the approved first scene unchanged/);assert.strictEqual(full.scenes[0],first.scenes[0]);assert.deepEqual(full.scenes.slice(1),rest);
 });
 test('invalid or tampered lesson shape is rejected before provider calls',async()=>{
  const mock=provider();for(const mutate of [l=>l.topicId='unknown',l=>l.title='other',l=>l.language='en',l=>l.courseId='other',l=>l.id='untrusted',l=>l.createdAt='today',l=>l.complete=true,l=>l.scenes=[]]){
