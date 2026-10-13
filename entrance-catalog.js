@@ -53,6 +53,11 @@
     else params.set('browse','1');
     return '/materials.html?'+params;
   }
+  function baccalaureateDestination(materials=false) {
+    const params=new URLSearchParams({language:'fr',course:'materials-fr-bac-dissertation'});
+    params.set(materials?'browse':'classroom','1');
+    return '/materials.html?'+params;
+  }
   async function requestSession(body,timeoutMs=30000) {
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -66,5 +71,5 @@
       throw error;
     } finally { clearTimeout(timer); }
   }
-  globalThis.GEMEntrance = { schools, choices, course, destination, internationalGrades, internationalDestination, requestSession };
+  globalThis.GEMEntrance = { schools, choices, course, destination, internationalGrades, internationalDestination, baccalaureateDestination, requestSession };
 })();

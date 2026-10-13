@@ -748,7 +748,7 @@
       </button>
     </div>
   </dialog>
-  <script src="/entrance-catalog.js?v=20261014-entry"></script>
+  <script src="/entrance-catalog.js?v=20261014-bac"></script>
   <script>
     const subjectIcons = {
       korean: "book", math: "math", english: "languages", integrated: "sprout",
@@ -935,7 +935,7 @@
       sat: "https://gem-sat-prep-support.seoul0119.chatgpt.site",
       act: "https://gem-act-prep-support.seoul0119.chatgpt.site",
       ib: "https://gem-ib-diploma-support.seoul0119.chatgpt.site",
-      bac: "https://gem-baccalaureat-methodologie.seoul0119.chatgpt.site",
+      bac: GEMEntrance.baccalaureateDestination(),
       suneung: "/suneung.html",
       "toeic-toefl": "/class.html?mode=exams#english-extra",
       ged: "/class.html?mode=exams#ged-entrance"
@@ -1450,7 +1450,8 @@
           ["course", "classroom", "recordClassroom", "mode", "exam", "entry"].forEach(key => params.delete(key));
           params.set("language", selectedSupportCourse ? (selectedSupportCourse === "bac" ? "fr" : ["sat","act","ib"].includes(selectedSupportCourse) ? "en" : "ko") : selectedLanguage);
         }
-        const materialsDestination = selectedLanguage === "ko" && !selectedSupportCourse && !entranceParams.has("materials")
+        const materialsDestination = selectedSupportCourse === "bac" && !entranceParams.has("materials")
+          ? GEMEntrance.baccalaureateDestination(true) : selectedLanguage === "ko" && !selectedSupportCourse && !entranceParams.has("materials")
           ? koreanDestination(true) : !selectedSupportCourse && !entranceParams.has('materials')
             ? GEMEntrance.internationalDestination(selectedLanguage,selectedSchoolLevel,selectedInternationalGrade,selectedSubject,selectedHighSchoolPathway,true)
             : "/materials.html?" + params.toString();

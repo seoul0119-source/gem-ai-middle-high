@@ -65,3 +65,20 @@ test('expired portal sessions preserve only the selected worksheet parameters wh
  const headers={};let status;await serveStudentPage({method:'GET',headers:{},query:{page:'materials',language:'fr',course:'materials-fr-1-0',classroom:'1',redirect:'https://untrusted.test'}},{setHeader:(k,v)=>headers[k]=v,status:n=>{status=n;return {end(){}}}});
  assert.equal(status,303);const target=new URL(headers.Location,'https://portal.test');assert.equal(target.origin,'https://portal.test');assert.equal(target.searchParams.get('course'),'materials-fr-1-0');assert.equal(target.searchParams.get('classroom'),'1');assert.equal(target.searchParams.get('language'),'fr');assert.equal(target.searchParams.has('redirect'),false);
 });
+
+test('Baccalaureate entrance and library use the same authenticated French board courses',async()=>{
+ const {getBoardCourse}=await import('../whiteboard/board-courses.js');
+ const supportDeclaration=index.slice(index.indexOf('    const supportRoutes = {'),index.indexOf('    const pathwayCatalog = {'));
+ const handlerSource=index.slice(index.indexOf('    loginForm.addEventListener("submit"'),index.lastIndexOf('  </script>'));
+ for(const submitter of ['login-button','materials-login']){
+  let handler,destination;
+  const ctx={URLSearchParams,loginForm:{addEventListener:(_n,f)=>handler=f},studentIdInput:{value:'SYNTHETIC'},loginError:{textContent:''},loginButton:{disabled:false},document:{getElementById:()=>({disabled:false})},boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),GEMEntrance:{...entrance,requestSession:async()=>({student:{id:'SYNTHETIC'}})},selectedLanguage:'ko',selectedSupportCourse:'bac',location:{search:''},prepareParentRegistrationNotice:()=>false,enterClassroom:async value=>{destination=value},updateLoginButtonLabel(){}};
+  vm.runInNewContext(supportDeclaration+handlerSource,ctx);await handler({preventDefault(){},submitter:{id:submitter}});
+  assert.equal(ctx.loginError.textContent,'');
+  const url=new URL(destination,'https://portal.test');assert.equal(url.pathname,'/materials.html');assert.equal(url.searchParams.get('language'),'fr');assert.equal(url.searchParams.get('course'),'materials-fr-bac-dissertation');
+  assert.equal(url.searchParams.get(submitter==='login-button'?'classroom':'browse'),'1');
+ }
+ for(const suffix of ['dissertation','documents','grand-oral','recherche','argumentation']){
+  const course=getBoardCourse('materials-fr-bac-'+suffix);assert(course);assert.equal(course.language,'fr');assert.equal(course.worksheetOnly,true);
+ }
+});
