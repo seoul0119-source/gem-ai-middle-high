@@ -1,0 +1,97 @@
+{
+  "sourceDeployment": "dpl_5SnhWT1phfRj1hcUz3BQmjXPNrKf",
+  "sourceCommit": "6b2fb8ad2cba3954d6dd6d2c31f7cc172f8a10ba",
+  "copiedDateKST": "2026-10-14",
+  "clips": [
+    {
+      "filename": "en-0-f5ec4331c26306896493.mp3",
+      "bytes": 219264,
+      "sha256": "6b1c55e4a755ac4dbda85769992972c634d03d342085087823527716c15dba78"
+    },
+    {
+      "filename": "en-1-90f0cbc6f8b801eb8e47.mp3",
+      "bytes": 211968,
+      "sha256": "3f8100089c7e50ace02aeec5ba1ac7e060e0333e923b140641aff1bb3ba1d6c5"
+    },
+    {
+      "filename": "en-2-4d9fd66a396a674b3137.mp3",
+      "bytes": 221568,
+      "sha256": "27b6e3acb21e34d2ac76c18edf144d9ae05389d46dc09c81e4490a0007e5af3b"
+    },
+    {
+      "filename": "en-3-ce065e74a8499fcc9323.mp3",
+      "bytes": 239232,
+      "sha256": "8ba45df82a9e12fa3001202f1748c7f0f2a96afaf3f1ab3fcb9b510714d34968"
+    },
+    {
+      "filename": "en-4-40b6cd8d3f6ad6974dab.mp3",
+      "bytes": 238464,
+      "sha256": "fc6049aeb58d1c421805b29aaaf8cca40767b5dd7be64584386668012bb1bf9a"
+    },
+    {
+      "filename": "en-5-8009e9720702bb8de155.mp3",
+      "bytes": 241920,
+      "sha256": "035c4feb56163dda87ec662d6269327fb7b25dcb74e8780ed06314cb74ac297a"
+    },
+    {
+      "filename": "fr-0-768b16594997e8aa33a7.mp3",
+      "bytes": 299520,
+      "sha256": "39fa9da21d0a8a8e7934402b01ff0003d4d27c7cbe74eca7b80a418de1e9a31d"
+    },
+    {
+      "filename": "fr-1-00183a19249c6e36dc4e.mp3",
+      "bytes": 238464,
+      "sha256": "0a2a399a36335ab3868f05cae3131e19f8ee0c9bf713b9a90908c88281836af6"
+    },
+    {
+      "filename": "fr-2-38302dcae7f64cd91a4b.mp3",
+      "bytes": 284160,
+      "sha256": "6c21f3ed4e787582604993cb649530cb153db58e8a5a6b6d9165824f1b4a3ed2"
+    },
+    {
+      "filename": "fr-3-15c57ca931eb2ec16f5e.mp3",
+      "bytes": 258432,
+      "sha256": "5bdcfd522dfd80393a552200231d4ec6f157666512ac36155b9e9bb92d8dabd6"
+    },
+    {
+      "filename": "fr-4-c9c623f69dd9323491fa.mp3",
+      "bytes": 264960,
+      "sha256": "19c7d8d419f3f216c773a2b443b84e0c1d5003ece7ed3c4c659e9673c9df9019"
+    },
+    {
+      "filename": "fr-5-ecccf1f6dc085db22883.mp3",
+      "bytes": 295296,
+      "sha256": "70e2a2ed4f9c13ed5ba84d60c395d50807d15b730ff884892e4d9b3a34536b03"
+    },
+    {
+      "filename": "ko-0-71234996554cb9faacc1.mp3",
+      "bytes": 261888,
+      "sha256": "158f5feb586e4a643e5575123435d9c85cc6f50d3263bfe870057a1e50c6ff9a"
+    },
+    {
+      "filename": "ko-1-42f4d7ef394d7b9c0a46.mp3",
+      "bytes": 225024,
+      "sha256": "92054fd5e823d73643e55f408efcab4f8230247eeaaa08e1cc30fca9d25253cb"
+    },
+    {
+      "filename": "ko-2-7bb1ec28dee7cb2bc5b9.mp3",
+      "bytes": 211968,
+      "sha256": "376827b97ba81d4f5db051a58fdfa2c3ca94023c954914aff4b31576c766ad2c"
+    },
+    {
+      "filename": "ko-3-5c337e6c502662ab14d3.mp3",
+      "bytes": 176256,
+      "sha256": "bfaee350051d017c4621a56f505b6f6cc9347a65868a32429ed5e2547330aa36"
+    },
+    {
+      "filename": "ko-4-81d5fee30ef255194c5e.mp3",
+      "bytes": 252288,
+      "sha256": "a5a01193cde21b7093bd45daceac7a19ebaae1efbe9276393d5c5197214419f9"
+    },
+    {
+      "filename": "ko-5-88a5a8321138ec72a42a.mp3",
+      "bytes": 277632,
+      "sha256": "c5e71fce2690ba8df58697ce199da89e9d4603ccf9ea0599306ea43703403fa2"
+    }
+  ]
+}
