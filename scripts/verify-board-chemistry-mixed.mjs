@@ -20,7 +20,7 @@ const expected=[String(35*0.75+37*0.25),'Mg²⁺',
  'CO₂는 무극성 분자이고 H₂O는 극성 분자이다.',
  `${(8.8/44).toFixed(2)} mol`,`${(1*2/1).toFixed(1)} mol`,
  `${(0.50*20.0/250).toFixed(3)} mol/L`,`${(0.10*20.0/0.10).toFixed(1)} mL`,
- `+${-(2*1+4*(-2))}`,`CH${Math.round(2*0.30/0.20)}`];
+ `+${-(2*1+4*(-2))}`,`CH${String(Math.round(2*0.30/0.20)).replace(/\d/g,digit=>'₀₁₂₃₄₅₆₇₈₉'[Number(digit)])}`];
 assert.deepEqual(material.questions.map(q=>q.choices[q.answerIndex]),expected);
 
 const at=Math.floor(Date.now()/1000),sourceId=randomUUID();
