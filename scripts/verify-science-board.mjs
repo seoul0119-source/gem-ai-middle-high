@@ -2,7 +2,7 @@
 // This never creates learner IDs, calls the Sheet, or adds a public test bypass.
 import assert from 'node:assert/strict';
 import {handleScienceBoard} from '../lib/science-board-handler.js';
-import {scienceLessonIssues} from '../lib/science-board-content.js';
+import {scienceLessonIssues,generateSciencePractice} from '../lib/science-board-content.js';
 import {validMaterial} from '../lib/materials-ai.js';
 
 if(!process.env.OPENAI_API_KEY)throw Error('Existing classroom API configuration is required.');
@@ -10,7 +10,11 @@ const now=Math.floor(Date.now()/1000);
 const student={id:'SCIENCE_BUILD_TEST',session:'in-process-only',authenticatedAt:now,iat:now,exp:now+3600};
 async function call(action,body={}){
  const response={headers:{},status(code){this.code=code;return this;},setHeader(k,v){this.headers[k]=v;return this;},end(value){this.value=value;}};
- await handleScienceBoard({method:'POST',headers:{origin:'https://gem-build.invalid',host:'gem-build.invalid','content-type':'application/json'},body:{pilot:'science',action,...body}},response,{authenticate:async()=>student});
+ await handleScienceBoard({method:'POST',headers:{origin:'https://gem-build.invalid',host:'gem-build.invalid','content-type':'application/json'},body:{pilot:'science',action,...body}},response,{authenticate:async()=>student,
+  // Match the precise writer and bounded budgets used by the subject-stage
+  // verifier. Keep the same independent review and two repair passes.
+  generatePractice:(lesson,options)=>generateSciencePractice(lesson,{...options,materialDependencies:{writerModel:process.env.OPENAI_REVIEW_MODEL||'gpt-5.6-sol',generationTimeoutMs:300000,requestTimeoutMs:90000,reviewMaxOutputTokens:8000}})
+ });
  if(response.code!==200)throw Error(`Science pilot ${action} failed (${response.code}): ${response.value}`);
  return response.headers['Content-Type']==='audio/mpeg'?response.value:JSON.parse(response.value);
 }

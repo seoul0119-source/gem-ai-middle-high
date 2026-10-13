@@ -95,6 +95,17 @@ test('partial lesson starts existing ten-question generation with the complete s
  for(const request of mock.requests){assert.match(request.instructions,/Restrict questions to the supplied lesson goals/);assert(request.instructions.includes('렌츠 법칙'));assert(request.instructions.includes('평균 유도 기전력'));assert(request.instructions.includes('TEN-QUESTION BLUEPRINT'));assert(request.instructions.includes('no induced-current calculations'));assert(request.instructions.includes('fixed-orientation stem'));}
  assert.match(mock.requests[0].instructions,/이전 단원에서 풀었던 다른 문제/);assert.match(mock.requests[1].instructions,/Independently solve and review all ten/);
 });
+test('trusted release practice options strengthen the writer without changing runtime defaults or review',async()=>{
+ const runtime=provider(sheet(),approved);
+ await generateSciencePractice(intro(),runtime);
+ const defaultModel=process.env.GEM_VERIFICATION_WRITER_MODEL||process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna';
+ assert.equal(runtime.requests[0].model,defaultModel);assert.equal(runtime.requests[1].max_output_tokens,2500);
+ const release=provider(sheet(),approved);
+ await generateSciencePractice(intro(),{...release,materialDependencies:{writerModel:'precise-release-writer',generationTimeoutMs:300000,requestTimeoutMs:90000,reviewMaxOutputTokens:8000}});
+ assert.equal(release.requests[0].model,'precise-release-writer');
+ assert.equal(release.requests[1].model,process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
+ assert.equal(release.requests[1].max_output_tokens,8000);assert.equal(release.requests[1].text.format.name,'worksheet_review');
+});
 test('teacher uses exact paused scene and prior question without claiming control of playback',async()=>{
  const answer='유도 전류는 원래 자기 선속의 변화를 방해하는 방향으로 흐릅니다. 선속이 커지는지 작아지는지를 먼저 확인해 보세요.';const mock=provider(answer);
  const history=[{role:'user',content:'선속이 무엇인가요?'},{role:'assistant',content:'코일을 지나는 자기장을 면적과 방향을 함께 고려해 나타낸 양입니다.'}];
