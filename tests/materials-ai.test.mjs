@@ -293,3 +293,72 @@ test('phase-change controls apply only to relevant science topics and never bypa
  const requests=[],responses=[fixture,rejected,replacements(fixture,4),rejected,replacements(fixture,4),rejected],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length,'no third repair or unchecked acceptance');return Response.json({output_text:JSON.stringify(responses.shift())});};
  await assert.rejects(handleMaterials({mode:'generate',courseId:'materials-fr-3-1',topic:'Évaporation de l’eau'},{fetcher}),/자동 수정.*검토/);assert.equal(requests.length,6);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_repair').length,2);
 });
+
+const completedProvider=value=>Response.json({status:'completed',output_text:typeof value==='string'?value:JSON.stringify(value)});
+const truncatedReview=(reason='max_output_tokens')=>Response.json({status:'incomplete',incomplete_details:{reason},output_text:JSON.stringify({valid:true,issues:[]})});
+
+test('one token-limited worksheet review retries the identical candidate and frozen model at 5000 tokens',async()=>{
+ const requests=[],saved=process.env.OPENAI_REVIEW_MODEL;process.env.OPENAI_REVIEW_MODEL='review-model-before-truncation';
+ const fetcher=async(_url,options)=>{
+  requests.push(JSON.parse(options.body));
+  if(requests.length===1)return completedProvider(fixture);
+  if(requests.length===2){process.env.OPENAI_REVIEW_MODEL='changed-during-request';return truncatedReview();}
+  assert.equal(requests.length,3);return completedProvider({valid:true,issues:[]});
+ };
+ try{
+  assert.deepEqual((await handleMaterials({mode:'generate',courseId:'e3-korean',topic:'중심 생각'},{fetcher})).material,fixture);
+  assert.equal(requests.length,3);const [first,retry]=requests.slice(1);assert.equal(first.max_output_tokens,2500);assert.equal(retry.max_output_tokens,5000);assert.deepEqual({...retry,max_output_tokens:2500},first);assert.equal(retry.model,'review-model-before-truncation');assert.deepEqual(JSON.parse(retry.input[0].content),fixture);
+ }finally{if(saved===undefined)delete process.env.OPENAI_REVIEW_MODEL;else process.env.OPENAI_REVIEW_MODEL=saved;}
+});
+
+test('a completed rejection after a token retry still requires ordinary targeted repair and independent rereview',async()=>{
+ const fixed=structuredClone(fixture);fixed.questions[0].explanation='Adding one to zero gives one.';
+ const rejected={valid:false,issues:[{question:1,reason:'Incorrect explanation',fix:'Correct the addition explanation.'}]};
+ const responses=[()=>completedProvider(fixture),()=>truncatedReview(),()=>completedProvider(rejected),()=>completedProvider(replacements(fixed,1)),()=>completedProvider({valid:true,issues:[]})],requests=[];
+ const fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length);return responses.shift()();};
+ assert.deepEqual((await handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher})).material,fixed);
+ assert.deepEqual(requests.map(request=>request.text.format.name),['gem_material','worksheet_review','worksheet_review','worksheet_repair','worksheet_review']);
+ assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>request.max_output_tokens),[2500,5000,2500]);assert.deepEqual(JSON.parse(requests.at(-1).input[0].content),fixed);
+});
+
+test('the one truncation retry budget is shared across candidate repairs and a second truncation fails closed',async()=>{
+ const rejected={valid:false,issues:[{question:1,reason:'Incorrect explanation',fix:'Correct it.'}]};
+ for(const responses of [
+  [()=>completedProvider(fixture),()=>truncatedReview(),()=>truncatedReview()],
+  [()=>completedProvider(fixture),()=>truncatedReview(),()=>completedProvider(rejected),()=>completedProvider(replacements(fixture,1)),()=>truncatedReview()]
+ ]){
+  const expected=responses.length,requests=[],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length,'no second token retry');return responses.shift()();};
+  await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher}),/끝까지/);assert.equal(requests.length,expected);assert.equal(requests.filter(request=>request.max_output_tokens===5000).length,1);
+ }
+});
+
+test('a final-review token retry can use at most seven calls without extending the two content repairs',async()=>{
+ const rejected={valid:false,issues:[{question:1,reason:'Incorrect explanation',fix:'Correct it.'}]};
+ const responses=[()=>completedProvider(fixture),()=>completedProvider(rejected),()=>completedProvider(replacements(fixture,1)),()=>completedProvider(rejected),()=>completedProvider(replacements(fixture,1)),()=>truncatedReview(),()=>completedProvider(rejected)],requests=[];
+ const fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length,'no third repair or second retry');return responses.shift()();};
+ await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher}),/자동 수정.*검토/);assert.equal(requests.length,7);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_repair').length,2);assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>request.max_output_tokens),[2500,2500,2500,5000]);
+});
+
+test('filtering, unknown incomplete reasons, failed statuses and HTTP failures cannot approve or retry a review',async()=>{
+ const failures=[()=>truncatedReview('content_filter'),()=>truncatedReview('unknown'),()=>Response.json({status:'incomplete',output_text:JSON.stringify({valid:true,issues:[]})}),...['failed','cancelled','queued','in_progress','mystery',null].map(status=>()=>Response.json({status,output_text:JSON.stringify({valid:true,issues:[]})})),()=>Response.json({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},error:{code:'rate_limit_exceeded'}},{status:429})];
+ for(const failure of failures){let calls=0;const fetcher=async()=>++calls===1?completedProvider(fixture):failure();await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher}));assert.equal(calls,2);}
+});
+
+test('generation, tutoring and repair truncation never consume a worksheet-review retry',async()=>{
+ let generationCalls=0;await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher:async()=>{generationCalls++;return truncatedReview();}}),/끝까지/);assert.equal(generationCalls,1);
+ let tutorCalls=0;await assert.rejects(handleMaterials({mode:'tutor',courseId:'e3-math',question:fixture.questions[0],message:'Explain this.'},{fetcher:async()=>{tutorCalls++;return truncatedReview();}}),/끝까지/);assert.equal(tutorCalls,1);
+ const responses=[()=>completedProvider(fixture),()=>completedProvider({valid:false,issues:[{question:1,reason:'Incorrect explanation',fix:'Correct it.'}]}),()=>truncatedReview()],requests=[];
+ await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher:async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length);return responses.shift()();}}),/끝까지/);assert.equal(requests.length,3);assert.equal(requests.at(-1).text.format.name,'worksheet_repair');
+});
+
+test('a token retry needs ten seconds remaining and keeps the original invocation deadline',async()=>{
+ const savedNow=Date.now,savedTimeout=AbortSignal.timeout;
+ try{
+  for(const remaining of [9999,25000]){
+   let clock=1791867600000,calls=0;const started=clock,timeouts=[];Date.now=()=>clock;AbortSignal.timeout=ms=>{timeouts.push(ms);return savedTimeout(ms);};
+   const fetcher=async()=>{calls++;if(calls===1)return completedProvider(fixture);if(calls===2){clock=started+145000-remaining;return truncatedReview();}assert.equal(calls,3);return completedProvider({valid:true,issues:[]});};
+   const run=handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher});
+   if(remaining<10000){await assert.rejects(run,/끝까지/);assert.equal(calls,2);}else{assert.deepEqual((await run).material,fixture);assert.equal(calls,3);assert.deepEqual(timeouts,[55000,55000,25000]);}
+  }
+ }finally{Date.now=savedNow;AbortSignal.timeout=savedTimeout;}
+});
