@@ -62,5 +62,5 @@
       "schedule": "0 21 * * *"
     }
   ],
-  "ignoreCommand": "exit 0"
+  "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF==='release/board-korean-labels-20261014'?1:0)\""
 }
