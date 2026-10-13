@@ -157,3 +157,51 @@ test('combined content and formatting repair budgets stop at the third candidate
  const rejectedFinal=provider({scenes:[scene()]},issue,{scenes:[short]},{scenes:[scene()]},issue);
  await assert.rejects(generateScienceIntro('induction',rejectedFinal),/검토를 통과/);assert.equal(rejectedFinal.requests.length,5);
 });
+
+test('token-limited remainder review retries the identical candidate with room for reasoning before release',async()=>{
+ const first=intro(),rest=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene);
+ const truncated=Response.json({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output_text:JSON.stringify(approved)});
+ const mock=provider({scenes:rest},truncated,approved),full=await generateScienceRemainder(first,mock);
+ assert.equal(full.complete,true);assert.strictEqual(full.scenes[0],first.scenes[0]);assert.deepEqual(full.scenes.slice(1),rest);
+ assert.equal(mock.requests.length,3,'retry review only, not generation or the first scene');
+ const [initial,retry]=mock.requests.slice(1);
+ assert.equal(initial.max_output_tokens,4000);assert.equal(retry.max_output_tokens,8000);
+ assert.deepEqual({...retry,max_output_tokens:initial.max_output_tokens},initial,'the same model must independently review the same immutable candidate and conditions');
+});
+
+test('a second truncated verdict never approves even if its visible JSON claims success',async()=>{
+ const rest=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene);
+ const incomplete=()=>Response.json({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output_text:JSON.stringify(approved)});
+ const mock=provider({scenes:rest},incomplete(),incomplete());
+ await assert.rejects(generateScienceRemainder(intro(),mock),/끝까지/);
+ assert.equal(mock.requests.length,3,'stop after exactly one expanded review request');
+});
+
+test('review truncation retries do not skip a completed factual rejection or its independent repair check',async()=>{
+ const original=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene),fixed=structuredClone(original);
+ fixed[0].lines=['면 전체에서 균일한 자기장, 자기장 방향은 고리 면에 수직','한 바퀴 자기 선속 = 자기장 세기 × 고리 면적'];
+ const mock=provider({scenes:original},Response.json({status:'incomplete',incomplete_details:{reason:'max_output_tokens'}}),{valid:false,issues:['State the uniform perpendicular field condition next to the board formula.']},{scenes:fixed},approved);
+ const full=await generateScienceRemainder(intro(),mock);
+ assert.equal(mock.requests.length,5);assert.deepEqual(full.scenes.slice(1),fixed);
+ assert.equal(mock.requests[3].text.format.name,'science_board_scenes');
+ assert.deepEqual(JSON.parse(mock.requests[4].input[0].content).candidate,{scenes:fixed},'corrected content must be reviewed independently again');
+});
+
+test('unknown, filtered or failed provider reviews never trigger an expanded retry',async()=>{
+ const rest=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene);
+ // Use valid plain titles so this test reaches provider-status handling.
+ for(const [status,reason] of [['incomplete','content_filter'],['incomplete',undefined],['failed',undefined]]){
+  const mock=provider({scenes:rest},Response.json({status,incomplete_details:reason?{reason}:undefined,output_text:JSON.stringify(approved)}));
+  await assert.rejects(generateScienceRemainder(intro(),mock),/응답/);assert.equal(mock.requests.length,2);
+ }
+});
+
+test('an expanded review shares the original deadline and cannot start with insufficient time remaining',async()=>{
+ const now=Date.now;let clock=now();const deadline=clock+20000;
+ const rest=['자기 선속의 크기','평균 유도 기전력','렌츠 법칙','계산과 정리'].map(scene);
+ const mock=provider({scenes:rest},Response.json({status:'incomplete',incomplete_details:{reason:'max_output_tokens'}}));
+ const fetcher=async(...args)=>{const result=await mock.fetcher(...args);if(mock.requests.length===2)clock+=15000;return result;};
+ Date.now=()=>clock;
+ try{await assert.rejects(generateScienceRemainder(intro(),{fetcher,deadline}),/끝까지/);assert.equal(mock.requests.length,2);}
+ finally{Date.now=now;}
+});
