@@ -19,7 +19,7 @@ export const SCIENCE_TOPICS = Object.freeze([
  },
  {
   id:'momentum',title:'운동량과 충격량',description:'방향을 포함한 운동량 변화와 평균 알짜힘을 설명합니다.',
-  introGuide:'Scene 1 teaches what momentum describes: compare moving objects qualitatively by mass, speed and direction. State that momentum has direction, so equal speeds in opposite directions are different motions. Define the chosen positive direction if needed. Defer force, impulse and numerical calculation to later scenes. Write an original useful explanation of 260–350 Korean characters, not a syllabus.',
+  introGuide:'Scene 1 teaches what momentum describes: compare separate moving objects qualitatively by mass, speed and direction. Each object has its own constant mass; do not describe changing the mass of one fixed-mass object. These are independent comparisons, not interacting objects or a collision calculation. When comparing different masses, explicitly keep BOTH speed and direction the same. Use speed for magnitude and velocity for speed together with direction, consistently on the board and in narration. State that momentum has direction, so equal speeds in opposite directions give different momentum. Define the chosen positive direction if needed. Defer force, impulse and numerical calculation to later scenes. Write an original useful explanation of 260–350 Korean characters, not a syllabus.',
   practiceTopic:'일차원 운동량과 충격량: p=mv, J=Δp=평균 알짜힘×시간, 힘-시간 그래프 면적, 같은 운동량 변화와 충돌 시간. 운동량 보존·충돌 후 속도는 제외.',
   outline:['질량과 속도로 정하는 운동량과 방향','처음과 나중의 운동량 차이','충격량과 평균 알짜힘의 관계','힘-시간 그래프의 면적과 충돌 시간','방향과 단위를 확인하는 계산 예와 정리'],
   facts:[
