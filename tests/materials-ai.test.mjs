@@ -243,7 +243,7 @@ test('reading task repair replaces the complete ambiguous item and rechecks para
   assert.match(request.instructions,/A restatement of the claim or a summary of the whole paragraph is not specific supporting evidence/);
   assert.match(request.instructions,/Never name the location of the correct sentence/);
   assert.match(request.instructions,/ambiguity and answer-revealing hints remain rejection reasons/);
-  assert.equal(request.model,process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
+  assert.equal(request.model,(['gem_material','worksheet_repair'].includes(request.text.format.name)&&process.env.GEM_VERIFICATION_WRITER_MODEL)||process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
  }
 });
 
@@ -279,7 +279,7 @@ test('state-change evidence repairs a shrinking-puddle ambiguity in the prompt a
   assert.match(request.instructions,/Liquids take the shape of their container/);
   assert.match(request.instructions,/Precipitation or falling rain is not itself the name of a change of state/);
   assert.match(request.instructions,/Do not burden a simple qualitative elementary task with thermodynamic equations/);
-  assert.equal(request.model,process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
+  assert.equal(request.model,(['gem_material','worksheet_repair'].includes(request.text.format.name)&&process.env.GEM_VERIFICATION_WRITER_MODEL)||process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
  }
  assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>request.max_output_tokens),[2500,2500,2500]);
 });
