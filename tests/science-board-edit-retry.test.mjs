@@ -62,3 +62,18 @@ for(const response of [
 ])test('provider, filtered, incomplete or JSON failures in edit generation are not format-retried',async()=>{
  const f=fixture(),mock=provider([f.candidate,defect,response]);await assert.rejects(run(f,mock));assert.equal(mock.calls.length,3);
 });
+
+
+test('imported remainder generation, repair and review use scoped models with explicit overrides',async()=>{
+ const names=['OPENAI_SCIENCE_BOARD_REMAINDER_MODEL','OPENAI_SCIENCE_BOARD_REMAINDER_REVIEW_MODEL'];
+ const saved=names.map(name=>process.env[name]);
+ try{
+  for(const name of names)delete process.env[name];
+  const f=fixture(),mock=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},approved]);
+  await run(f,mock);assert(mock.calls.every(call=>call.model==='gpt-5.6-terra'));
+  process.env[names[0]]='remainder-generation-test';process.env[names[1]]='remainder-review-test';
+  const overridden=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},approved]);
+  await run(f,overridden);
+  assert.deepEqual(overridden.calls.map(call=>call.model),['remainder-generation-test','remainder-review-test','remainder-generation-test','remainder-generation-test','remainder-review-test']);
+ }finally{names.forEach((name,index)=>{if(saved[index]===undefined)delete process.env[name];else process.env[name]=saved[index];});}
+});
