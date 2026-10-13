@@ -1470,7 +1470,10 @@
     }
 
     const entranceParams = new URLSearchParams(location.search);
-    if (entranceParams.get('scienceboard') === '1') selectLanguage('ko');
+    const boardEntrance = entranceParams.get('scienceboard') === '1'
+      ? import('./whiteboard/board-entry.js').then(module => module.boardLoginEntry(location.search, location.hash)).catch(() => null)
+      : Promise.resolve(null);
+    void boardEntrance.then(entry => { if (entry) selectLanguage(entry.language); });
     if (entranceParams.get('whiteboard') === '1' && ['ko','en','fr'].includes(entranceParams.get('lang'))) selectLanguage(entranceParams.get('lang'));
     if (["ko", "en", "fr"].includes(entranceParams.get("language"))) selectLanguage(entranceParams.get("language"));
     if (entranceParams.get("mode") === "exams") selectEntranceMode("exams");
@@ -1486,6 +1489,8 @@
       loginButton.textContent = "등록 확인 및 입장 기록 중…";
 
       try {
+        const boardEntry = await boardEntrance;
+        if (entranceParams.get('scienceboard') === '1' && !boardEntry) throw new Error('선택한 칠판 교실을 확인하지 못했습니다. 기존 교실에서 칠판 설명을 다시 열어 주세요.');
         const response = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1514,10 +1519,7 @@
           ? koreanDestination(true) : "/materials.html?" + params.toString();
         const recordClassroom = new URLSearchParams(location.search).get("recordClassroom");
         const pilotLanguage = ['ko','en','fr'].includes(entranceParams.get('lang')) ? entranceParams.get('lang') : selectedLanguage;
-        const boardCourse=['h3-science','suneung-2027-chemistry-1'].includes(entranceParams.get('course'))?entranceParams.get('course'):'h3-science';
-        const boardWorksheet=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entranceParams.get('worksheet')||'')?entranceParams.get('worksheet'):'';
-        const boardTransfer=new URLSearchParams(location.hash.slice(1)).get('transfer')||'';
-        const boardDestination='/science-board.html'+(boardCourse!=='h3-science'||boardWorksheet?'?course='+encodeURIComponent(boardCourse)+(boardWorksheet?'&worksheet='+boardWorksheet:''):'')+(/^[A-Za-z0-9._-]{32,1024}$/.test(boardTransfer)?'#transfer='+encodeURIComponent(boardTransfer):'');
+        const boardDestination=boardEntry?.destination;
         const destination = entranceParams.get('scienceboard') === '1' ? boardDestination : entranceParams.get('whiteboard') === '1' ? '/whiteboard.html?lang='+pilotLanguage : recordClassroom ? "/record-entry.html?classroom="+encodeURIComponent(recordClassroom) : wantsMaterials ? materialsDestination : selectedRoute || data.redirect || "/class.html";
         const verifiedStudentId = String(data.student?.id || studentId).toUpperCase();
         if (prepareParentRegistrationNotice(verifiedStudentId, destination)) return;

@@ -5,6 +5,7 @@ import { issueClassroomPass, verifyClassroomPass, exchangeRecordPass, verifyReco
 import {verifyScienceHandoff,allowScienceHandoffVerification,SCIENCE_HANDOFF_MAX_REQUEST} from '../lib/science-handoff.js';
 import { serveStudentPage } from "../lib/student-page.js";
 import { getCourse } from "./courses.js";
+import { BOARD_CATALOG } from "../whiteboard/board-catalog.js";
 import { randomUUID } from "node:crypto";
 import { SCIENCE_VARIANT_PREFIX } from "../lib/suneung-science-variants.js";
 import { createScienceLessonEngine } from "../lib/suneung-science-bank.js";
@@ -246,6 +247,23 @@ function requireCourse(courseId) {
   return { courseId: normalizedCourseId, course };
 }
 
+// Additional worksheet classrooms may use the signed record path without
+// becoming courses supported by the legacy chat/generation engine.
+const boardRecordCourses = new Map(BOARD_CATALOG.map(course => [course.id, course]));
+function recordCourse(courseId) {
+  return getCourse(courseId) || boardRecordCourses.get(courseId) || null;
+}
+function requireRecordCourse(courseId) {
+  const normalizedCourseId = String(courseId || "");
+  const course = recordCourse(normalizedCourseId);
+  if (!course) {
+    const error = new Error("올바른 과목을 선택해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+  return { courseId: normalizedCourseId, course };
+}
+
 export function isPositiveTrackingResponse(result, action) {
   const expectedAction = action === "start" || action === "end" ? action : "";
   if (!expectedAction) return false;
@@ -285,7 +303,7 @@ function assertPositiveTrackingResponse(result, action) {
 }
 
 async function trackStart(student, courseId, validatedCourse = null) {
-  const course = validatedCourse || requireCourse(courseId).course;
+  const course = validatedCourse || requireRecordCourse(courseId).course;
   const result = await requestSheet({
     action: "start",
     session: student.session,
@@ -301,7 +319,7 @@ async function trackStart(student, courseId, validatedCourse = null) {
 
 async function trackEnd(student) {
   if (!student?.session) return { message: "" };
-  requireCourse(student.courseId);
+  requireRecordCourse(student.courseId);
   const result = await requestSheet({
     action: "end",
     session: student.session,
@@ -415,7 +433,7 @@ export default async function handler(request, response) {
 
     if (action === "resume-class-record") {
       const record=await resumeClassRecord(student,body.id);
-      const {courseId,course}=requireCourse(record.course);
+      const {courseId,course}=requireRecordCourse(record.course);
       const active=await createFreshCourseSession(student,courseId,course);
       if(course.suneung||course.ged)active.courseRunId=record.id;
       setStudentSession(response,active);
@@ -431,7 +449,7 @@ export default async function handler(request, response) {
     if (action === "start") {
       // Resolve the requested course before ending or starting any sheet row.
       // A stale/removed/forged course ID must never cause persistence changes.
-      const { courseId, course } = requireCourse(body.courseId);
+      const { courseId, course } = requireRecordCourse(body.courseId);
       let active = student;
       let trackingMessage = "";
       // Every learning-page load starts a fresh tracked row. This also avoids
@@ -481,7 +499,7 @@ export default async function handler(request, response) {
     if (action === "end" || action === "end-on-exit") {
       const courseId = String(body.courseId || "");
       const courseRunId = String(body.courseRunId || "");
-      requireCourse(courseId);
+      requireRecordCourse(courseId);
       if (!isActiveCourseRun(student, courseId, courseRunId)) {
         if (action === "end-on-exit") {
           return sendJson(response, 200, { success: true, ignored: true });
@@ -499,7 +517,7 @@ export default async function handler(request, response) {
     }
 
     if (action === "logout") {
-      if (student.courseId && getCourse(student.courseId) && !student.endedAt) {
+      if (student.courseId && recordCourse(student.courseId) && !student.endedAt) {
         await trackEnd(student).catch(() => null);
       }
       clearStudentSession(response);

@@ -44,10 +44,13 @@ function fixture(student=member()){
  return {student,deps,providerCalls};
 }
 
-test('course catalog keeps the three existing physics units and explicitly scopes the chemistry pilot',async()=>{
+test('course catalog preserves the original units while adding worksheet-only trusted courses',async()=>{
  assert(isBoardCourse(CHEM));assert(isBoardCourse(PHYSICS));
- assert.equal(isBoardCourse('suneung-2027-chemistry-2'),false);
- assert.equal(isBoardCourse('h2-science'),false);
+ assert.equal(isBoardCourse('suneung-2027-chemistry-2'),true);
+ assert.equal(isBoardCourse('h2-science'),true);
+ assert.equal(getBoardCourse('h2-science').worksheetOnly,true);
+ assert.equal(getBoardCourse('suneung-2027-chemistry-2').worksheetOnly,true);
+ assert.equal(isBoardCourse('not-a-catalog-course'),false);
  assert.equal(getBoardCourse(CHEM).language,'ko');
  assert.deepEqual(SCIENCE_TOPICS.map(t=>t.id),['induction','momentum','capacitors']);
  assert.deepEqual(getBoardCourse(PHYSICS).topics.map(t=>t.id),SCIENCE_TOPICS.map(t=>t.id));
@@ -212,7 +215,7 @@ test('the real chemistry concept generator grounds generation, independent revie
   const req=JSON.parse(options.body);tutorRequests.push(req);
   return Response.json({status:'completed',output_text:req.instructions.includes('CHEMISTRY QUANTITIES AND SPOKEN UNITS')?'몰 질량은 물질의 양당 질량으로, 단위는 그램 퍼 몰입니다. 시료의 질량은 그램으로 나타냅니다.':'코일을 지나는 자기 선속이 시간에 따라 변하는지를 먼저 확인해 보세요.'});
  };
- await askScienceBoard(lesson,{scene:0,text:'몰 질량 M과 시료 질량 m의 단위는 무엇인가요?'},{fetcher:tutorFetcher});
+ await askScienceBoard(lesson,{scene:0,text:'몰 질량 M과 시료 질량 m의 단위는 무엇인가요?'},{fetcher:tutorFetcher,material});
  assert(tutorRequests[0].instructions.includes('molar mass M in g/mol (read 그램 퍼 몰)'));
  assert(tutorRequests[0].instructions.includes('sample mass m in g (그램)'));
  assert(tutorRequests[0].instructions.includes('mass of a 1 mol sample'));

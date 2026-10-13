@@ -6,6 +6,7 @@ import {readFile} from 'node:fs/promises';
 import {ScienceController} from '../whiteboard/science-controller.js';
 import {emptyBoardProgress,normalizeBoardProgress,mergeBoardProgress} from '../whiteboard/board-progress.js';
 import {BOARD_COURSES,getBoardCourse,getBoardTopic} from '../whiteboard/board-courses.js';
+import {createBoardUi,applyBoardUi,boardCourseGroups} from '../whiteboard/board-ui.js';
 
 const questions=()=>Array.from({length:10},(_,i)=>({prompt:`몰 관계 확인 ${i+1}`,choices:['1 mol','2 mol','3 mol','4 mol'],answerIndex:i%4,hints:['질량을 확인해 보세요.','몰 질량으로 나누어 보세요.'],explanation:'주어진 질량과 몰 질량의 관계로 확인합니다.'}));
 function partlyCompleted(){
@@ -140,7 +141,7 @@ async function mountBoard({snapshot=browserSnapshot(),storage=new Map(),student=
  };
  const createScienceRecords=options=>{assert.equal(options.studentId,student);assert.equal(options.courseId,course);return{start:async lesson=>{recorded.push(['start',lesson]);return true;},event:(type,payload)=>{recorded.push([type,payload]);return true;},flush:async()=>{sequence.push('flush');if(flushFailures>0){flushFailures--;return false;}return true;},end:async()=>true,exit:()=>recorded.push(['exit'])};};
  const window={addEventListener:(event,fn)=>events.set(event,fn),history:{replaceState:(_a,_b,url)=>{location.href=url;}}};
- const sandbox={BOARD_COURSES,getBoardCourse,getBoardTopic,emptyBoardProgress,normalizeBoardProgress,mergeBoardProgress,ScienceController,createScienceRecords,document,window,location,localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},URL:TestURL,URLSearchParams,Audio,fetch,navigator:{},AbortController,setTimeout,clearTimeout,console,Blob,FileReader:class{}};
+ const sandbox={createBoardUi,applyBoardUi,boardCourseGroups,BOARD_COURSES,getBoardCourse,getBoardTopic,emptyBoardProgress,normalizeBoardProgress,mergeBoardProgress,ScienceController,createScienceRecords,document,window,location,localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},URL:TestURL,URLSearchParams,Audio,fetch,navigator:{},AbortController,setTimeout,clearTimeout,console,Blob,FileReader:class{}};
  await vm.runInNewContext(`(async()=>{${browserSource}\n})()`,sandbox);await settle();
  return {get:selector=>elements.get(selector),audios,calls,storage,recorded,submissions,sequence,location,snapshot,saved:()=>JSON.parse(storage.get(ownKey)||'null'),resolve:action=>pending.get(action)?.(),close:()=>{events.get('pagehide')?.();for(const resolve of pending.values())resolve();}};
 }
@@ -246,15 +247,21 @@ test('a second same-worksheet link click cannot duplicate a handoff already in p
  }finally{f.close();}
 });
 
-test('ordinary course home links outside worksheet entry retain their existing navigation',async()=>{
+test('ordinary topic homes stay direct while a restored worksheet retains signed progress transfer',async()=>{
  for(const course of [CHEM,'h3-science']){
   const snapshot=browserSnapshot();if(course==='h3-science'){Object.assign(snapshot.lesson,{courseId:course,topicId:'induction',title:getBoardTopic(course,'induction').title});delete snapshot.source;delete snapshot.worksheetId;delete snapshot.progress;}
   const storage=new Map();if(course==='h3-science')storage.set(baseKey(STUDENT,course),JSON.stringify(snapshot));
   const f=await mountBoard({snapshot,course,worksheet:'',storage,storeSnapshot:course!== 'h3-science'});
   try{
    assert.equal(f.get('#practice-heading').textContent,'문제 4 / 10');
-   for(const selector of ['#course-home','#practice-home']){const home=f.get(selector).href,clicked=clickLink(f,selector);assert.equal(clicked.prevented,false);await clicked.completion;assert.equal(f.location.href,home);assert(!home.includes('worksheet='));if(course==='h3-science')assert.equal(home,'/learn.html?course=h3-science');}
-   assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));
+   if(course===CHEM){
+    const home=f.get('#course-home').href,clicked=clickLink(f,'#course-home');
+    assert(home.includes('worksheet='+snapshot.worksheetId));assert.equal(clicked.prevented,true);await clicked.completion;
+    assert.equal(f.submissions.length,1);assert(f.calls.some(call=>call.action==='handoff'));
+   }else{
+    for(const selector of ['#course-home','#practice-home']){const home=f.get(selector).href,clicked=clickLink(f,selector);assert.equal(clicked.prevented,false);await clicked.completion;assert.equal(f.location.href,home);assert.equal(home,'/learn.html?course=h3-science');}
+    assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));
+   }
   }finally{f.close();}
  }
 });

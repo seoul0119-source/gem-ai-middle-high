@@ -1,4 +1,7 @@
 import {SCIENCE_TOPICS} from './science-topics.js';
+import {BOARD_CATALOG} from './board-catalog.js';
+
+export {BOARD_CATALOG} from './board-catalog.js';
 
 // Original GEM concept outlines, not a promise of complete examination coverage.
 // Chemistry facts checked against OpenStax Chemistry 2e §§2.3, 3.1, 4.1, 7.6:
@@ -72,10 +75,37 @@ const worksheetTopic=Object.freeze({
  facts:Object.freeze(['선택한 과목과 실제 저장된 10문제의 개념·조건을 기준으로 설명한다.','문제·보기·정답·순서를 바꾸거나 새 문제로 대체하지 않는다.','저장된 문제의 정답이나 보기를 설명 대본에서 직접 공개하지 않고 다른 예로 개념을 가르친다.'])
 });
 
-export const BOARD_COURSES=Object.freeze([
- Object.freeze({id:'h3-science',title:'한국어 고3 과학',language:'ko',grade:'고등학교 3학년',subject:'과학',topics:SCIENCE_TOPICS}),
- Object.freeze({id:'suneung-2027-chemistry-1',title:'2027학년도 수능 화학Ⅰ',language:'ko',grade:'2027학년도 수능 대비',subject:'화학Ⅰ',topics:Object.freeze(chemistryTopics)})
+const freezeWorksheetTopic=topic=>Object.freeze({...topic,outline:Object.freeze(topic.outline),facts:Object.freeze(topic.facts)});
+export const WORKSHEET_TOPICS=Object.freeze({
+ ko:worksheetTopic,
+ en:freezeWorksheetTopic({
+  id:'worksheet',title:'Concepts for the current 10 questions',description:'Learn the concepts needed for the same 10 questions in your classroom.',
+  introGuide:'Read every canonical worksheet question first. Begin with a useful prerequisite concept for the first unsolved/current area and connect it to the supplied set. Do not greet at length, disclose choices or answers, replace problems, or introduce unrelated units. Explain in English appropriate for the course grade. Use 450–750 characters for the first spoken explanation.',
+  outline:['The first concept needed for these questions','Shared concepts and conditions','Relationships and methods for solving','A short example with different details','Key ideas before returning to the questions'],
+  facts:['Base the explanation on the selected course and the concepts and conditions in the actual saved 10 questions.','Do not change the questions, choices, answers or order, and do not replace them with new questions.','Teach with different examples without directly revealing the saved questions’ answers or answer choices in the lesson narration.']
+ }),
+ fr:freezeWorksheetTopic({
+  id:'worksheet',title:'Notions pour les 10 questions en cours',description:'Découvrez les notions nécessaires aux mêmes 10 questions de votre classe.',
+  introGuide:'Read every canonical worksheet question first. Begin with a useful prerequisite concept for the first unsolved/current area and connect it to the supplied set. Do not greet at length, disclose choices or answers, replace problems, or introduce unrelated units. Explain in French appropriate for the course grade. Use 450–750 characters for the first spoken explanation.',
+  outline:['La première notion utile à ces questions','Notions communes et conditions','Relations et méthodes de résolution','Un court exemple avec des données différentes','Les idées clés avant de reprendre les questions'],
+  facts:['Fonder les explications sur le cours choisi ainsi que sur les notions et les conditions des 10 questions réellement enregistrées.','Ne modifier ni les questions, ni les propositions, ni les réponses, ni leur ordre, et ne pas les remplacer par de nouvelles questions.','Enseigner avec des exemples différents sans révéler directement les réponses ou les propositions des questions enregistrées dans le commentaire de la leçon.']
+ })
+});
+
+// Keep established fixed-unit entry points intact. All other trusted classrooms
+// begin from an existing worksheet; they must not inherit another subject's units.
+const legacyCourses=Object.freeze([
+ Object.freeze({id:'h3-science',title:'한국어 고3 과학',language:'ko',grade:'고등학교 3학년',subject:'과학',worksheetOnly:false,topics:SCIENCE_TOPICS}),
+ Object.freeze({id:'suneung-2027-chemistry-1',title:'2027학년도 수능 화학Ⅰ',language:'ko',grade:'2027학년도 수능 대비',subject:'화학Ⅰ',worksheetOnly:false,topics:Object.freeze(chemistryTopics)})
 ]);
-export const getBoardCourse=(id='h3-science')=>BOARD_COURSES.find(course=>course.id===id)||null;
+const legacyIds=new Set(legacyCourses.map(course=>course.id));
+const noFixedTopics=Object.freeze([]);
+export const BOARD_COURSES=Object.freeze([
+ ...legacyCourses,
+ ...BOARD_CATALOG.filter(course=>!legacyIds.has(course.id)).map(course=>Object.freeze({...course,worksheetOnly:true,topics:noFixedTopics}))
+]);
+const coursesById=new Map(BOARD_COURSES.map(course=>[course.id,course]));
+export const BOARD_COURSE_LABELS=Object.freeze(Object.fromEntries(BOARD_COURSES.map(course=>[course.id,course.title])));
+export const getBoardCourse=(id='h3-science')=>coursesById.get(id)||null;
 export const isBoardCourse=id=>typeof id==='string'&&!!getBoardCourse(id);
-export const getBoardTopic=(courseId,topicId)=>{const course=typeof courseId==='string'?getBoardCourse(courseId):null;return course?(topicId==='worksheet'?worksheetTopic:course.topics.find(topic=>topic.id===topicId)||null):null;};
+export const getBoardTopic=(courseId,topicId)=>{const course=typeof courseId==='string'?getBoardCourse(courseId):null;return course?(topicId==='worksheet'?WORKSHEET_TOPICS[course.language]:course.topics.find(topic=>topic.id===topicId)||null):null;};
