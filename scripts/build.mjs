@@ -2,6 +2,10 @@
 import {spawnSync} from 'node:child_process';
 import {readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {requirePaidVerificationApproval} from './build-spend-guard.mjs';
+
+// Default builds stop before any test, model request or generated audio.
+requirePaidVerificationApproval(process.argv.slice(2));
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const tests=readdirSync(new URL('../tests/',import.meta.url))
