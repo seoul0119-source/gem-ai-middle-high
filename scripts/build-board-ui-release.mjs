@@ -1,4 +1,4 @@
-// Explicit 2026-10-14 release of Korean captions and teacher identity only.
+// Authorized 2026-10-14 UI releases: captions, teacher identity, and classroom entrance routing.
 // General paid release verification remains separately guarded in build.mjs.
 import {spawnSync} from 'node:child_process';
 import {readdirSync,readFileSync} from 'node:fs';

@@ -29,5 +29,42 @@
     query.set('classroom', '1');
     return '/materials.html?' + query;
   }
-  globalThis.GEMEntrance = { schools, choices, course, destination };
+  const internationalSubjects = ['math','science','language','social'];
+  const frenchGrades = ['CP','CE1','CE2','CM1','CM2','6e','5e','4e','3e','Seconde','Première','Terminale'];
+  function internationalGrades(language, level) {
+    if (!['en','fr'].includes(language) || !schools[level]) return [];
+    const [first,last] = level === 'elementary' ? [1,5] : level === 'middle' ? [6,language === 'fr' ? 9 : 8] : [language === 'fr' ? 10 : 9,12];
+    return Array.from({length:last-first+1},(_,i)=>({value:first+i,label:language === 'fr' ? frenchGrades[first+i-1] : 'Grade '+(first+i)}));
+  }
+  function internationalDestination(language, level, grade, subject, pathway='general', materials=false) {
+    if (!internationalGrades(language,level).some(item=>item.value===grade) || !internationalSubjects.includes(subject)) throw Error('학년과 과목을 선택해 주세요.');
+    let id=`materials-${language}-${grade}-${internationalSubjects.indexOf(subject)}`,browse=false;
+    if (level === 'high' && pathway !== 'general') {
+      const advanced = language === 'en' ? {math:[0,1,2],science:[3,4,5,7,6,8,9,3],language:[10,11],social:[12]} : {math:[0,1,2],science:[3,4,5,6],language:[],social:[12]};
+      const number=/^advanced([1-9])$/.exec(pathway)?.[1],index=number ? advanced[subject][Number(number)-1] : undefined;
+      if (index === undefined) throw Error('선택한 심화 과정을 확인해 주세요.');
+      id=`materials-${language}-advanced-${index}`;
+      // These existing entrance cards represent several courses. Open their
+      // new worksheet library so the learner can choose the exact course.
+      browse=subject==='social'||language==='en'&&subject==='science'&&pathway==='advanced8';
+    }
+    const params=new URLSearchParams({language,course:id});
+    if (!materials && !browse) params.set('classroom','1');
+    else params.set('browse','1');
+    return '/materials.html?'+params;
+  }
+  async function requestSession(body,timeoutMs=30000) {
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try {
+      const response=await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+      const data=await response.json().catch(()=>({}));
+      if (!response.ok) throw Object.assign(Error(data.error||'학생 ID와 입장 연결을 확인하지 못했습니다. 다시 입장해 주세요.'),{status:response.status});
+      return data;
+    } catch(error) {
+      if (controller.signal.aborted) throw Error('입장 확인 시간이 길어지고 있습니다. 잠시 후 입장 버튼을 다시 눌러 주세요.');
+      throw error;
+    } finally { clearTimeout(timer); }
+  }
+  globalThis.GEMEntrance = { schools, choices, course, destination, internationalGrades, internationalDestination, requestSession };
 })();

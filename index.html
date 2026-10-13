@@ -617,6 +617,10 @@
         </div>
       </div>
 
+      <div id="international-grade-section" class="korean-grade-section" hidden>
+        <label id="international-grade-title" class="school-level-title" for="international-grade">Choose your grade</label>
+        <select id="international-grade" class="lesson-mode"></select>
+      </div>
       <div id="korean-course-section">
         <div class="korean-grade-section">
           <span id="korean-grade-title" class="school-level-title">학년 선택</span>
@@ -744,7 +748,7 @@
       </button>
     </div>
   </dialog>
-  <script src="/entrance-catalog.js"></script>
+  <script src="/entrance-catalog.js?v=20261014-entry"></script>
   <script>
     const subjectIcons = {
       korean: "book", math: "math", english: "languages", integrated: "sprout",
@@ -874,6 +878,7 @@
         selectedKoreanGrade = gradeIndex < 6 ? gradeIndex + 1 : gradeIndex < 9 ? gradeIndex - 5 : gradeIndex - 8;
         selectSchoolLevel(gradeIndex < 6 ? "elementary" : gradeIndex < 9 ? "middle" : "high");
       } else if (gradeIndex >= 0) {
+        selectedInternationalGrade = gradeIndex + 1;
         const middleEnd = registrationLanguage === "en" ? 8 : 9;
         selectSchoolLevel(gradeIndex < 5 ? "elementary" : gradeIndex < middleEnd ? "middle" : "high");
       }
@@ -926,12 +931,6 @@
     const socialSubjectLabel = document.getElementById("social-subject-label");
     const socialSubjectGrades = document.getElementById("social-subject-grades");
     const supportOptions = [...document.querySelectorAll(".support-option")];
-    const usScience = "https://gem-english-elementary-science.seoul0119.chatgpt.site";
-    const frScience = "https://gem-french-elementary-science.seoul0119.chatgpt.site";
-    const usElementaryEla = "https://gem-english-elementary-ela.seoul0119.chatgpt.site";
-    const usSecondaryEla = "https://gem-english-secondary-ela.seoul0119.chatgpt.site";
-    const frElementaryLanguage = "https://gem-francais-elementaire.seoul0119.chatgpt.site";
-    const frSecondaryLanguage = "https://gem-francais-secondaire.seoul0119.chatgpt.site";
     const supportRoutes = {
       sat: "https://gem-sat-prep-support.seoul0119.chatgpt.site",
       act: "https://gem-act-prep-support.seoul0119.chatgpt.site",
@@ -940,69 +939,6 @@
       suneung: "/suneung.html",
       "toeic-toefl": "/class.html?mode=exams#english-extra",
       ged: "/class.html?mode=exams#ged-entrance"
-    };
-    const languageRoutes = {
-      ko: "/class.html",
-      en: {
-        elementary: {
-          math: "https://gem-english-elementary-math.seoul0119.chatgpt.site",
-          science: usScience,
-          language: usElementaryEla,
-          social: "https://gem-english-elementary-social-studies.seoul0119.chatgpt.site"
-        },
-        middle: {
-          math: "https://gem-english-middle-school-math.seoul0119.chatgpt.site",
-          science: usScience,
-          language: usSecondaryEla,
-          social: "https://gem-english-middle-school-social-studies.seoul0119.chatgpt.site"
-        },
-        high: {
-          math: {
-            general: "https://gem-english-high-school-math.seoul0119.chatgpt.site",
-            advanced1: "https://gem-ap-calculus-ab.seoul0119.chatgpt.site",
-            advanced2: "https://gem-ap-calculus-bc.seoul0119.chatgpt.site",
-            advanced3: "https://gem-ap-statistics.seoul0119.chatgpt.site"
-          },
-          science: { general: usScience, advanced1: usScience, advanced2: usScience, advanced3: usScience, advanced4: usScience, advanced5: usScience, advanced6: usScience, advanced7: usScience, advanced8: usScience },
-          language: {
-            general: usSecondaryEla,
-            advanced1: "https://gem-ap-english-language.seoul0119.chatgpt.site",
-            advanced2: "https://gem-ap-english-literature.seoul0119.chatgpt.site"
-          },
-          social: {
-            general: "https://gem-english-high-school-social-studies.seoul0119.chatgpt.site",
-            advanced1: "https://gem-ap-social-studies-humanities.seoul0119.chatgpt.site"
-          }
-        }
-      },
-      fr: {
-        elementary: {
-          math: "https://gem-french-ce2-math.seoul0119.chatgpt.site",
-          science: frScience,
-          language: frElementaryLanguage,
-          social: "https://gem-histoire-geographie-emc-primaire.seoul0119.chatgpt.site"
-        },
-        middle: {
-          math: "https://gem-french-middle-school-math.seoul0119.chatgpt.site",
-          science: frScience,
-          language: frSecondaryLanguage,
-          social: "https://gem-histoire-geographie-emc-college.seoul0119.chatgpt.site"
-        },
-        high: {
-          math: {
-            general: "https://gem-french-high-school-math.seoul0119.chatgpt.site",
-            advanced1: "https://gem-specialite-mathematiques-premiere.seoul0119.chatgpt.site",
-            advanced2: "https://gem-specialite-mathematiques-terminale.seoul0119.chatgpt.site",
-            advanced3: "https://gem-mathematiques-expertes.seoul0119.chatgpt.site"
-          },
-          science: { general: frScience, advanced1: frScience, advanced2: frScience, advanced3: frScience, advanced4: frScience },
-          language: { general: frSecondaryLanguage },
-          social: {
-            general: "https://gem-histoire-geographie-emc-lycee.seoul0119.chatgpt.site",
-            advanced1: "https://gem-hggsp-histoire-des-arts.seoul0119.chatgpt.site"
-          }
-        }
-      }
     };
     const pathwayCatalog = {
       en: {
@@ -1064,6 +1000,7 @@
     let selectedEntranceMode = "regular";
     let selectedKoreanGrade = 1;
     let selectedKoreanSubject = "math";
+    let selectedInternationalGrade = 1;
     const entranceModes = [...document.querySelectorAll(".entrance-mode")];
 
     function selectEntranceMode(mode) {
@@ -1205,6 +1142,15 @@
     function updateSubjectSection() {
       updateKoreanChoices();
       const isVisible = selectedLanguage === "en" || selectedLanguage === "fr";
+      document.getElementById('international-grade-section').hidden = !isVisible;
+      if (isVisible) {
+        const grades = GEMEntrance.internationalGrades(selectedLanguage,selectedSchoolLevel);
+        if (!grades.some(item=>item.value===selectedInternationalGrade)) selectedInternationalGrade=grades[0].value;
+        document.getElementById('international-grade-title').textContent=selectedLanguage==='fr'?'Choisir la classe':'Choose your grade';
+        const select=document.getElementById('international-grade');
+        select.replaceChildren(...grades.map(item=>new Option(item.label,String(item.value))));
+        select.value=String(selectedInternationalGrade);
+      }
       subjectSection.classList.toggle("is-visible", isVisible);
       if (isVisible) {
         const isFrench = selectedLanguage === "fr";
@@ -1377,9 +1323,8 @@
         location.replace(key?'/record-entry.html?classroom='+encodeURIComponent(key)+'&destination='+encodeURIComponent(target.pathname+target.search):destination);return;
       }
       try {
-        const response = await fetch("/api/session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"classroom-pass", classroom})});
-        const data = await response.json();
-        if (!response.ok || !data.ticket) throw new Error("교실 입장을 연결하지 못했습니다. 다시 입장해 주세요.");
+        const data = await GEMEntrance.requestSession({action:"classroom-pass", classroom});
+        if (!data.ticket) throw new Error("교실 입장을 연결하지 못했습니다. 다시 입장해 주세요.");
         const form = document.createElement("form");
         form.method = "POST"; form.action = target.origin + "/api/learning/entry";
         const input = document.createElement("input"); input.type="hidden"; input.name="ticket"; input.value=data.ticket;
@@ -1451,6 +1396,7 @@
     schoolLevelOptions.forEach((option) => {
       option.addEventListener("click", () => selectSchoolLevel(option.dataset.level));
     });
+    document.getElementById('international-grade').addEventListener('change',event=>{selectedInternationalGrade=Number(event.target.value);});
     subjectOptions.forEach((option) => {
       option.addEventListener("click", () => selectSubject(option.dataset.subject));
     });
@@ -1491,23 +1437,12 @@
       try {
         const boardEntry = await boardEntrance;
         if (entranceParams.get('scienceboard') === '1' && !boardEntry) throw new Error('선택한 칠판 교실을 확인하지 못했습니다. 기존 교실에서 칠판 설명을 다시 열어 주세요.');
-        const response = await fetch("/api/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "login", studentId })
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "학생 ID를 확인하지 못했습니다.");
-        const schoolLevelRoute = languageRoutes[selectedLanguage]?.[selectedSchoolLevel];
+        const data = await GEMEntrance.requestSession({ action: "login", studentId });
         const selectedRoute = selectedSupportCourse
           ? supportRoutes[selectedSupportCourse]
           : selectedLanguage === "ko"
           ? koreanDestination()
-          : selectedSchoolLevel !== "high"
-            ? schoolLevelRoute?.[selectedSubject]
-          : selectedSchoolLevel === "high"
-            ? schoolLevelRoute?.[selectedSubject]?.[selectedHighSchoolPathway]
-            : schoolLevelRoute;
+          : GEMEntrance.internationalDestination(selectedLanguage,selectedSchoolLevel,selectedInternationalGrade,selectedSubject,selectedHighSchoolPathway);
         const wantsMaterials = event.submitter?.id === "materials-login" || new URLSearchParams(location.search).has("materials");
         const params=new URLSearchParams(location.search);params.delete("materials");
         // Keep an explicit return-to-materials course intact; otherwise use the visible selection.
@@ -1516,7 +1451,9 @@
           params.set("language", selectedSupportCourse ? (selectedSupportCourse === "bac" ? "fr" : ["sat","act","ib"].includes(selectedSupportCourse) ? "en" : "ko") : selectedLanguage);
         }
         const materialsDestination = selectedLanguage === "ko" && !selectedSupportCourse && !entranceParams.has("materials")
-          ? koreanDestination(true) : "/materials.html?" + params.toString();
+          ? koreanDestination(true) : !selectedSupportCourse && !entranceParams.has('materials')
+            ? GEMEntrance.internationalDestination(selectedLanguage,selectedSchoolLevel,selectedInternationalGrade,selectedSubject,selectedHighSchoolPathway,true)
+            : "/materials.html?" + params.toString();
         const recordClassroom = new URLSearchParams(location.search).get("recordClassroom");
         const pilotLanguage = ['ko','en','fr'].includes(entranceParams.get('lang')) ? entranceParams.get('lang') : selectedLanguage;
         const boardDestination=boardEntry?.destination;
