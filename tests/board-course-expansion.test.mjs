@@ -200,6 +200,9 @@ test('the real chemistry concept generator grounds generation, independent revie
   assert(req.instructions.includes('Never generalize these molecular statements to all chemical formulas or to ionic NaCl'));
   assert(req.instructions.includes('requires the SAME substance and SAME sample'));
   assert(req.instructions.includes('both beside the board formula and in the spoken explanation'));
+  assert(req.instructions.includes('do not chain them into n = N/N_A = m/M'));
+  assert(req.instructions.includes('N counts that SAME entity and M is the molar mass of that SAME substance'));
+  assert(req.instructions.includes('Include the inverse M = m/n and its g/mol unit when the actual worksheet asks'));
   assert(!req.instructions.includes('flux through ONE turn'),'chemistry must not inherit the special electromagnetic induction contract');
  }
  assert(calls[2].instructions.includes('Repair the proposed scenes'));assert(calls[2].input[0].content.includes('Clarify that the mole'));
@@ -241,6 +244,69 @@ test('chemistry remainder review measures the approved prefix and each repaired 
  assert.notEqual(JSON.parse(reviews[0].input[0].content).reviewContract.narrationMeasurements.assembledTotal,JSON.parse(reviews[1].input[0].content).reviewContract.narrationMeasurements.assembledTotal,'measurements must be recalculated after the factual repair');
  assert(calls[2].input[0].content.includes(issue.issues[0]));assert.match(calls[2].instructions,/Repair only the four candidate scenes 2–5/);assert(!calls[2].instructions.includes('Aim for about 300 characters for scene 1'));
  for(const request of calls)assert(request.instructions.includes(JSON.stringify(material)),'generation, repair and review must use the same complete worksheet');
+});
+
+function chemistryRepairCase(){
+ const first=makeLesson(CHEM,'worksheet'),material=makeMaterial(),correct=makeLesson(CHEM,'worksheet',true,first.id).scenes.slice(1);
+ for(const scene of correct){scene.lines=['같은 물질의 같은 시료에서 M = m/n입니다.','몰 질량 M: g/mol, 시료 질량 m: g, 물질의 양 n: mol'];scene.narration='시료의 질량과 몰 질량은 서로 다른 양입니다. 질량은 그램으로 나타내지만 몰 질량의 단위는 그램 퍼 몰입니다. 물질의 양에 몰 질량을 곱하면 시료의 질량을 구할 수 있습니다. 반대로 질량을 몰 질량으로 나누면 물질의 양이 됩니다. 계산 전에 문제에서 지정한 물질과 주어진 단위를 먼저 확인하세요. 단위를 함께 쓰면 곱할지 나눌지 판단할 수 있습니다.';}
+ const wrongCount=structuredClone(correct);wrongCount[0].lines[0]='물 분자의 몰 수는 수소 원자의 몰 수와 같습니다.';
+ const wrongUnit=structuredClone(correct);wrongUnit[1].lines[1]='몰 질량의 단위도 시료 질량처럼 g입니다.';wrongUnit[1].narration+=' 같은 시료의 조건을 확인합니다.';
+ const malformed=structuredClone(correct);malformed[1].narration='설명이 너무 짧습니다.';
+ return {first,material,correct,wrongCount,wrongUnit,malformed,countIssue:{valid:false,issues:['Water molecules and their constituent hydrogen atoms do not have the same amount; identify the counted entity and use the molecular ratio.']},unitIssue:{valid:false,issues:['Molar mass uses g/mol, while sample mass uses g; keep both quantities and their units distinct.']}};
+}
+function boardSceneProvider(...outputs){
+ const calls=[];
+ return {calls,fetcher:async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/responses');const request=JSON.parse(options.body);calls.push(request);assert(outputs.length,'provider budget exceeded');const output=outputs.shift();return typeof output==='function'?output(request):Response.json({status:'completed',output_text:JSON.stringify(output)});}};
+}
+
+test('chemistry may repair two factual defects but releases its five scenes only after the third independent approval',async()=>{
+ const f=chemistryRepairCase(),originalFirst=structuredClone(f.first),originalMaterial=structuredClone(f.material);
+ let finalReviewRequested,releaseFinal,returned=false;
+ const finalReview=new Promise(resolve=>{finalReviewRequested=resolve;});
+ const mock=boardSceneProvider({scenes:f.wrongCount},f.countIssue,{scenes:f.wrongUnit},f.unitIssue,{scenes:f.correct},request=>{
+  assert.equal(request.text.format.name,'science_board_review');
+  return new Promise(resolve=>{releaseFinal=()=>resolve(Response.json({status:'completed',output_text:JSON.stringify({valid:true,issues:[]})}));finalReviewRequested();});
+ });
+ const pending=generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher}).then(value=>{returned=true;return value;});
+ await Promise.race([finalReview,pending.then(()=>{throw Error('candidate returned before the final independent review');})]);
+ assert.equal(returned,false);assert.equal(mock.calls.length,6);releaseFinal();const full=await pending;
+ assert.equal(full.complete,true);assert.equal(full.scenes.length,5);assert.equal(full.id,f.first.id);assert.strictEqual(full.scenes[0],f.first.scenes[0]);assert.deepEqual(full.scenes.slice(1),f.correct);
+ assert.deepEqual(f.first,originalFirst);assert.deepEqual(f.material,originalMaterial);
+ assert.deepEqual(mock.calls.map(request=>request.text.format.name),['science_board_scenes','science_board_review','science_board_scenes','science_board_review','science_board_scenes','science_board_review']);
+ for(const request of mock.calls)assert(request.instructions.includes(JSON.stringify(originalMaterial)),'the original ten questions must remain in generation, both repairs and all three reviews');
+ for(const [index,candidate] of [f.wrongCount,f.wrongUnit,f.correct].entries()){
+  const reviewed=JSON.parse(mock.calls[index*2+1].input[0].content);
+  assert.deepEqual(reviewed.previousScenes,originalFirst.scenes);assert.deepEqual(reviewed.candidate,{scenes:candidate});assert.deepEqual(reviewed.assembledLesson.scenes,[...originalFirst.scenes,...candidate]);assert.equal(reviewed.reviewContract.assembledSceneCount,5);
+  assert.equal(reviewed.reviewContract.narrationMeasurements.assembledTotal,[...originalFirst.scenes,...candidate].reduce((sum,scene)=>sum+scene.narration.length,0));
+ }
+ assert(JSON.parse(mock.calls[2].input[0].content).issues.includes(f.countIssue.issues[0]));assert(JSON.parse(mock.calls[4].input[0].content).issues.includes(f.unitIssue.issues[0]));
+});
+
+test('a third chemistry candidate cannot trigger a fourth attempt or bypass rejection or malformed content',async()=>{
+ for(const finalFormatInvalid of [false,true]){
+  const f=chemistryRepairCase(),final=finalFormatInvalid?f.malformed:f.wrongUnit;
+  const outputs=[{scenes:f.wrongCount},f.countIssue,{scenes:f.wrongUnit},f.unitIssue,{scenes:final},...(finalFormatInvalid?[]:[f.unitIssue])],mock=boardSceneProvider(...outputs);
+  await assert.rejects(generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher}),/검토를 통과/);
+  assert.equal(mock.calls.length,finalFormatInvalid?5:6);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,3);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,finalFormatInvalid?2:3);
+  assert.equal(f.first.complete,false);assert.equal(f.first.scenes.length,1);
+ }
+});
+
+test('mixed chemistry format and factual defects use at most two repairs and three candidates in either order',async()=>{
+ for(const formatFirst of [false,true])for(const approved of [false,true]){
+  const f=chemistryRepairCase(),final=approved?f.correct:f.wrongUnit,verdict=approved?{valid:true,issues:[]}:f.unitIssue;
+  const outputs=formatFirst?[{scenes:f.malformed},{scenes:f.wrongUnit},f.unitIssue,{scenes:final},verdict]:[{scenes:f.wrongUnit},f.unitIssue,{scenes:f.malformed},{scenes:final},verdict],mock=boardSceneProvider(...outputs);
+  const pending=generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher});
+  if(approved){const full=await pending;assert.strictEqual(full.scenes[0],f.first.scenes[0]);assert.deepEqual(full.scenes.slice(1),f.correct);}else await assert.rejects(pending,/검토를 통과/);
+  assert.equal(mock.calls.length,5);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,3);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,2);
+  for(const request of mock.calls)assert(request.instructions.includes(JSON.stringify(f.material)));
+ }
+});
+
+test('chemistry still permits only one deterministic format repair',async()=>{
+ const f=chemistryRepairCase(),mock=boardSceneProvider({scenes:f.malformed},{scenes:f.malformed});
+ await assert.rejects(generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher}),/검토를 통과/);
+ assert.equal(mock.calls.length,2);assert(mock.calls.every(request=>request.text.format.name==='science_board_scenes'));
 });
 
 test('authenticated refresh after re-login reads newer canonical attempts without renewing the original lesson deadline',async()=>{
