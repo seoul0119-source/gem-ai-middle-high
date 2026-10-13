@@ -3,6 +3,9 @@ import {spawnSync} from 'node:child_process';
 import {readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
+import {requirePaidVerificationApproval} from './build-spend-guard.mjs';
+requirePaidVerificationApproval(process.argv.slice(2));
+
 const root=fileURLToPath(new URL('../',import.meta.url));
 const tests=readdirSync(new URL('../tests/',import.meta.url))
  .filter(name=>!name.startsWith('.')&&name.endsWith('.test.mjs'))

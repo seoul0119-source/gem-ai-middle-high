@@ -46,10 +46,14 @@ for(const courseId of courses){
  test(`${language}: exact imported questions survive explanation → question → continue → practice → signed Mei handoff`,async()=>{
   const f=await mount({courseId,worksheetId});try{
    assert.equal(f.get('#topic').disabled,true);assert.equal(f.get('#board-course').disabled,true);assert.equal(f.get('#topic').children.length,1);
+   const teacher={ko:'Mei',en:'Olivia',fr:'Simon'}[language];
+   for(const id of ['#teacher-name','#board-copy-5','#handoff','#worksheet-return'])assert(f.get(id).textContent.includes(teacher),id);
+   if(language!=='ko')for(const [,node]of f.elements)assert(!/\bMei\b/.test(node.textContent),node.textContent);
    assert.equal(f.get('#lesson-title').textContent,material.title+' · '+ui('현재 10문제 설명'));
    assert(f.get('#topic').children[0].textContent.includes(material.title));
    f.get('#play').click();await settle();const narration=f.audios.find(a=>a.playing);assert(narration);narration.currentTime=13;
    f.get('#question').focus();assert.equal(narration.playing,false);f.get('#question').value='Explain the key idea';await f.get('#question-form').onsubmit({preventDefault(){}});await settle();
+   assert.equal(f.get('#conversation').children.at(-1).children[0].textContent,teacher);
    assert.equal(f.calls.find(c=>c.action==='ask').quizToken,'imported-quiz');assert(f.recorded.some(e=>e[0]==='dialogue'));
    f.audios.at(-1).finish();f.get('#play').click();await settle();assert.equal(narration.currentTime,13);assert(narration.playing);
    f.get('#ten').click();f.get('#choices').children[0].click();assert.equal(f.get('#feedback').textContent.startsWith(ui('정답이에요.')),true);

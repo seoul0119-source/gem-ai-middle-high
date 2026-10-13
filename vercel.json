@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node scripts/build.mjs",
+  "buildCommand": "node scripts/build-board-ui-release.mjs",
   "outputDirectory": ".",
   "routes": [
     {
@@ -61,5 +61,6 @@
       "path": "/api/library-daily",
       "schedule": "0 21 * * *"
     }
-  ]
+  ],
+  "ignoreCommand": "exit 0"
 }
