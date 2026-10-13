@@ -1,3 +1,4 @@
+import {BOARD_TEACHERS} from './board-teachers.js';
 // User-facing board copy. Korean keys preserve the established classroom wording.
 export const BOARD_UI_COPY={
   "현재 10문제에 맞춘 설명": {
@@ -470,7 +471,7 @@ export const BOARD_UI_COPY={
   },
   "Mei · AI 선생님": {
     "en": "Mei · AI teacher",
-    "fr": "Mei · Enseignante IA"
+    "fr": "Mei · Professeur IA"
   },
   "첫 설명부터 들려드리고, 이어질 설명과 연습 문제를 준비합니다.": {
     "en": "Listen to the first scene while we prepare the rest of the explanation and practice.",
@@ -749,9 +750,10 @@ export const BOARD_UI_COPY={
     "fr": "Suivi en attente de synchronisation"
   }
 };
-export function createBoardUi(language="ko"){ const lang=["en","fr"].includes(language)?language:"ko"; return (key,values={})=>{const text=lang==="ko"?key:(BOARD_UI_COPY[key]?.[lang]??key);return text.replace(/\{(\w+)\}/g,(_,name)=>values[name]===undefined?"{"+name+"}":String(values[name]));};}
+export function createBoardUi(language="ko"){ const lang=["en","fr"].includes(language)?language:"ko"; return (key,values={})=>{const text=lang==="ko"?key:(BOARD_UI_COPY[key]?.[lang]??key);return text.replace(/\bMei\b/g,BOARD_TEACHERS[lang]).replace(/\{(\w+)\}/g,(_,name)=>values[name]===undefined?"{"+name+"}":String(values[name]));};}
 
 const STATIC_COPY={
+  "teacher-name": "Mei",
   "board-copy-1": "GEM · 실시간 칠판 설명",
   "board-language": "개인 칠판 교실",
   "course-home": "고3 과학 교실 홈",
