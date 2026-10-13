@@ -1,5 +1,6 @@
 // Opt-in live regression: node scripts/verify-board-subject-stages.mjs --stage=ko
 // Stages: ko | exam | international | all. --case=<courseId> narrows a retry.
+// Default execution is sequential; --concurrency=2 overlaps independent cases.
 // Only OpenAI is contacted. Learners, transfers, target returns and records are
 // in memory; no real student ID, Google Sheet or target Site row is written.
 import assert from 'node:assert/strict';
@@ -12,16 +13,19 @@ import {getBoardCourse} from '../whiteboard/board-courses.js';
 import {ScienceController} from '../whiteboard/science-controller.js';
 import {emptyBoardProgress} from '../whiteboard/board-progress.js';
 import {boardSubjectCases} from '../tests/fixtures/board-subject-stages.js';
+import {runBoardVerificationCases} from './board-verification-runner.mjs';
 
 const args=process.argv.slice(2),stage=args.find(a=>a.startsWith('--stage='))?.slice(8)||'all';
 const only=args.find(a=>a.startsWith('--case='))?.slice(7);
+const concurrency=Number(args.find(a=>a.startsWith('--concurrency='))?.slice(14)??'1');
 assert(['ko','exam','international','all'].includes(stage),'Unknown verification stage');
-assert(args.every(a=>a==='--dry-run'||/^--(?:stage|case)=/.test(a)),'Unknown verifier argument');
+assert([1,2].includes(concurrency),'Verification concurrency must be 1 or 2');
+assert(args.every(a=>a==='--dry-run'||/^--(?:stage|case|concurrency)=/.test(a)),'Unknown verifier argument');
 const cases=boardSubjectCases.filter(c=>(stage==='all'||c.stage===stage)&&(!only||c.courseId===only));
 assert(cases.length,'No representative course matches the requested stage/case');
 for(const c of cases)assert.equal(getBoardCourse(c.courseId)?.language,c.language,c.courseId);
 if(args.includes('--dry-run')){
- console.log(JSON.stringify({stage,cases,verification:'plan only; no provider calls or student writes'}));
+ console.log(JSON.stringify({stage,concurrency,cases,verification:'plan only; no provider calls or student writes'}));
  process.exit(0);
 }
 if(!process.env.OPENAI_API_KEY)throw Error('Existing classroom AI configuration is required for live verification.');
@@ -93,5 +97,5 @@ async function verifyCase(representative){
  const result={stage:representative.stage,courseId,language,questionsPreparedMs,firstBoardMs,completeBoardMs,totalMs:Date.now()-started,providerCalls,questions:10,scenes:5,scene2Seconds:Math.round(scene2Seconds),answerSeconds:Math.round(answerSeconds),freshGeneratedQuestions:true,independentlyReviewedLesson:true,midlessonAnswer:true,controllerPauseAndContinue:true,optionalOneQuestion:true,signedHandoffVerified:true,sameQuestionsAndOrder:true,progressPreserved:true,freshLoginResume:true,regeneratedQuestions:0,recordWrites:0,speechVerification:'MP3 frame parsing and duration; no human listening',targetReturn:'in-process canonical fixture; external Site storage not contacted'};
  console.log('Subject board live case passed',JSON.stringify(result));return result;
 }
-const results=[];for(const representative of cases)results.push(await verifyCase(representative));
-console.log('Subject board stage passed',JSON.stringify({stage,courses:results.map(r=>r.courseId),representatives:results.length,allCatalogContentIndividuallyVerified:false,studentRecordWrites:0}));
+const results=await runBoardVerificationCases(cases,verifyCase,{concurrency});
+console.log('Subject board stage passed',JSON.stringify({stage,concurrency,courses:results.map(r=>r.courseId),representatives:results.length,allCatalogContentIndividuallyVerified:false,studentRecordWrites:0}));

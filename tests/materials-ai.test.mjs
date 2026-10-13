@@ -258,3 +258,38 @@ test('reading evidence contract is scoped to language reasoning tasks and preser
  assert.equal(requests.length,6);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_repair').length,2);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_review').length,3);assert(requests.every(request=>request.instructions.includes('READING CLAIM AND EVIDENCE CONTRACT')));
  assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>request.max_output_tokens),[2500,2500,2500]);
 });
+
+test('state-change evidence repairs a shrinking-puddle ambiguity in the prompt and independently reviews both bounded repairs',async()=>{
+ const source=structuredClone(fixture);source.title='Les changements d’état de l’eau';
+ source.questions[3]={prompt:'Une petite flaque d’eau dans la cour devient plus petite pendant une journée douce. Quel changement d’état explique cette observation ?',choices:['L’évaporation','La solidification','La fusion','La condensation'],answerIndex:0,hints:['Observe ce qui change dans la situation.','Compare les états avant et après le changement proposé.'],explanation:'La flaque diminue parce que l’eau s’évapore.'};
+ const partial=structuredClone(source);partial.questions[3].prompt+=' Aucune eau ne coule vers un autre endroit.';
+ const fixed=structuredClone(partial);fixed.questions[3]={...fixed.questions[3],prompt:'Un adulte observe de l’eau liquide dans un récipient ouvert, imperméable et sans fuite, à température ambiante. Personne n’ajoute, ne retire ni ne renverse d’eau. Au fil des jours, la quantité d’eau liquide diminue. Quel changement d’état explique cette diminution ?',explanation:'Une partie de l’eau liquide devient de la vapeur d’eau dans l’air : c’est l’évaporation. Le récipient ne fuit pas et n’absorbe pas l’eau. L’eau ne disparaît pas : elle passe dans l’air.'};
+ const first={valid:false,issues:[{question:4,reason:'The puddle can decrease because the ground absorbs the water.',fix:'Put the liquid in a controlled non-absorbing container and state the needed observation.'}]};
+ const second={valid:false,issues:[{question:4,reason:'No runoff still permits absorption or infiltration into the ground.',fix:'Replace the puddle with an open impermeable container without leaks and exclude removal/spilling in the prompt.'}]};
+ const requests=[],responses=[source,first,replacements(partial,4),second,replacements(fixed,4),{valid:true,issues:[]}],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length);return Response.json({output_text:JSON.stringify(responses.shift())});};
+ const original=structuredClone(source),result=await handleMaterials({mode:'generate',courseId:'materials-fr-3-1',topic:'États de l’eau : fusion, solidification, évaporation et condensation'},{fetcher});
+ assert.deepEqual(source,original);assert.deepEqual(result.material,fixed);assert.deepEqual(result.material.questions.filter((_,i)=>i!==3),source.questions.filter((_,i)=>i!==3));
+ assert.equal(requests.length,6);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_repair').length,2);assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>JSON.parse(request.input[0].content)),[source,partial,fixed]);
+ assert.match(result.material.questions[3].prompt,/imperméable et sans fuite/);assert.doesNotMatch(result.material.questions[3].hints.join(' '),/évaporation|vapeur/);
+ for(const request of requests){
+  assert.match(request.instructions,/PHYSICAL STATE CHANGE EVIDENCE CONTRACT/);
+  assert.match(request.instructions,/Merely saying that no water flows elsewhere does NOT exclude absorption/);
+  assert.match(request.instructions,/State these relevant controls in the prompt/);
+  assert.match(request.instructions,/Do not require an open container’s mass to remain constant/);
+  assert.match(request.instructions,/Liquids take the shape of their container/);
+  assert.match(request.instructions,/Precipitation or falling rain is not itself the name of a change of state/);
+  assert.match(request.instructions,/Do not burden a simple qualitative elementary task with thermodynamic equations/);
+  assert.equal(request.model,process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
+ }
+ assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>request.max_output_tokens),[2500,2500,2500]);
+});
+
+test('phase-change controls apply only to relevant science topics and never bypass final factual rejection',async()=>{
+ for(const [courseId,topic,scoped]of [['e3-science','물의 상태 변화와 증발',true],['materials-en-3-1','States of matter and condensation',true],['materials-fr-3-1','Les états de l’eau',true],['materials-fr-3-2','Un texte sur les états de l’eau',false],['e3-math','곱셈',false],['m1-science','전기 회로',false]]){
+  const requests=[],responses=[fixture,{valid:true,issues:[]}],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+  await handleMaterials({mode:'generate',courseId,topic},{fetcher});for(const request of requests)assert.equal(request.instructions.includes('PHYSICAL STATE CHANGE EVIDENCE CONTRACT'),scoped);
+ }
+ const rejected={valid:false,issues:[{question:4,reason:'The described puddle may still infiltrate into the ground.',fix:'Use an impermeable non-leaking container and state the conditions.'}]};
+ const requests=[],responses=[fixture,rejected,replacements(fixture,4),rejected,replacements(fixture,4),rejected],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length,'no third repair or unchecked acceptance');return Response.json({output_text:JSON.stringify(responses.shift())});};
+ await assert.rejects(handleMaterials({mode:'generate',courseId:'materials-fr-3-1',topic:'Évaporation de l’eau'},{fetcher}),/자동 수정.*검토/);assert.equal(requests.length,6);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_repair').length,2);
+});
