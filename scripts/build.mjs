@@ -8,6 +8,12 @@ const tests=readdirSync(new URL('../tests/',import.meta.url))
  .filter(name=>!name.startsWith('.')&&name.endsWith('.test.mjs'))
  .sort().map(name=>'tests/'+name);
 if(!tests.length)throw Error('No deployment tests were found.');
+// Fresh deployment fixtures need a more precise writer/reviewer: the lighter
+// runtime model repeatedly exhausted repairs on inconsistent keys or reading
+// scope. Keep every gate, and strengthen these checks without changing runtime
+// classroom models or any existing student's worksheet.
+const verificationEnv={...process.env,OPENAI_REVIEW_MODEL:process.env.OPENAI_BUILD_REVIEW_MODEL||'gpt-5.6-sol'};
+console.info('GEM deployment verification reviewer',verificationEnv.OPENAI_REVIEW_MODEL);
 const stages=[
  ['--test',...tests],
  ['scripts/verify-board-question-routing.mjs'],
@@ -22,7 +28,7 @@ const stages=[
 ];
 for(const args of stages){
  console.info('GEM build stage',args[0]);
- const result=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit',env:process.env});
+ const result=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit',env:verificationEnv});
  if(result.error)throw result.error;
  if(result.status!==0)process.exit(Number.isInteger(result.status)?result.status:1);
 }
