@@ -44,6 +44,19 @@ test('applies an append after replacements with a separating space, regardless o
  assert.equal(a.scenes[1].narration,input.scenes[1].narration);
 });
 
+test('preserves multiple narration appends in request order after immutable replacements',()=>{
+ const input=freeze(candidate()),before=structuredClone(input);
+ const first=edit({sceneNumber:3,before:'',after:'첫 번째 보충 설명입니다.'});
+ const second=edit({sceneNumber:3,before:'',after:'두 번째 보충 설명입니다.'});
+ const replacement=edit({sceneNumber:3});
+ const a=repaired(input,[first,replacement,second]),b=repaired(input,[replacement,first,second]);
+ assert.deepEqual(a,b);
+ assert.equal(a.scenes[1].narration,input.scenes[1].narration.replace('입자 수','물질의 양')+' 첫 번째 보충 설명입니다. 두 번째 보충 설명입니다.');
+ assert.deepEqual(a.scenes[0],input.scenes[0]);assert.deepEqual(a.scenes[1].lines,input.scenes[1].lines);
+ assert.deepEqual(input,before);
+ assert.throws(()=>repaired(input,[first,second,edit({sceneNumber:3,before:'첫 번째 보충',after:'수정한 보충'})]),{code:'scene_edit_target_not_found'});
+});
+
 test('uses only original spans rather than text introduced by an earlier replacement',()=>{
  const input=candidate();
  assert.throws(()=>repaired(input,[edit(),edit({before:'물질의 양',after:'새로운 양'})]),/수업 수정 내용을 확인하지 못했습니다/);
@@ -58,12 +71,11 @@ test('rejects ambiguous spans, including overlapping occurrences within the orig
  assert.throws(()=>repaired(input,[edit({before:'aa',after:'b'})]));
 });
 
-test('rejects overlapping edit ranges and duplicate appends but accepts adjacent spans',()=>{
+test('rejects overlapping edit ranges but accepts adjacent spans',()=>{
  const input=candidate();input.scenes[0].narration='ABCDEF';
  for(const edits of [
   [edit({before:'ABC',after:'X'}),edit({before:'CDE',after:'Y'})],
-  [edit({before:'ABC',after:'X'}),edit({before:'ABC',after:'Y'})],
-  [edit({before:'',after:'X'}),edit({before:'',after:'Y'})]
+  [edit({before:'ABC',after:'X'}),edit({before:'ABC',after:'Y'})]
  ])assert.throws(()=>repaired(input,edits));
  assert.equal(repaired(input,[edit({before:'ABC',after:'X'}),edit({before:'DEF',after:'Y'})]).scenes[0].narration,'XY');
 });
@@ -86,12 +98,27 @@ test('rejects edits whose combined result is unchanged',()=>{
  assert.throws(()=>repaired(input,[edit({before:'a',after:'ab'}),edit({before:'bc',after:'c'})]));
 });
 
+test('reports fixed reason codes without including proposed content',()=>{
+ const input=candidate();input.scenes[0].narration='ABCDEF ABC';
+ const cases=[
+  [[edit({before:'PRIVATE_NOT_PRESENT',after:'new'})],'scene_edit_target_not_found'],
+  [[edit({before:'ABC',after:'new'})],'scene_edit_ambiguous'],
+  [[edit({before:'BCDE',after:'new'}),edit({before:'DEF',after:'other'})],'scene_edit_overlap'],
+  [[edit({before:'DEF',after:'DEF'})],'scene_edit_noop'],
+  [[edit({lineIndex:0})],'scene_edit_invalid_target']
+ ];
+ for(const [edits,code]of cases)assert.throws(()=>repaired(input,edits),error=>{
+  assert.equal(error.code,code);assert.equal(error.message,'수업 수정 내용을 확인하지 못했습니다. 다시 시도해 주세요.');return true;
+ });
+});
+
 test('late validation failure leaves candidate and edit response unchanged and exposes no submitted text',()=>{
  const input=freeze(candidate()),before=structuredClone(input);
  const response=freeze({edits:[edit(),edit({sceneNumber:5,before:'PRIVATE_SENTINEL_NOT_PRESENT',after:'corrected'})]});
  const savedResponse=structuredClone(response);
  assert.throws(()=>applySceneEdits(input,response),error=>{
   assert.equal(error.message,'수업 수정 내용을 확인하지 못했습니다. 다시 시도해 주세요.');
+  assert.equal(error.code,'scene_edit_target_not_found');
   assert(!error.message.includes('PRIVATE_SENTINEL'));return true;
  });
  assert.deepEqual(input,before);assert.deepEqual(response,savedResponse);
