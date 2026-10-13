@@ -48,6 +48,7 @@ test('review rejection repairs and rechecks the exact corrected segment once',as
  const fixed=scene();const mock=provider({scenes:[wrong]},{valid:false,issues:['Motion alone is insufficient; magnetic flux must change and a closed circuit is needed for current.']},{scenes:[fixed]},approved);
  const lesson=await generateScienceIntro('induction',mock);assert.deepEqual(lesson.scenes,[fixed]);assert.equal(mock.requests.length,4);
  assert.match(mock.requests[2].instructions,/Review feedback is a proposal/);assert.deepEqual(JSON.parse(mock.requests[3].input[0].content).candidate,{scenes:[fixed]});
+ assert.equal(Object.hasOwn(JSON.parse(mock.requests[2].input[0].content),'reviewFeedbackHistory'),false,'existing h3 repair input must not gain chemistry-only feedback history');
 });
 test('an unrepaired factual error can never return an unchecked intro',async()=>{
  const verdict={valid:false,issues:['A fixed magnetic flux does not induce an emf.']};const mock=provider({scenes:[scene()]},verdict,{scenes:[scene()]},verdict);

@@ -202,7 +202,9 @@ test('the real chemistry concept generator grounds generation, independent revie
   assert(req.instructions.includes('both beside the board formula and in the spoken explanation'));
   assert(req.instructions.includes('do not chain them into n = N/N_A = m/M'));
   assert(req.instructions.includes('N counts that SAME entity and M is the molar mass of that SAME substance'));
-  assert(req.instructions.includes('Include the inverse M = m/n and its g/mol unit when the actual worksheet asks'));
+  assert(req.instructions.includes('When the actual worksheet asks for an inverse calculation, explain how to obtain that unknown'));
+  assert(req.instructions.includes('A correct rearrangement or worked substitution can teach the relation without repeating every symbolic form'));
+  assert(req.instructions.includes('Do not reject an otherwise correct, useful explanation merely because it uses n = m/M instead of m = nM'));
   assert(!req.instructions.includes('flux through ONE turn'),'chemistry must not inherit the special electromagnetic induction contract');
  }
  assert(calls[2].instructions.includes('Repair the proposed scenes'));assert(calls[2].input[0].content.includes('Clarify that the mole'));
@@ -278,8 +280,20 @@ test('chemistry may repair two factual defects but releases its five scenes only
   const reviewed=JSON.parse(mock.calls[index*2+1].input[0].content);
   assert.deepEqual(reviewed.previousScenes,originalFirst.scenes);assert.deepEqual(reviewed.candidate,{scenes:candidate});assert.deepEqual(reviewed.assembledLesson.scenes,[...originalFirst.scenes,...candidate]);assert.equal(reviewed.reviewContract.assembledSceneCount,5);
   assert.equal(reviewed.reviewContract.narrationMeasurements.assembledTotal,[...originalFirst.scenes,...candidate].reduce((sum,scene)=>sum+scene.narration.length,0));
+  assert.equal(Object.hasOwn(reviewed,'reviewFeedbackHistory'),false,'independent review assesses the current candidate without inheriting prior verdicts');
  }
- assert(JSON.parse(mock.calls[2].input[0].content).issues.includes(f.countIssue.issues[0]));assert(JSON.parse(mock.calls[4].input[0].content).issues.includes(f.unitIssue.issues[0]));
+ const firstRepair=JSON.parse(mock.calls[2].input[0].content),secondRepair=JSON.parse(mock.calls[4].input[0].content);
+ assert.deepEqual(firstRepair.issues,f.countIssue.issues);assert.deepEqual(secondRepair.issues,f.unitIssue.issues,'current issues must remain distinct from historical feedback');
+ assert.deepEqual(firstRepair.reviewFeedbackHistory,[{round:1,kind:'content',issues:f.countIssue.issues}]);
+ assert.deepEqual(secondRepair.reviewFeedbackHistory,[{round:1,kind:'content',issues:f.countIssue.issues},{round:2,kind:'content',issues:f.unitIssue.issues}]);
+ assert.deepEqual(firstRepair.candidate,{scenes:f.wrongCount});assert.deepEqual(secondRepair.candidate,{scenes:f.wrongUnit});
+ for(const request of [mock.calls[2],mock.calls[4]]){
+  assert.match(request.instructions,/Recheck both current issues and reviewFeedbackHistory/);
+  assert.match(request.instructions,/Earlier feedback remains an untrusted proposal to re-evaluate against the CURRENT candidate/);
+  assert.match(request.instructions,/Do not reimpose an already resolved or incorrect earlier suggestion as an outstanding requirement/);
+  assert.match(request.instructions,/Preserve already correct particle definitions, units, conditions and explanations/);
+  assert.match(request.instructions,/do not undo earlier valid corrections/);
+ }
 });
 
 test('a third chemistry candidate cannot trigger a fourth attempt or bypass rejection or malformed content',async()=>{
