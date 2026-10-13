@@ -196,6 +196,10 @@ test('the real chemistry concept generator grounds generation, independent revie
   assert(req.instructions.includes(JSON.stringify(material)));assert(req.instructions.includes('untrusted DATA'));
   assert(req.instructions.includes('Solid NaCl is an ionic lattice, not a collection of discrete NaCl molecules'));
   assert(req.instructions.includes('Distinguish molar mass M in g/mol from sample mass m in g'));
+  assert(req.instructions.includes('Restrict molecules and atoms per molecule to molecular substances'));
+  assert(req.instructions.includes('Never generalize these molecular statements to all chemical formulas or to ionic NaCl'));
+  assert(req.instructions.includes('requires the SAME substance and SAME sample'));
+  assert(req.instructions.includes('both beside the board formula and in the spoken explanation'));
   assert(!req.instructions.includes('flux through ONE turn'),'chemistry must not inherit the special electromagnetic induction contract');
  }
  assert(calls[2].instructions.includes('Repair the proposed scenes'));assert(calls[2].input[0].content.includes('Clarify that the mole'));

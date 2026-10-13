@@ -115,8 +115,9 @@ function browserSnapshot(){
  return {lesson,token:'saved-lesson-token',quiz:{title:'현재 화학Ⅰ 10문제',questions:q},quizToken:'saved-quiz-token',source:{id:worksheetId,revision:7},worksheetId,progress:structuredClone(c.progress),scene:2,mode:'practice',practice:structuredClone(c.practice),audioTime:17,audioScene:id+':2',history:[],timings:{board:2,voice:3,questions:4},savedAt:Date.now()};
 }
 const baseKey=(student=STUDENT,course=CHEM)=>`gem-science-board:${student}`+(course==='h3-science'?'':':course:'+course);
-async function mountBoard({snapshot=browserSnapshot(),storage=new Map(),student=STUDENT,course=CHEM,worksheet=snapshot.worksheetId,transfer='',importReply,resumeReply,storeSnapshot=true}={}){
+async function mountBoard({snapshot=browserSnapshot(),storage=new Map(),student=STUDENT,course=CHEM,worksheet=snapshot.worksheetId,transfer='',importReply,resumeReply,storeSnapshot=true,deferActions=[],flushFailures=0}={}){
  const elements=new Map(),audios=[],calls=[],events=new Map(),recorded=[],submissions=[],sequence=[];
+ const pending=new Map(),reply=(action,value)=>{const result=()=>value instanceof Response?value:Response.json(value);return deferActions.includes(action)?new Promise(resolve=>pending.set(action,()=>{pending.delete(action);resolve(result());})):result();};
  for(const match of markup.matchAll(/<([a-z][a-z0-9-]*)\b([^>]*)>/g)){const id=match[2].match(/\bid="([^"]+)"/)?.[1];if(id)elements.set('#'+id,new Element(match[1]));}
  elements.get('#speed').value='1';
  const ownKey=baseKey(student,course)+':worksheet:'+worksheet;
@@ -129,18 +130,26 @@ async function mountBoard({snapshot=browserSnapshot(),storage=new Map(),student=
  const fetch=async(url,options)=>{
   if(url==='/api/session')return Response.json({authenticated:true,student:{id:student,name:'검증 학생'}});
   const body=JSON.parse(options.body);calls.push(body);sequence.push(body.action);
-  if(body.action==='resume')return Response.json(resumeReply||defaultReply);
-  if(body.action==='import')return Response.json(importReply||defaultReply);
+  if(body.action==='resume')return reply('resume',resumeReply||defaultReply);
+  if(body.action==='import')return reply('import',importReply||defaultReply);
+  if(body.action==='continue')return reply('continue',{lesson:{...snapshot.lesson,complete:true,scenes:[snapshot.lesson.scenes[0],...Array.from({length:4},(_,i)=>({...snapshot.lesson.scenes[0],title:'이어지는 설명 '+(i+2)}))]},token:'complete-lesson'});
   if(body.action==='ask')return Response.json({answer:'질량을 몰 질량으로 나누면 물질의 양을 구할 수 있어요.'});
   if(body.action==='speech')return new Response(new Blob(['fake mp3'],{type:'audio/mpeg'}));
-  if(body.action==='handoff')return Response.json({ticket:'verified-classroom-ticket',handoffToken:'signed-worksheet-token',entryUrl:'https://gem-english-middle-school-math.seoul0119.chatgpt.site/api/learning/science-entry',worksheetId:snapshot.worksheetId,courseId:course});
+  if(body.action==='handoff')return reply('handoff',{ticket:'verified-classroom-ticket',handoffToken:'signed-worksheet-token',entryUrl:'https://gem-english-middle-school-math.seoul0119.chatgpt.site/api/learning/science-entry',worksheetId:snapshot.worksheetId,courseId:course});
   throw Error('Unexpected content generation or action: '+body.action);
  };
- const createScienceRecords=options=>{assert.equal(options.studentId,student);assert.equal(options.courseId,course);return{start:async lesson=>{recorded.push(['start',lesson]);return true;},event:(type,payload)=>{recorded.push([type,payload]);return true;},flush:async()=>{sequence.push('flush');return true;},end:async()=>true,exit:()=>recorded.push(['exit'])};};
+ const createScienceRecords=options=>{assert.equal(options.studentId,student);assert.equal(options.courseId,course);return{start:async lesson=>{recorded.push(['start',lesson]);return true;},event:(type,payload)=>{recorded.push([type,payload]);return true;},flush:async()=>{sequence.push('flush');if(flushFailures>0){flushFailures--;return false;}return true;},end:async()=>true,exit:()=>recorded.push(['exit'])};};
  const window={addEventListener:(event,fn)=>events.set(event,fn),history:{replaceState:(_a,_b,url)=>{location.href=url;}}};
  const sandbox={BOARD_COURSES,getBoardCourse,getBoardTopic,emptyBoardProgress,normalizeBoardProgress,mergeBoardProgress,ScienceController,createScienceRecords,document,window,location,localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},URL:TestURL,URLSearchParams,Audio,fetch,navigator:{},AbortController,setTimeout,clearTimeout,console,Blob,FileReader:class{}};
  await vm.runInNewContext(`(async()=>{${browserSource}\n})()`,sandbox);await settle();
- return {get:selector=>elements.get(selector),audios,calls,storage,recorded,submissions,sequence,location,snapshot,saved:()=>JSON.parse(storage.get(ownKey)||'null'),close:()=>events.get('pagehide')?.()};
+ return {get:selector=>elements.get(selector),audios,calls,storage,recorded,submissions,sequence,location,snapshot,saved:()=>JSON.parse(storage.get(ownKey)||'null'),resolve:action=>pending.get(action)?.(),close:()=>{events.get('pagehide')?.();for(const resolve of pending.values())resolve();}};
+}
+function clickLink(board,selector){
+ const event={defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}},link=board.get(selector),completion=link.onclick?.(event);
+ // Browser default navigation happens after dispatch, before an async handler
+ // completes. A late preventDefault must not make this test pass.
+ if(!event.defaultPrevented)board.location.href=link.href;
+ return {prevented:event.defaultPrevented,completion:Promise.resolve(completion)};
 }
 
 test('chemistry browser restores practice, actually calls audio play, answers a question and resumes the exact narration position',async()=>{
@@ -173,6 +182,81 @@ test('same worksheet returns from Mei with its newer progress and retains the bo
   assert.equal(f.submissions.length,1);assert(f.sequence.indexOf('flush')<f.sequence.indexOf('handoff'));assert(f.sequence.indexOf('handoff')<f.sequence.indexOf('submit'));
   assert.deepEqual(f.saved().quiz,snapshot.quiz);assert.equal(f.saved().worksheetId,snapshot.worksheetId);
  }finally{f.close();}
+});
+
+test('every same-worksheet return link sends current answers through the existing signed handoff before navigating',async()=>{
+ for(const selector of ['#worksheet-return','#course-home','#practice-home'])for(const sourceBound of [true,false]){
+  const snapshot=browserSnapshot();snapshot.progress=emptyBoardProgress();snapshot.practice={count:10,index:0,attempts:0,solved:false,revealed:false,correct:0,selected:null};if(!sourceBound)delete snapshot.source;
+  const f=await mountBoard({snapshot});
+  try{
+   const before=f.location.href;f.get('#choices').children[0].click();const progress=f.saved().progress;
+   assert.deepEqual(progress.items[0],{attempts:[0],hints:0,result:'correct'});
+   const clicked=clickLink(f,selector);assert.equal(clicked.prevented,true);assert.equal(f.location.href,before);await clicked.completion;
+   const handoffs=f.calls.filter(call=>call.action==='handoff');assert.equal(handoffs.length,1);assert.deepEqual(handoffs[0].progress,progress);assert.equal(handoffs[0].cursor,0);assert.equal(handoffs[0].quizToken,'renewed-quiz');
+   assert.equal(f.submissions.length,1);assert(f.sequence.indexOf('flush')<f.sequence.indexOf('handoff'));assert(f.sequence.indexOf('handoff')<f.sequence.indexOf('submit'));assert.deepEqual(f.saved().progress,progress);assert.deepEqual(f.saved().quiz,snapshot.quiz);assert.equal(f.saved().worksheetId,snapshot.worksheetId);
+   assert(!f.calls.some(call=>['start','practice','continue'].includes(call.action)));
+  }finally{f.close();}
+ }
+});
+
+test('same-worksheet links block ordinary navigation while a saved run is importing, reconnecting or preparing',async()=>{
+ for(const phase of ['import','resume','continue']){
+  const snapshot=browserSnapshot();if(phase==='continue'){snapshot.lesson.complete=false;snapshot.lesson.scenes=snapshot.lesson.scenes.slice(0,1);snapshot.scene=0;snapshot.audioScene=snapshot.lesson.id+':0';}
+  const f=await mountBoard({snapshot,deferActions:[phase],...(phase==='import'?{transfer:'pending-import'}:{})});
+  try{
+   const before=f.location.href;
+   for(const selector of ['#worksheet-return','#course-home','#practice-home']){const clicked=clickLink(f,selector);assert.equal(clicked.prevented,true);await clicked.completion;assert.equal(f.location.href,before);}
+   assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));assert(!f.sequence.includes('flush'));
+   assert.match(f.get('#status').textContent,phase==='import'?/풀이 상태를 확인/:phase==='resume'?/다시 연결하고/:/설명 5장과 같은 10문제를 준비/);assert.deepEqual(f.saved().progress,snapshot.progress);
+  }finally{f.close();await settle();}
+ }
+});
+
+test('a same-worksheet return requires renewed login without losing the saved answers',async()=>{
+ const snapshot=browserSnapshot(),f=await mountBoard({snapshot,resumeReply:Response.json({error:'session_required'},{status:401})});
+ try{
+  const before=f.location.href,clicked=clickLink(f,'#worksheet-return');assert.equal(clicked.prevented,true);await clicked.completion;
+  assert.equal(f.location.href,before);assert.equal(f.get('#resume-login').hidden,false);assert.match(f.get('#status').textContent,/학생 ID로 다시 입장/);assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));assert.deepEqual(f.saved().progress,snapshot.progress);
+ }finally{f.close();}
+});
+
+test('an import failure with no run keeps the ordinary same-worksheet recovery link usable',async()=>{
+ const f=await mountBoard({storeSnapshot:false,transfer:'failed-import',importReply:Response.json({error:'transfer_unavailable'},{status:503})});
+ try{
+  assert.equal(f.saved(),null);assert.equal(f.get('#worksheet-return').hidden,false);const home=f.get('#worksheet-return').href,clicked=clickLink(f,'#worksheet-return');assert.equal(clicked.prevented,false);await clicked.completion;
+  assert.equal(f.location.href,home);assert.equal(new URL(home).searchParams.get('worksheet'),f.snapshot.worksheetId);assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));
+ }finally{f.close();}
+});
+
+test('record-flush failure on the top return link blocks navigation and retries with the same answers',async()=>{
+ const f=await mountBoard({flushFailures:1});
+ try{
+  f.get('#choices').children[3].click();const before=f.location.href,progress=f.saved().progress,first=clickLink(f,'#worksheet-return');assert.equal(first.prevented,true);await first.completion;
+  assert.equal(f.location.href,before);assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));assert.match(f.get('#status').textContent,/학습 기록 저장/);assert.deepEqual(f.saved().progress,progress);
+  const retry=clickLink(f,'#worksheet-return');assert.equal(retry.prevented,true);await retry.completion;assert.equal(f.submissions.length,1);assert.deepEqual(f.calls.find(call=>call.action==='handoff').progress,progress);
+ }finally{f.close();}
+});
+
+test('a second same-worksheet link click cannot duplicate a handoff already in progress',async()=>{
+ const f=await mountBoard({deferActions:['handoff']});
+ try{
+  const before=f.location.href,first=clickLink(f,'#worksheet-return');assert.equal(first.prevented,true);await settle();assert.equal(f.calls.filter(call=>call.action==='handoff').length,1);
+  const second=clickLink(f,'#course-home');assert.equal(second.prevented,true);await second.completion;assert.equal(f.location.href,before);assert.equal(f.calls.filter(call=>call.action==='handoff').length,1);assert.equal(f.submissions.length,0);
+  f.resolve('handoff');await first.completion;assert.equal(f.submissions.length,1);
+ }finally{f.close();}
+});
+
+test('ordinary course home links outside worksheet entry retain their existing navigation',async()=>{
+ for(const course of [CHEM,'h3-science']){
+  const snapshot=browserSnapshot();if(course==='h3-science'){Object.assign(snapshot.lesson,{courseId:course,topicId:'induction',title:getBoardTopic(course,'induction').title});delete snapshot.source;delete snapshot.worksheetId;delete snapshot.progress;}
+  const storage=new Map();if(course==='h3-science')storage.set(baseKey(STUDENT,course),JSON.stringify(snapshot));
+  const f=await mountBoard({snapshot,course,worksheet:'',storage,storeSnapshot:course!== 'h3-science'});
+  try{
+   assert.equal(f.get('#practice-heading').textContent,'문제 4 / 10');
+   for(const selector of ['#course-home','#practice-home']){const home=f.get(selector).href,clicked=clickLink(f,selector);assert.equal(clicked.prevented,false);await clicked.completion;assert.equal(f.location.href,home);assert(!home.includes('worksheet='));if(course==='h3-science')assert.equal(home,'/learn.html?course=h3-science');}
+   assert.equal(f.submissions.length,0);assert(!f.calls.some(call=>call.action==='handoff'));
+  }finally{f.close();}
+ }
 });
 
 test('browser Back refreshes the canonical worksheet progress while retaining its exact explanation and audio position',async()=>{

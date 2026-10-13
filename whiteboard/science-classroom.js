@@ -89,6 +89,7 @@ function configureCourse(){
  const home='https://gem-english-middle-school-math.seoul0119.chatgpt.site/classroom?course='+encodeURIComponent(courseId)+(uuid(requestedWorksheet)?'&worksheet='+requestedWorksheet:'');
  for(const id of ['#course-home','#practice-home']){$(id).href=courseId==='h3-science'&&!requestedWorksheet?'/learn.html?course=h3-science':home;$(id).textContent=boardCourse?.title+' 교실';}
  $('#worksheet-return').href=home;$('#worksheet-return').hidden=!requestedWorksheet;
+ if(uuid(requestedWorksheet))for(const id of ['#worksheet-return','#course-home','#practice-home'])$(id).onclick=returnToWorksheet;
  $('#resume-login').href='/?scienceboard=1'+(courseId==='h3-science'?'':'&course='+encodeURIComponent(courseId))+(uuid(requestedWorksheet)?'&worksheet='+requestedWorksheet:'');
 }
 function stopRecording(discard=true){if(discard)recordEpoch++;clearTimeout(recordTimer);if(recorder?.state==='recording')recorder.stop();recordStream?.getTracks().forEach(t=>t.stop());recordStream=null;$('#mic').setAttribute('aria-pressed','false');$('#mic').textContent='마이크로 질문';}
@@ -188,6 +189,21 @@ function renderControls(){const ready=!!member&&!!run&&!run.resumeRequired,pract
 
 function handoffReady(){return !!member&&!!run&&!run.resumeRequired&&run.lesson.complete===true&&run.lesson.scenes.length===5&&!!run.quiz&&typeof run.quizToken==='string'&&!!run.quizToken;}
 function renderHandoff(){const ready=handoffReady(),busy=!!run?.handoffBusy;for(const id of ['#handoff','#handoff-complete']){$(id).disabled=!ready||busy;$(id).textContent=busy?'같은 문제로 교실 연결 중…':'Mei 선생님과 같은 10문제로 수업하기';}$('#handoff-help').textContent=ready?'지금 준비된 10문제로 수업합니다. 교실로 이동한 뒤 선생님 연결 버튼을 눌러 주세요.':run?.resumeRequired?'저장된 칠판 수업의 연결을 먼저 확인해 주세요.':run?'설명 5장과 10문제를 준비하고 있어요. 모두 준비되면 선생님 교실로 이어갈 수 있습니다.':'단원을 골라 설명을 시작하면, 같은 10문제로 선생님과 수업할 수 있어요.';$('#handoff-status').textContent=run?.handoffMessage||'';$('#handoff-status').classList.toggle('error',!!run?.handoffError);}
+async function returnToWorksheet(event){
+ // Without a restored/imported run, the ordinary link is the recovery route.
+ // Once work exists, every link to this worksheet must use the signed handoff.
+ if(!run||!uuid(requestedWorksheet))return;
+ event.preventDefault();
+ if(disposed)return;
+ if((run.source?.id||run.worksheetId)!==requestedWorksheet){say('현재 칠판의 학습지 연결을 확인하지 못했어요. 저장된 수업을 다시 연결한 뒤 이동해 주세요.',true);return;}
+ if(run.handoffBusy){say(run.handoffMessage||'같은 문제와 풀이 기록을 교실에 연결하고 있어요. 잠시 기다려 주세요.');return;}
+ if(starting){say('같은 학습지의 설명과 풀이 상태를 확인하고 있어요. 확인을 마친 뒤 다시 눌러 주세요.');return;}
+ if(!member||run.resumeRequired||run.reconnecting){renderResume();say(run.reconnecting?'저장된 설명과 문제를 다시 연결하고 있어요. 연결을 마친 뒤 다시 눌러 주세요.':errorMessage(run.resumeError,'풀이 기록을 함께 전달하려면 저장된 수업을 먼저 다시 연결해 주세요.'),true);return;}
+ if(!handoffReady()){say(run.continueError||run.practiceError?'같은 설명과 문제의 준비를 완료하지 못했어요. ‘준비 다시 시도’를 눌러 주세요. 풀이 기록은 이 기기에 남아 있습니다.':'설명 5장과 같은 10문제를 준비하고 있어요. 풀이 기록을 함께 전달할 수 있도록 준비가 끝난 뒤 다시 눌러 주세요.');return;}
+ const active=run;
+ await handoffToTeacher();
+ if(run===active&&!disposed&&active.handoffError)say(active.handoffMessage,true);
+}
 async function handoffToTeacher(){
  if(!handoffReady()||run.handoffBusy||disposed)return;
  const active=run,runEpoch=epoch;active.handoffBusy=true;active.handoffError=false;active.handoffMessage='설명을 잠시 멈추고 학습 기록을 저장하고 있어요.';stopRecording();pause();renderControls();
