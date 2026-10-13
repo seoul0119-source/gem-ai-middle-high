@@ -56,7 +56,7 @@ async function verifyCase(representative){
  // This release-only fixture uses the stronger independent reviewer. Permit
  // its two existing repair passes to finish; retain every content rejection,
  // all six classroom checks and the normal runtime's shorter deadlines.
- const generated=await handleMaterials({mode:'generate',courseId,topic,variation:randomUUID()},{fetcher,generationTimeoutMs:300000,requestTimeoutMs:90000}),material=generated.material;
+ const generated=await handleMaterials({mode:'generate',courseId,topic,variation:randomUUID()},{fetcher,generationTimeoutMs:300000,requestTimeoutMs:90000,reviewMaxOutputTokens:8000,writerModel:process.env.OPENAI_REVIEW_MODEL||'gpt-5.6-sol'}),material=generated.material;
  assert(validMaterial(material));assert(!hasExcludedTopic(material));assert.equal(material.questions.length,10);
  const questionsPreparedMs=Date.now()-started,identity=JSON.stringify(material),worksheetId=randomUUID();
  let clock=Date.now(),student={id:'SUBJECT_BUILD_'+courseId,session:'in-process-only',authenticatedAt:Math.floor(clock/1000),iat:Math.floor(clock/1000),exp:Math.floor(clock/1000)+8*3600};

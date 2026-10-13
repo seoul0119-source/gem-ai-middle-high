@@ -393,3 +393,11 @@ test('only trusted verification dependencies extend bounded time, without changi
   await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈',deadline:clock+5000},{generationTimeoutMs:300000,requestTimeoutMs:90000,fetcher:async()=>{calls++;clock+=6000;return completedProvider(fixture);}}),/검토 시간이/);assert.equal(calls,1);
  }finally{Date.now=savedNow;AbortSignal.timeout=savedTimeout;}
 });
+
+test('trusted fixture settings reserve a full review response and use a precise writer without approving truncated output',async()=>{
+ const requests=[];let calls=0;
+ const fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));return ++calls===1?completedProvider(fixture):completedProvider({valid:true,issues:[]});};
+ assert.deepEqual((await handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher,writerModel:'precise-fixture-writer',reviewMaxOutputTokens:999999})).material,fixture);
+ assert.equal(requests[0].model,'precise-fixture-writer');assert.equal(requests[1].max_output_tokens,8000);
+ calls=0;await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{reviewMaxOutputTokens:8000,fetcher:async()=>++calls===1?completedProvider(fixture):truncatedReview()}),/끝까지/);assert.equal(calls,2);
+});
