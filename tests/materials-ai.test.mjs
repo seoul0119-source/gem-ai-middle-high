@@ -224,3 +224,37 @@ test('a missing TOEIC picture is repaired before independent review while text-o
   assert.match(requests[2].instructions,/Never repeat A–D choices in prompt/);
  }finally{globalThis.fetch=saved;}
 });
+
+test('reading task repair replaces the complete ambiguous item and rechecks paragraph scope, specific evidence and indirect hints',async()=>{
+ const source=structuredClone(fixture);source.title='중심 생각과 뒷받침 문장';
+ source.questions[0]={prompt:'비가 오는 날에는 안전하게 걸어야 합니다. 미끄러지지 않도록 천천히 걷습니다. 물웅덩이를 피해 걷고 계단에서는 난간을 잡습니다. 이 글의 중심 생각은 무엇인가요?',choices:['비 오는 날에는 천천히 걸어야 한다.','난간은 비가 올 때만 있다.','물웅덩이는 모두 깊다.','비가 오면 집 밖에 나갈 수 없다.'],answerIndex:0,hints:['천천히 걷는 행동을 생각하세요.','처음 문장을 보세요.'],explanation:'천천히 걷는 일이 중요합니다.'};
+ source.questions[1]={prompt:'아침밥을 먹으면 활동할 힘을 얻습니다. 민수는 아침밥을 먹고 운동장에서 힘차게 달렸습니다. 운동장에는 큰 나무가 있습니다. 아침밥을 먹으면 힘을 얻는다는 생각을 구체적인 사례로 뒷받침하는 문장은 무엇인가요?',choices:['아침밥을 먹으면 활동할 힘을 얻습니다.','민수는 아침밥을 먹고 운동장에서 힘차게 달렸습니다.','운동장에는 큰 나무가 있습니다.','아침에는 모두 운동을 해야 합니다.'],answerIndex:0,hints:['가운데 문장을 보세요.','민수가 달린 까닭을 떠올리세요.'],explanation:'아침밥을 먹으면 힘을 얻는다는 문장이 중심 생각을 뒷받침합니다.'};
+ const fixed=structuredClone(source);
+ fixed.questions[0]={...fixed.questions[0],choices:['비 오는 날에는 여러 방법으로 안전하게 걸어야 한다.','비가 오면 반드시 달려야 한다.','물웅덩이의 깊이를 재야 한다.','계단에서는 눈을 감아야 한다.'],hints:['각 보기가 글에 나온 여러 행동을 함께 설명하는지 비교해 보세요.','글에 없는 내용을 보태거나 일부 행동만 말하는 보기는 아닌지 살펴보세요.'],explanation:'천천히 걷기, 물웅덩이 피하기, 난간 잡기는 모두 비 오는 날 안전하게 걷기 위한 방법입니다.'};
+ fixed.questions[1]={...fixed.questions[1],answerIndex:1,hints:['말하려는 생각과 그 생각을 보여 주는 구체적인 일을 구별해 보세요.','문장이 생각을 되풀이하는지, 실제 사례를 들어 설명하는지 비교해 보세요.'],explanation:'민수가 아침밥을 먹고 힘차게 달린 일은 아침밥이 활동할 힘을 준다는 생각을 구체적으로 보여 줍니다. 첫 문장은 그 생각 자체이고 나무에 관한 문장은 관련 없는 정보입니다.'};
+ const issues=[{question:1,reason:'The answer covers only walking slowly, omitting the other central safety actions; hints reveal the target.',fix:'Replace this complete question with one paragraph-wide central idea and indirect scope-comparison hints.'},{question:2,reason:'The selected answer restates the claim rather than supplying a specific supporting example; hints identify the answer sentence.',fix:'Keep exactly one specific example as the answer and use method hints without sentence positions or answer content.'}];
+ const requests=[],responses=[source,{valid:false,issues},replacements(fixed,1,2),{valid:true,issues:[]}],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length);return Response.json({output_text:JSON.stringify(responses.shift())});};
+ const original=structuredClone(source),result=await handleMaterials({mode:'generate',courseId:'e3-korean',topic:'중심 생각과 뒷받침 문장 찾기'},{fetcher});
+ assert.deepEqual(result.material,fixed);assert.deepEqual(source,original);assert.deepEqual(result.material.questions.slice(2),source.questions.slice(2));assert.equal(result.material.title,source.title);
+ assert.equal(requests.length,4);assert.equal(requests[2].text.format.name,'worksheet_repair');assert.deepEqual(requests[2].text.format.schema.properties.replacements.items.properties.number.enum,[1,2]);assert.deepEqual(JSON.parse(requests[3].input[0].content),fixed);
+ for(const request of requests){
+  assert.match(request.instructions,/READING CLAIM AND EVIDENCE CONTRACT/);
+  assert.match(request.instructions,/capture the scope of the entire paragraph/);
+  assert.match(request.instructions,/A restatement of the claim or a summary of the whole paragraph is not specific supporting evidence/);
+  assert.match(request.instructions,/Never name the location of the correct sentence/);
+  assert.match(request.instructions,/ambiguity and answer-revealing hints remain rejection reasons/);
+  assert.equal(request.model,process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna');
+ }
+});
+
+test('reading evidence contract is scoped to language reasoning tasks and preserves the two-repair fail-closed limit',async()=>{
+ for(const [courseId,topic,scoped]of [['e3-korean','중심 생각과 뒷받침 문장',true],['materials-en-sat-reading-writing','Central Ideas and Supporting Evidence',true],['materials-fr-3-2','idée principale et justification',true],['e3-korean','문장 부호 사용',false],['e3-math','중심 생각',false],['m1-science','상태 변화',false]]){
+  const requests=[],responses=[fixture,{valid:true,issues:[]}],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));return Response.json({output_text:JSON.stringify(responses.shift())});};
+  await handleMaterials({mode:'generate',courseId,topic},{fetcher});for(const request of requests)assert.equal(request.instructions.includes('READING CLAIM AND EVIDENCE CONTRACT'),scoped);
+ }
+ const rejected={valid:false,issues:[{question:1,reason:'Two sentences still support the claim; the hint gives the correct sentence location.',fix:'Rebuild this question with one defensible supporting sentence and two method-only hints.'}]};
+ const requests=[],responses=[fixture,rejected,replacements(fixture,1),rejected,replacements(fixture,1),rejected],fetcher=async(_url,options)=>{requests.push(JSON.parse(options.body));assert(responses.length,'no third repair may start');return Response.json({output_text:JSON.stringify(responses.shift())});};
+ await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-korean',topic:'중심 생각과 뒷받침 문장'},{fetcher}),/자동 수정.*검토/);
+ assert.equal(requests.length,6);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_repair').length,2);assert.equal(requests.filter(request=>request.text.format.name==='worksheet_review').length,3);assert(requests.every(request=>request.instructions.includes('READING CLAIM AND EVIDENCE CONTRACT')));
+ assert.deepEqual(requests.filter(request=>request.text.format.name==='worksheet_review').map(request=>request.max_output_tokens),[2500,2500,2500]);
+});
