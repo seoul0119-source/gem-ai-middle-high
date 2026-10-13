@@ -12,7 +12,7 @@ if(!tests.length)throw Error('No deployment tests were found.');
 // runtime model repeatedly exhausted repairs on inconsistent keys or reading
 // scope. Keep every gate, and strengthen these checks without changing runtime
 // classroom models or any existing student's worksheet.
-const verificationEnv={...process.env,OPENAI_REVIEW_MODEL:process.env.OPENAI_BUILD_REVIEW_MODEL||'gpt-5.6-sol'};
+const verificationEnv={...process.env,OPENAI_REVIEW_MODEL:process.env.OPENAI_BUILD_REVIEW_MODEL||'gpt-5.6-sol',GEM_VERIFICATION_WRITER_MODEL:process.env.OPENAI_REVIEW_MODEL||process.env.OPENAI_MODEL||'gpt-5.6-luna'};
 console.info('GEM deployment verification reviewer',verificationEnv.OPENAI_REVIEW_MODEL);
 const stages=[
  ['--test',...tests],

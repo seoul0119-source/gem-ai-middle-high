@@ -362,3 +362,18 @@ test('a token retry needs ten seconds remaining and keeps the original invocatio
   }
  }finally{Date.now=savedNow;AbortSignal.timeout=savedTimeout;}
 });
+
+test('deployment fixtures can keep the normal fast writer while every independent review uses the stronger reviewer',async()=>{
+ const saved={review:process.env.OPENAI_REVIEW_MODEL,writer:process.env.GEM_VERIFICATION_WRITER_MODEL};
+ try{
+  process.env.OPENAI_REVIEW_MODEL='independent-review-model';process.env.GEM_VERIFICATION_WRITER_MODEL='fast-fixture-writer';
+  const rejected={valid:false,issues:[{question:4,reason:'Check the answer index.',fix:'Keep the question and solve its choices.'}]};
+  const responses=[fixture,rejected,replacements(fixture,4),{valid:true,issues:[]}],requests=[];
+  const fetcher=async(_url,options)=>{const request=JSON.parse(options.body);requests.push(request);return completedProvider(responses.shift());};
+  assert.deepEqual((await handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher})).material,fixture);
+  assert.deepEqual(requests.map(r=>[r.text.format.name,r.model]),[['gem_material','fast-fixture-writer'],['worksheet_review','independent-review-model'],['worksheet_repair','fast-fixture-writer'],['worksheet_review','independent-review-model']]);
+  delete process.env.GEM_VERIFICATION_WRITER_MODEL;
+  const defaults=[];const values=[fixture,{valid:true,issues:[]}];await handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈'},{fetcher:async(_url,o)=>{defaults.push(JSON.parse(o.body));return completedProvider(values.shift());}});
+  assert(defaults.every(r=>r.model==='independent-review-model'),'runtime retains its existing model selection without the build opt-in');
+ }finally{for(const [key,value]of [['OPENAI_REVIEW_MODEL',saved.review],['GEM_VERIFICATION_WRITER_MODEL',saved.writer]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
+});
