@@ -10,9 +10,9 @@ const tests=readdirSync(new URL('../tests/',import.meta.url))
 if(!tests.length)throw Error('No deployment tests were found.');
 const stages=[
  ['--test',...tests],
+ ['scripts/verify-board-chemistry-mixed.mjs'],
  ['scripts/verify-science-board.mjs'],
  ['scripts/verify-board-chemistry.mjs'],
- ['scripts/verify-board-chemistry-mixed.mjs'],
  ['scripts/verify-materials.mjs'],
  ['scripts/verify-suneung-2028.mjs','--course=suneung-2028-english'],
  ['scripts/verify-ged.mjs'],
