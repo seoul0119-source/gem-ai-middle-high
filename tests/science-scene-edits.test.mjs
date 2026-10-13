@@ -14,7 +14,7 @@ test('schema bounds the exact repair contract and excludes extra properties',()=
  const item=sceneEditsSchema.properties.edits.items;
  assert.equal(item.additionalProperties,false);
  assert.deepEqual(item.required,['sceneNumber','field','lineIndex','before','after']);
- assert.deepEqual(item.properties.field.enum,['line','narration']);
+ assert.deepEqual(item.properties.field.enum,['line','narration','title']);
  assert.equal(item.properties.sceneNumber.minimum,2);assert.equal(item.properties.sceneNumber.maximum,5);
 });
 
@@ -36,6 +36,16 @@ test('repairs mixed fields and multiple immutable spans while preserving all unr
  assert.deepEqual(input,before);assert.notEqual(result,input);assert.notEqual(result.scenes[1].lines,input.scenes[1].lines);
 });
 
+test('corrects a factual title term with exact spans while preserving narration and other scenes',()=>{
+ const input=candidate();input.scenes[1].title='분자식으로 원자량 연결하기';freeze(input);
+ const titleEdit=edit({sceneNumber:3,field:'title',before:'원자량',after:'원자의 물질의 양'});
+ const result=repaired(input,[titleEdit]);
+ assert.equal(result.scenes[1].title,'분자식으로 원자의 물질의 양 연결하기');
+ assert.deepEqual(result.scenes[1].lines,input.scenes[1].lines);assert.equal(result.scenes[1].narration,input.scenes[1].narration);
+ for(const i of [0,2,3])assert.deepEqual(result.scenes[i],input.scenes[i]);
+ assert.equal(input.scenes[1].title,'분자식으로 원자량 연결하기');
+ for(const change of [{sceneNumber:1},{lineIndex:0},{before:''},{after:'가'.repeat(61)}])assert.throws(()=>repaired(input,[edit(),{...titleEdit,...change}]));
+});
 test('applies an append after replacements with a separating space, regardless of edit order',()=>{
  const input=freeze(candidate()),append=edit({before:'',after:'같은 시료의 양을 비교합니다.'});
  const a=repaired(input,[append,edit()]),b=repaired(input,[edit(),append]);
@@ -83,7 +93,8 @@ test('rejects overlapping edit ranges but accepts adjacent spans',()=>{
 test('rejects unknown targets, scene 1, invalid line indices, empty or no-op changes, and wrong shape',()=>{
  const input=candidate();
  for(const invalid of [
-  {sceneNumber:1},{sceneNumber:6},{sceneNumber:2.5},{field:'title'},
+  {sceneNumber:1},{sceneNumber:6},{sceneNumber:2.5},{field:'unknown'},
+  {field:'title',lineIndex:0,before:'장면 2'},{field:'title',before:''},
   {lineIndex:0},{field:'line',lineIndex:-1},{field:'line',lineIndex:2},{field:'line',lineIndex:0.5},
   {field:'line',lineIndex:0,before:'',after:'추가'},
   {before:'not present'},{before:'입자 수',after:'입자 수'},{after:''},{after:'   '},

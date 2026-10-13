@@ -28,6 +28,17 @@ test('invalid exact edit retries its payload once against unchanged numbered sce
  assert.deepEqual(review.candidate.scenes,full.scenes.slice(1),'corrected content must receive independent factual review');
 });
 
+test('a rejected chemistry title is repaired and independently reviewed without changing the approved intro',async()=>{
+ const f=fixture();f.candidate.scenes[1].title='분자식으로 원자량 연결하기';const before=structuredClone(f);
+ const titleIssue={valid:false,issues:['장면 3 제목의 원자량을 원자의 물질의 양으로 수정하세요.']};
+ const mock=provider([f.candidate,titleIssue,{edits:[{sceneNumber:3,field:'title',lineIndex:-1,before:'원자량',after:'원자의 물질의 양'}]},approved]);
+ const full=await run(f,mock);assert.deepEqual(f,before);assert.strictEqual(full.scenes[0],f.first.scenes[0]);
+ assert.equal(full.scenes[2].title,'분자식으로 원자의 물질의 양 연결하기');
+ assert.deepEqual(full.scenes[2].lines,f.candidate.scenes[1].lines);assert.equal(full.scenes[2].narration,f.candidate.scenes[1].narration);
+ assert.deepEqual(mock.calls.map(x=>x.text.format.name),['science_board_scenes','science_board_review','science_board_scene_edits','science_board_review']);
+ assert.match(mock.calls[2].instructions,/narration or title with lineIndex -1/);
+ assert.deepEqual(JSON.parse(mock.calls[3].input[0].content).candidate.scenes,full.scenes.slice(1));
+});
 test('repeated invalid edit is rejected after one format retry without another review or candidate',async()=>{
  const f=fixture(),mock=provider([f.candidate,defect,{edits:[missing]},{edits:[missing]}]);
  await assert.rejects(run(f,mock),error=>error.code==='scene_edit_target_not_found');assert.equal(mock.calls.length,4);assert.equal(mock.calls.filter(x=>x.text.format.name==='science_board_review').length,1);
