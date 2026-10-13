@@ -199,7 +199,7 @@ test('the real chemistry concept generator grounds generation, independent revie
   assert(req.instructions.includes('Restrict molecules and atoms per molecule to molecular substances'));
   assert(req.instructions.includes('Never generalize these molecular statements to all chemical formulas or to ionic NaCl'));
   assert(req.instructions.includes('requires the SAME substance and SAME sample'));
-  assert(req.instructions.includes('both beside the board formula and in the spoken explanation'));
+  assert(req.instructions.includes('Assess each scene as its board lines AND spoken explanation together'));assert(req.instructions.includes('narration cannot excuse a contradiction'));
   assert(req.instructions.includes('do not chain them into n = N/N_A = m/M'));
   assert(req.instructions.includes('N counts that SAME entity and M is the molar mass of that SAME substance'));
   assert(req.instructions.includes('When the actual worksheet asks for an inverse calculation, explain how to obtain that unknown'));
