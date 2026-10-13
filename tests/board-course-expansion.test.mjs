@@ -222,6 +222,20 @@ test('the real chemistry concept generator grounds generation, independent revie
  assert(!tutorRequests[1].instructions.includes('CHEMISTRY QUANTITIES AND SPOKEN UNITS'),'the existing high-three science tutor must not inherit chemistry-specific instructions');
 });
 
+// Translate fixture snapshots into the exact edit contract only when the
+// production request asks for edits; ordinary generation/format repair stays full.
+function boardCandidateOutput(request,output){
+ if(request.text?.format?.name!=='science_board_scene_edits'||!output?.scenes)return output;
+ const current=JSON.parse(request.input[0].content).candidate.scenes;
+ assert.equal(output.scenes.length,current.length);const edits=[];
+ for(const [index,next] of output.scenes.entries()){
+  const before=current[index];assert.equal(next.title,before.title,'targeted factual repairs cannot rename scenes');assert.equal(next.lines.length,before.lines.length);
+  next.lines.forEach((line,lineIndex)=>{if(line!==before.lines[lineIndex])edits.push({sceneNumber:index+2,field:'line',lineIndex,before:before.lines[lineIndex],after:line});});
+  if(next.narration!==before.narration)edits.push({sceneNumber:index+2,field:'narration',lineIndex:-1,before:before.narration,after:next.narration});
+ }
+ assert(edits.length,'a repair mock must make a real edit, not silently repeat the rejected candidate');return{edits};
+}
+
 test('chemistry remainder review measures the approved prefix and each repaired candidate without making the total aim a hard bound',async()=>{
  const material=makeMaterial(),first=makeLesson(CHEM,'worksheet'),original=structuredClone(first);
  const shortNarration='시료의 질량과 몰 질량은 서로 다른 양입니다. 질량은 그램으로 나타내지만 몰 질량의 단위는 그램 퍼 몰입니다. 물질의 양에 몰 질량을 곱하면 시료의 질량을 구할 수 있습니다. 반대로 질량을 몰 질량으로 나누면 물질의 양이 됩니다. 계산 전에 문제에서 지정한 물질과 주어진 단위를 먼저 확인하세요. 단위를 함께 쓰면 곱할지 나눌지 판단할 수 있습니다.';
@@ -231,7 +245,7 @@ test('chemistry remainder review measures the approved prefix and each repaired 
  const repaired=structuredClone(rest);repaired[1].narration+=' 두 단위의 차이를 꼭 구별해 보세요.';
  const issue={valid:false,issues:['Scene 3 incorrectly gives g as the unit of molar mass; use g/mol and distinguish sample mass in g.']};
  const outputs=[{scenes:wrong},issue,{scenes:repaired},{valid:true,issues:[]}],calls=[];
- const fetcher=async(_url,options)=>{calls.push(JSON.parse(options.body));assert(outputs.length,'unexpected provider request');return Response.json({status:'completed',output_text:JSON.stringify(outputs.shift())});};
+ const fetcher=async(_url,options)=>{const request=JSON.parse(options.body);calls.push(request);assert(outputs.length,'unexpected provider request');return Response.json({status:'completed',output_text:JSON.stringify(boardCandidateOutput(request,outputs.shift()))});};
  const full=await generateScienceRemainder(first,{courseId:CHEM,material,fetcher});
  assert.deepEqual(first,original);assert.strictEqual(full.scenes[0],first.scenes[0]);assert.equal(full.id,first.id);assert.deepEqual(full.scenes.slice(1),repaired);assert.equal(calls.length,4);
  const reviews=calls.filter(req=>req.text?.format?.name==='science_board_review');assert.equal(reviews.length,2,'passed count metadata must not bypass the factual rejection or its independent re-review');
@@ -258,7 +272,7 @@ function chemistryRepairCase(){
 }
 function boardSceneProvider(...outputs){
  const calls=[];
- return {calls,fetcher:async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/responses');const request=JSON.parse(options.body);calls.push(request);assert(outputs.length,'provider budget exceeded');const output=outputs.shift();return typeof output==='function'?output(request):Response.json({status:'completed',output_text:JSON.stringify(output)});}};
+ return {calls,fetcher:async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/responses');const request=JSON.parse(options.body);calls.push(request);assert(outputs.length,'provider budget exceeded');const output=outputs.shift();return typeof output==='function'?output(request):Response.json({status:'completed',output_text:JSON.stringify(boardCandidateOutput(request,output))});}};
 }
 
 test('chemistry may repair two factual defects but releases its five scenes only after the third independent approval',async()=>{
@@ -274,7 +288,7 @@ test('chemistry may repair two factual defects but releases its five scenes only
  assert.equal(returned,false);assert.equal(mock.calls.length,6);releaseFinal();const full=await pending;
  assert.equal(full.complete,true);assert.equal(full.scenes.length,5);assert.equal(full.id,f.first.id);assert.strictEqual(full.scenes[0],f.first.scenes[0]);assert.deepEqual(full.scenes.slice(1),f.correct);
  assert.deepEqual(f.first,originalFirst);assert.deepEqual(f.material,originalMaterial);
- assert.deepEqual(mock.calls.map(request=>request.text.format.name),['science_board_scenes','science_board_review','science_board_scenes','science_board_review','science_board_scenes','science_board_review']);
+ assert.deepEqual(mock.calls.map(request=>request.text.format.name),['science_board_scenes','science_board_review','science_board_scene_edits','science_board_review','science_board_scene_edits','science_board_review']);
  for(const request of mock.calls)assert(request.instructions.includes(JSON.stringify(originalMaterial)),'the original ten questions must remain in generation, both repairs and all three reviews');
  for(const [index,candidate] of [f.wrongCount,f.wrongUnit,f.correct].entries()){
   const reviewed=JSON.parse(mock.calls[index*2+1].input[0].content);
@@ -298,21 +312,21 @@ test('chemistry may repair two factual defects but releases its five scenes only
 
 test('a third chemistry candidate cannot trigger a fourth attempt or bypass rejection or malformed content',async()=>{
  for(const finalFormatInvalid of [false,true]){
-  const f=chemistryRepairCase(),final=finalFormatInvalid?f.malformed:f.wrongUnit;
+  const f=chemistryRepairCase(),final=structuredClone(finalFormatInvalid?f.malformed:f.wrongUnit);if(!finalFormatInvalid)final[1].narration+=' 계산 조건을 다시 확인해 보세요.';
   const outputs=[{scenes:f.wrongCount},f.countIssue,{scenes:f.wrongUnit},f.unitIssue,{scenes:final},...(finalFormatInvalid?[]:[f.unitIssue])],mock=boardSceneProvider(...outputs);
   await assert.rejects(generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher}),/검토를 통과/);
-  assert.equal(mock.calls.length,finalFormatInvalid?5:6);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,3);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,finalFormatInvalid?2:3);
+  assert.equal(mock.calls.length,finalFormatInvalid?5:6);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,1);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,2);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,finalFormatInvalid?2:3);
   assert.equal(f.first.complete,false);assert.equal(f.first.scenes.length,1);
  }
 });
 
 test('mixed chemistry format and factual defects use at most two repairs and three candidates in either order',async()=>{
  for(const formatFirst of [false,true])for(const approved of [false,true]){
-  const f=chemistryRepairCase(),final=approved?f.correct:f.wrongUnit,verdict=approved?{valid:true,issues:[]}:f.unitIssue;
+  const f=chemistryRepairCase(),final=structuredClone(approved?f.correct:f.wrongUnit),verdict=approved?{valid:true,issues:[]}:f.unitIssue;if(!approved)final[1].narration+=' 계산 조건을 다시 확인해 보세요.';
   const outputs=formatFirst?[{scenes:f.malformed},{scenes:f.wrongUnit},f.unitIssue,{scenes:final},verdict]:[{scenes:f.wrongUnit},f.unitIssue,{scenes:f.malformed},{scenes:final},verdict],mock=boardSceneProvider(...outputs);
   const pending=generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher});
   if(approved){const full=await pending;assert.strictEqual(full.scenes[0],f.first.scenes[0]);assert.deepEqual(full.scenes.slice(1),f.correct);}else await assert.rejects(pending,/검토를 통과/);
-  assert.equal(mock.calls.length,5);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,3);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,2);
+  assert.equal(mock.calls.length,5);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,2);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,1);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,2);
   for(const request of mock.calls)assert(request.instructions.includes(JSON.stringify(f.material)));
  }
 });
