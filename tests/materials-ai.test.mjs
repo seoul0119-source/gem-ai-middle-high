@@ -377,3 +377,19 @@ test('deployment fixtures can keep the normal fast writer while every independen
   assert(defaults.every(r=>r.model==='independent-review-model'),'runtime retains its existing model selection without the build opt-in');
  }finally{for(const [key,value]of [['OPENAI_REVIEW_MODEL',saved.review],['GEM_VERIFICATION_WRITER_MODEL',saved.writer]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
 });
+
+test('only trusted verification dependencies extend bounded time, without changing classroom or caller deadlines',async()=>{
+ const savedNow=Date.now,savedTimeout=AbortSignal.timeout;
+ try{
+  for(const build of [false,true]){
+   let clock=1791867600000,calls=0;const started=clock,timeouts=[];
+   Date.now=()=>clock;AbortSignal.timeout=ms=>{timeouts.push(ms);return savedTimeout(ms);};
+   const fetcher=async()=>{calls++;if(calls===1){clock=started+200000;return completedProvider(fixture);}return completedProvider({valid:true,issues:[]});};
+   const run=handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈',generationTimeoutMs:999999,requestTimeoutMs:999999},{fetcher,...(build?{generationTimeoutMs:999999,requestTimeoutMs:999999}:{})});
+   if(build){assert.deepEqual((await run).material,fixture);assert.deepEqual(timeouts,[90000,90000]);assert.equal(calls,2);}
+   else{await assert.rejects(run,/검토 시간이/);assert.deepEqual(timeouts,[55000]);assert.equal(calls,1);}
+  }
+  let clock=1791867600000,calls=0;Date.now=()=>clock;
+  await assert.rejects(handleMaterials({mode:'generate',courseId:'e3-math',topic:'덧셈',deadline:clock+5000},{generationTimeoutMs:300000,requestTimeoutMs:90000,fetcher:async()=>{calls++;clock+=6000;return completedProvider(fixture);}}),/검토 시간이/);assert.equal(calls,1);
+ }finally{Date.now=savedNow;AbortSignal.timeout=savedTimeout;}
+});

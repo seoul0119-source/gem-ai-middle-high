@@ -53,7 +53,10 @@ async function verifyCase(representative){
   providerCalls[kind]=(providerCalls[kind]||0)+1;if(kind==='speech')speechRequests.push(request);
   return fetch(url,options);
  };
- const generated=await handleMaterials({mode:'generate',courseId,topic,variation:randomUUID()},{fetcher}),material=generated.material;
+ // This release-only fixture uses the stronger independent reviewer. Permit
+ // its two existing repair passes to finish; retain every content rejection,
+ // all six classroom checks and the normal runtime's shorter deadlines.
+ const generated=await handleMaterials({mode:'generate',courseId,topic,variation:randomUUID()},{fetcher,generationTimeoutMs:300000,requestTimeoutMs:90000}),material=generated.material;
  assert(validMaterial(material));assert(!hasExcludedTopic(material));assert.equal(material.questions.length,10);
  const questionsPreparedMs=Date.now()-started,identity=JSON.stringify(material),worksheetId=randomUUID();
  let clock=Date.now(),student={id:'SUBJECT_BUILD_'+courseId,session:'in-process-only',authenticatedAt:Math.floor(clock/1000),iat:Math.floor(clock/1000),exp:Math.floor(clock/1000)+8*3600};
