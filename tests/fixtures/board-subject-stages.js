@@ -1,8 +1,8 @@
 // Representative stages, not a claim that every catalog course has received a
 // live pedagogical audit. The live verifier creates all ten questions afresh.
 export const boardSubjectCases=Object.freeze([
- {stage:'ko',courseId:'e3-math',language:'ko',topic:'곱셈의 뜻과 구구단: 같은 수의 묶음과 곱셈식 연결',question:'같은 수의 묶음을 곱셈식으로 나타내는 방법을 다른 예로 설명해 주세요.'},
- {stage:'ko',courseId:'e3-korean',language:'ko',topic:'짧은 글에서 중심 생각과 뒷받침 문장 찾기',question:'글의 중심 생각과 뒷받침 문장을 어떻게 구별하나요? 새로운 짧은 예로 설명해 주세요.'},
+ {stage:'ko',courseId:'e3-math',language:'ko',topic:'곱셈의 뜻과 구구단: 같은 수의 묶음과 곱셈식 연결. 모든 식을 한 묶음의 수 × 묶음 수 순서로 쓰며 이야기, 보기, 힌트, 해설에서 두 인수의 역할을 일관되게 유지하기.',question:'같은 수의 묶음을 곱셈식으로 나타내는 방법을 다른 예로 설명해 주세요.'},
+ {stage:'ko',courseId:'e3-korean',language:'ko',topic:'짧은 글에서 중심 생각과 뒷받침 문장 찾기. 힌트는 글의 인물, 사물, 행동, 결과를 언급하지 않고 글 전체와 보기의 범위 비교 및 근거 확인 방법만 안내하기.',question:'글의 중심 생각과 뒷받침 문장을 어떻게 구별하나요? 새로운 짧은 예로 설명해 주세요.'},
  {stage:'ko',courseId:'m2-history',language:'ko',topic:'조선의 건국과 세종 시대: 주요 사건의 순서와 문화 정책. 과학 기구를 다루는 표에서는 측정 대상(강수량·시각)과 작동 원리(그림자·물의 흐름)를 별도 열로 구분하고, 시계가 그림자나 물 자체를 측정한다고 쓰지 않기.',question:'역사 사건의 시간 순서와 원인 결과를 구별하는 방법을 설명해 주세요.'},
  {stage:'exam',courseId:'ged-high-math',language:'ko',topic:'일차방정식: 양변에 같은 연산을 하여 미지수 구하기',question:'방정식에서 양변에 같은 수를 더하거나 빼도 되는 이유를 다른 예로 설명해 주세요.'},
  {stage:'international',courseId:'materials-en-3-0',language:'en',topic:'Understanding unit fractions as equal parts of one whole; denominators 2, 3, 4, 6 and 8',question:'Why must the parts be equal when we describe a unit fraction? Please use a new example.'},
