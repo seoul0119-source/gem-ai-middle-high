@@ -310,25 +310,45 @@ test('chemistry may repair two factual defects but releases its five scenes only
  }
 });
 
-test('a third chemistry candidate cannot trigger a fourth attempt or bypass rejection or malformed content',async()=>{
+const stillWrongChemistry=(f,revision)=>{const scenes=structuredClone(f.wrongUnit);scenes[1].narration+=` ${revision}번째 계산 조건을 확인해 보세요.`;return scenes;};
+for(const repairCount of [3,4])test(`imported chemistry remainder accepts repair ${repairCount} only after its independent final approval`,async()=>{
+ const f=chemistryRepairCase(),candidates=Array.from({length:repairCount+1},(_,index)=>index===0?f.wrongCount:index===repairCount?f.correct:stillWrongChemistry(f,index));
+ const outputs=candidates.flatMap((scenes,index)=>[{scenes},index===repairCount?{valid:true,issues:[]}:index===0?f.countIssue:f.unitIssue]);
+ const mock=boardSceneProvider(...outputs),full=await generateScienceRemainder(f.first,{material:f.material,fetcher:mock.fetcher});
+ assert.deepEqual(full.scenes.slice(1),f.correct);assert.strictEqual(full.scenes[0],f.first.scenes[0]);
+ assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,repairCount);
+ const reviews=mock.calls.filter(request=>request.text.format.name==='science_board_review');assert.equal(reviews.length,repairCount+1);
+ reviews.forEach((request,index)=>assert.deepEqual(JSON.parse(request.input[0].content).candidate.scenes,candidates[index]));
+ assert.equal(mock.calls.at(-1).text.format.name,'science_board_review');
+});
+
+test('a fifth imported chemistry candidate cannot trigger a sixth or bypass rejection or malformed content',async()=>{
  for(const finalFormatInvalid of [false,true]){
-  const f=chemistryRepairCase(),final=structuredClone(finalFormatInvalid?f.malformed:f.wrongUnit);if(!finalFormatInvalid)final[1].narration+=' 계산 조건을 다시 확인해 보세요.';
-  const outputs=[{scenes:f.wrongCount},f.countIssue,{scenes:f.wrongUnit},f.unitIssue,{scenes:final},...(finalFormatInvalid?[]:[f.unitIssue])],mock=boardSceneProvider(...outputs);
-  await assert.rejects(generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher}),/검토를 통과/);
-  assert.equal(mock.calls.length,finalFormatInvalid?5:6);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,1);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,2);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,finalFormatInvalid?2:3);
+  const f=chemistryRepairCase(),candidates=[f.wrongCount,...[1,2,3].map(index=>stillWrongChemistry(f,index)),finalFormatInvalid?f.malformed:stillWrongChemistry(f,4)];
+  const outputs=candidates.flatMap((scenes,index)=>[{scenes},...(index===4&&finalFormatInvalid?[]:[index===0?f.countIssue:f.unitIssue])]),mock=boardSceneProvider(...outputs);
+  await assert.rejects(generateScienceRemainder(f.first,{material:f.material,fetcher:mock.fetcher}),/검토를 통과/);
+  assert.equal(mock.calls.length,finalFormatInvalid?9:10);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,1);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,4);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,finalFormatInvalid?4:5);
   assert.equal(f.first.complete,false);assert.equal(f.first.scenes.length,1);
  }
 });
 
-test('mixed chemistry format and factual defects use at most two repairs and three candidates in either order',async()=>{
+test('mixed imported chemistry format and factual defects share the five-candidate bound in either order',async()=>{
  for(const formatFirst of [false,true])for(const approved of [false,true]){
-  const f=chemistryRepairCase(),final=structuredClone(approved?f.correct:f.wrongUnit),verdict=approved?{valid:true,issues:[]}:f.unitIssue;if(!approved)final[1].narration+=' 계산 조건을 다시 확인해 보세요.';
-  const outputs=formatFirst?[{scenes:f.malformed},{scenes:f.wrongUnit},f.unitIssue,{scenes:final},verdict]:[{scenes:f.wrongUnit},f.unitIssue,{scenes:f.malformed},{scenes:final},verdict],mock=boardSceneProvider(...outputs);
-  const pending=generateScienceRemainder(f.first,{courseId:CHEM,material:f.material,fetcher:mock.fetcher});
+  const f=chemistryRepairCase(),final=approved?f.correct:stillWrongChemistry(f,1),verdict=approved?{valid:true,issues:[]}:f.unitIssue;
+  const outputs=formatFirst?[{scenes:f.malformed},{scenes:f.wrongUnit},f.unitIssue,{scenes:final},verdict]:[{scenes:f.wrongUnit},f.unitIssue,{scenes:f.malformed},{scenes:final},verdict];
+  if(!approved)for(const index of [2,3])outputs.push({scenes:stillWrongChemistry(f,index)},f.unitIssue);
+  const mock=boardSceneProvider(...outputs),pending=generateScienceRemainder(f.first,{material:f.material,fetcher:mock.fetcher});
   if(approved){const full=await pending;assert.strictEqual(full.scenes[0],f.first.scenes[0]);assert.deepEqual(full.scenes.slice(1),f.correct);}else await assert.rejects(pending,/검토를 통과/);
-  assert.equal(mock.calls.length,5);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,2);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,1);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,2);
+  assert.equal(mock.calls.length,approved?5:9);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,2);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,approved?1:3);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_review').length,approved?2:4);
   for(const request of mock.calls)assert(request.instructions.includes(JSON.stringify(f.material)));
  }
+});
+
+test('ordinary chemistry topic remainder retains its existing three-candidate limit',async()=>{
+ const f=chemistryRepairCase();f.first=makeLesson(CHEM,'chemistry-mole');
+ const mock=boardSceneProvider({scenes:f.wrongCount},f.countIssue,{scenes:stillWrongChemistry(f,1)},f.unitIssue,{scenes:stillWrongChemistry(f,2)},f.unitIssue);
+ await assert.rejects(generateScienceRemainder(f.first,{fetcher:mock.fetcher}),/검토를 통과/);assert.equal(mock.calls.length,6);
+ assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scenes').length,3);assert.equal(mock.calls.filter(request=>request.text.format.name==='science_board_scene_edits').length,0);
 });
 
 test('chemistry still permits only one deterministic format repair',async()=>{

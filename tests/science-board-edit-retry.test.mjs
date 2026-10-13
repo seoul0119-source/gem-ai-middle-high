@@ -49,9 +49,10 @@ test('edit retry shares the sole format-repair allowance with earlier scene form
  await assert.rejects(run(f,mock),error=>error.code==='scene_edit_target_not_found');assert.equal(mock.calls.length,4);assert.equal(mock.calls.filter(x=>x.text.format.name==='science_board_scene_edits').length,1);
 });
 
-test('edit format retry does not allow a third factual repair or bypass final rejection',async()=>{
- const f=fixture(),appendAgain={...append,sceneNumber:3},mock=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},defect,{edits:[appendAgain]},defect]);
- await assert.rejects(run(f,mock),/검토를 통과/);assert.equal(mock.calls.length,7);assert.equal(mock.calls.filter(x=>x.text.format.name==='science_board_review').length,3);
+test('edit format retry consumes the shared four-request repair budget without bypassing final rejection',async()=>{
+ const f=fixture(),outputs=[f.candidate,defect,{edits:[missing]},{edits:[append]},defect];
+ for(const sceneNumber of [3,4])outputs.push({edits:[{...append,sceneNumber}]},defect);
+ const mock=provider(outputs);await assert.rejects(run(f,mock),/검토를 통과/);assert.equal(mock.calls.length,9);assert.equal(mock.calls.filter(x=>x.text.format.name==='science_board_review').length,4);assert.equal(mock.calls.filter(x=>x.text.format.name==='science_board_scene_edits').length,4);
 });
 
 for(const response of [
@@ -70,7 +71,7 @@ test('imported remainder generation, repair and review use scoped models with ex
  try{
   for(const name of names)delete process.env[name];
   const f=fixture(),mock=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},approved]);
-  await run(f,mock);assert(mock.calls.every(call=>call.model==='gpt-5.6-terra'));
+  await run(f,mock);assert(mock.calls.every(call=>call.model==='gpt-5.6-sol'));
   process.env[names[0]]='remainder-generation-test';process.env[names[1]]='remainder-review-test';
   const overridden=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},approved]);
   await run(f,overridden);
