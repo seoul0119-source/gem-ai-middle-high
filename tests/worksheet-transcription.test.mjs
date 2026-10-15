@@ -9,6 +9,7 @@ import reviewHandler from '../api/review-tutor.js';
 
 const audio=Buffer.alloc(256,7).toString('base64');
 const payload={purpose:'gem-materials-v1',mode:'transcribe',classroom:'en',language:'ko',audio,mimeType:'audio/webm;codecs=opus',vocabulary:['에이','비','씨','디','1번','2번','3번','4번','힌트 주세요','Because the room needed repairs.']};
+const frenchPayload={...payload,language:'fr',vocabulary:['A','B','C','D','un','deux','trois','quatre','un quart','Je voudrais un indice.']};
 const privateProviderMessage='provider-private-details-and-credential';
 const signingKey=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
 const publicKey=await webcrypto.subtle.exportKey('jwk',signingKey.publicKey);
@@ -77,6 +78,83 @@ test('public keywords are single-line and never contain API-rejected angle brack
  });
 });
 
+test('French STT sends only French language context and preserves spoken questions and negation',async t=>{
+ configureKey(t);
+ let calls=0;
+ const spoken='Je ne choisis pas B. Pourquoi est-ce un quart ?';
+ const result=await worksheetTranscription({...frenchPayload,student:'private-student-id',runId:'private-run-id',question:{prompt:'private-question-to-solve',answer:'private-answer-key'},signature:'private-relay-signature'},async(url,{body:form,headers})=>{
+  calls++;
+  assert.equal(url,'https://api.openai.com/v1/audio/transcriptions');
+  assert.equal(headers.Authorization,'Bearer synthetic-worksheet-transcription-key');
+  assert.equal(form.get('model'),'gpt-transcribe');
+  assert.equal(form.get('response_format'),'json');
+  assert.deepEqual(form.getAll('languages[]'),['fr']);
+  assert.equal(form.has('language'),false);
+  assert.deepEqual(form.getAll('keywords[]'),frenchPayload.vocabulary);
+  assert.equal(form.get('file').name,'student.webm');
+  assert.equal(form.get('file').type,'audio/webm');
+  assert.deepEqual(Buffer.from(await form.get('file').arrayBuffer()),Buffer.from(audio,'base64'));
+  assert.deepEqual([...new Set(form.keys())].sort(),['file','keywords[]','languages[]','model','prompt','response_format']);
+  const prompt=form.get('prompt');
+  assert.match(prompt,/A \(a\), B \(bé\), C \(cé\), D \(dé\)/);
+  assert.match(prompt,/questions, les hésitations et les négations/);
+  assert.match(prompt,/Ne traduisez rien/);
+  assert.match(prompt,/ne résolvez aucun exercice/);
+  const publicText=[...form.values()].filter(value=>typeof value==='string').join('\n');
+  assert.doesNotMatch(publicText,/private-student|private-run|private-question|private-answer|private-relay|synthetic-worksheet|Korean or English/);
+  return Response.json({text:'  '+spoken+'  '});
+ });
+ assert.deepEqual(result,{text:spoken,provider:'openai',model:'gpt-transcribe'});
+ assert.equal(calls,1);
+});
+
+test('French compatibility fallback is bounded and fixes language to French without unsupported fields',async t=>{
+ configureKey(t);
+ for(const [status,error] of [
+  [404,{code:'model_not_found'}],
+  [403,{code:'model_not_supported'}],
+  [400,{code:'invalid_request_error',param:'model'}],
+  [400,{code:'unsupported_parameter',param:'languages[]'}],
+  [400,{code:'unknown_parameter',param:'keywords'}]
+ ]){
+  const models=[],signals=[];
+  const result=await worksheetTranscription(frenchPayload,async(_url,{body,signal})=>{
+   models.push(body.get('model'));signals.push(signal);
+   if(models.length===1)return Response.json({error},{status});
+   assert.equal(body.get('model'),'gpt-4o-transcribe');
+   assert.equal(body.get('language'),'fr');
+   assert.equal(body.has('languages[]'),false);
+   assert.equal(body.has('keywords[]'),false);
+   assert.match(body.get('prompt'),/langue française originale/);
+   return Response.json({text:'La réponse C, deux.'});
+  });
+  assert.deepEqual(models,['gpt-transcribe','gpt-4o-transcribe']);
+  assert.equal(signals[0],signals[1]);
+  assert.deepEqual(result,{text:'La réponse C, deux.',provider:'openai',model:'gpt-4o-transcribe'});
+ }
+ let calls=0;
+ await assert.rejects(worksheetTranscription(frenchPayload,async()=>{calls++;return Response.json({error:{code:'model_not_found'}},{status:404});}),isServiceError());
+ assert.equal(calls,2,'a compatibility request cannot trigger a third model attempt');
+});
+
+test('French silence, invalid audio, permission failures and outages never trigger compatibility requests',async t=>{
+ configureKey(t);
+ for(const [status,data] of [
+  [200,{text:' '}],
+  [400,{error:{code:'invalid_audio',param:'file'}}],
+  [400,{error:{code:'invalid_request_error',param:'language'}}],
+  [400,{error:{code:'unsupported_parameter',param:'file'}}],
+  [403,{error:{code:'permission_denied'}}],
+  [404,{error:{code:'not_found'}}],
+  [429,{error:{code:'unknown_rate_limit'}}],
+  [503,{error:{code:'model_not_found'}}]
+ ]){
+  let calls=0;
+  await assert.rejects(worksheetTranscription(frenchPayload,async()=>{calls++;return Response.json(data,{status});}),status===200?error=>!(error instanceof AiServiceError)&&error.message==='speech_not_heard':isServiceError());
+  assert.equal(calls,1);
+ }
+});
+
 test('compatibility fallback runs only once and omits unsupported multilingual/keyword fields',async t=>{
  configureKey(t);
  for(const firstReply of [Response.json({error:{code:'model_not_found'}},{status:404}),Response.json({text:'   '})]){
@@ -106,7 +184,7 @@ test('empty successful results are a recognition failure after one fallback',asy
 test('invalid audio/vocabulary requests are rejected before the provider is called',async t=>{
  configureKey(t);
  const changes=[
-  {purpose:'other'},{mode:'speech'},{classroom:'fr'},{language:'fr'},
+  {purpose:'other'},{mode:'speech'},{classroom:'fr'},{language:'en'},
   {audio:''},{audio:'not base64!'},{audio:Buffer.alloc(99).toString('base64')},{audio:Buffer.alloc(1_000_001).toString('base64')},
   {mimeType:'text/plain'},{vocabulary:null},{vocabulary:['']},{vocabulary:['a'.repeat(101)]},{vocabulary:Array(33).fill('A')}
  ];
@@ -125,18 +203,18 @@ test('provider transport, timeout, malformed JSON and invalid successful respons
   async()=>Response.json({text:123}),
   async()=>Response.json({error:{message:privateProviderMessage}},{status:503})
  ];
- for(const provider of providers){
+ for(const provider of providers)for(const language of ['ko','fr']){
   let calls=0;
-  await assert.rejects(worksheetTranscription(payload,async(...args)=>{calls++;return provider(...args);}),isServiceError());
+  await assert.rejects(worksheetTranscription({...payload,language},async(...args)=>{calls++;return provider(...args);}),isServiceError());
   assert.equal(calls,1);
  }
 });
 
 test('billing and rate-limit failures stay classified and never trigger a fallback',async t=>{
  configureKey(t);
- for(const [status,code,expected] of [[403,'insufficient_quota','ai_credit_exhausted'],[429,'credit_balance_exhausted','ai_credit_exhausted'],[429,'rate_limit_exceeded','ai_rate_limited']]){
+ for(const [status,code,expected] of [[403,'insufficient_quota','ai_credit_exhausted'],[429,'credit_balance_exhausted','ai_credit_exhausted'],[429,'rate_limit_exceeded','ai_rate_limited']])for(const language of ['ko','fr']){
   let calls=0;
-  await assert.rejects(worksheetTranscription(payload,async()=>{calls++;return Response.json({error:{code,message:privateProviderMessage}},{status});}),isServiceError(expected));
+  await assert.rejects(worksheetTranscription({...payload,language},async()=>{calls++;return Response.json({error:{code,message:privateProviderMessage}},{status});}),isServiceError(expected));
   assert.equal(calls,1);
  }
 });
@@ -182,6 +260,10 @@ test('the relay signs the entire large audio payload and rejects tampering',asyn
  changed.audio=(changed.audio[0]==='A'?'B':'A')+changed.audio.slice(1);
  assert.equal(Boolean(await verifyReviewRequest({...request,payload:JSON.stringify(changed)},keys)),false);
  assert.equal(Boolean(await verifyReviewRequest({...request,signature:'invalid'},keys)),false);
+ const frenchRequest=await signed({...frenchPayload,audio:Buffer.alloc(1_000_000,7).toString('base64')});
+ const frenchVerified=await verifyReviewRequest(frenchRequest,keys);
+ assert.equal(frenchVerified.language,'fr');
+ assert.equal(Buffer.from(frenchVerified.audio,'base64').length,1_000_000);
 });
 
 test('large-payload permission is limited to worksheet transcription and the 1.5 MB ceiling',async()=>{
@@ -227,3 +309,39 @@ test('the signed HTTP relay distinguishes service errors, empty speech and inval
   }else assert.equal(result.body.pauseVoice,undefined);
  });
 });
+
+test('the signed HTTP relay accepts French recordings and retains error and request-count boundaries',async t=>{
+ configureKey(t);
+ const cases=[
+  {name:'French answer',reply:()=>Response.json({text:'C, deux.'}),status:200,text:'C, deux.',calls:1},
+  {name:'French question and negation',reply:()=>Response.json({text:'Je ne sais pas. Pouvez-vous répéter ?'}),status:200,text:'Je ne sais pas. Pouvez-vous répéter ?',calls:1},
+  {name:'empty French speech',reply:()=>Response.json({text:' '}),status:422,code:'speech_not_heard',calls:1},
+  {name:'French credit exhaustion',reply:()=>Response.json({error:{code:'insufficient_quota',message:privateProviderMessage}},{status:403}),status:503,code:'ai_credit_exhausted',calls:1},
+  {name:'French rate limit',reply:()=>Response.json({error:{code:'rate_limit_exceeded',message:privateProviderMessage}},{status:429}),status:429,code:'ai_rate_limited',calls:1},
+  {name:'French provider outage',reply:()=>Response.json({error:{message:privateProviderMessage}},{status:503}),status:503,code:'ai_service_unavailable',calls:1},
+  {name:'French transport failure',reply:()=>{throw Error(privateProviderMessage);},status:503,code:'ai_service_unavailable',calls:1},
+  {name:'invalid French audio type',change:{mimeType:'text/plain'},reply:()=>{throw Error('must not call');},status:400,code:'invalid_transcription',calls:0},
+  {name:'unsupported language',change:{language:'en'},reply:()=>{throw Error('must not call');},status:400,code:'invalid_transcription',calls:0}
+ ];
+ for(const scenario of cases)await t.test(scenario.name,async child=>{
+  const saved=REVIEW_PUBLIC_KEYS.en;REVIEW_PUBLIC_KEYS.en=publicKey;
+  child.after(()=>{REVIEW_PUBLIC_KEYS.en=saved;});
+  let calls=0;
+  child.mock.method(globalThis,'fetch',async(_url,{body})=>{
+   calls++;
+   assert.deepEqual(body.getAll('languages[]'),['fr']);
+   assert.deepEqual(body.getAll('keywords[]'),frenchPayload.vocabulary);
+   return scenario.reply();
+  });
+  const result=responseRecorder();
+  await reviewHandler({method:'POST',body:await signed({...frenchPayload,...scenario.change})},result);
+  assert.equal(result.statusCode,scenario.status);
+  assert.equal(result.body.code,scenario.code);
+  assert.equal(result.body.text,scenario.text);
+  assert.equal(calls,scenario.calls);
+  assert.equal(result.headers['Cache-Control'],'no-store');
+  assert.doesNotMatch(JSON.stringify(result.body),/provider-private|credential/);
+  if([429,503].includes(scenario.status))assert.equal(result.body.pauseVoice,true);
+ });
+});
+
