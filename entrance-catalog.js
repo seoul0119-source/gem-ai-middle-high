@@ -58,7 +58,9 @@
     params.set(materials?'browse':'classroom','1');
     return '/materials.html?'+params;
   }
-  async function requestSession(body,timeoutMs=30000) {
+  // Membership verification may use three 10-second attempts plus backoff.
+  // Keep the browser deadline above that complete server-side budget.
+  async function requestSession(body,timeoutMs=45000) {
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),timeoutMs);
     try {

@@ -1,12 +1,18 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GEM 교실 · 자료실 연결</title><style>body{font:18px/1.7 system-ui;color:#17304e;background:#f5f8fc;max-width:620px;margin:12vh auto;padding:24px}button,a{font:inherit;color:#155bc4}</style></head><body><h1 id="title">교실 · 자료실 연결</h1><p id="status" role="status">학생 ID와 선택한 수업을 연결하고 있습니다…</p><button id="retry" onclick="enter()">다시 연결</button> <a href="/">처음 화면</a><script src="/entrance-catalog.js?v=20261014-bac"></script><script>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GEM 교실 · 자료실 연결</title><style>body{font:18px/1.7 system-ui;color:#17304e;background:#f5f8fc;max-width:620px;margin:12vh auto;padding:24px}button,a{font:inherit;color:#155bc4}</style></head><body><h1 id="title">교실 · 자료실 연결</h1><p id="status" role="status">학생 ID와 선택한 수업을 연결하고 있습니다…</p><button id="retry" onclick="enter()">다시 연결</button> <a href="/">처음 화면</a><script type="application/json" id="gem-entry-pass">null</script><script src="/entrance-catalog.js?v=20261021-entry"></script><script>
 let entering=false;
+function takePreparedEntry(){
+ const node=document.getElementById('gem-entry-pass');
+ if(!node)return null;
+ const text=node.textContent;node.remove();
+ try{const data=JSON.parse(text);return typeof data?.ticket==='string'?data:null;}catch{return null;}
+}
 async function enter(){
  if(entering)return;
  entering=true;document.getElementById('retry').disabled=true;
  document.getElementById('status').textContent='학생 ID와 선택한 수업을 연결하고 있습니다…';
  try{
   // All saved-worksheet languages share this authenticated store and audience.
-  const data=await GEMEntrance.requestSession({action:'classroom-pass',classroom:'en'});
+  const data=takePreparedEntry()||await GEMEntrance.requestSession({action:'classroom-pass',classroom:'en'});
   if(!data.ticket)throw Error('입장 연결을 확인하지 못했습니다. 다시 연결을 눌러 주세요.');
   const form=document.createElement('form');form.method='POST';form.action='https://gem-english-middle-school-math.seoul0119.chatgpt.site/api/learning/entry';
   for(const [name,value]of Object.entries({ticket:data.ticket,destination:'/materials'+location.search})){
