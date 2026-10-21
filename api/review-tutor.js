@@ -1,5 +1,5 @@
 import {handleMaterials} from '../lib/materials-ai.js';
-import {worksheetSpeech} from '../lib/worksheet-speech.js';
+import {worksheetSpeech,productionSpeech} from '../lib/worksheet-speech.js';
 import {worksheetTranscription} from '../lib/worksheet-transcription.js';
 import {verifyReviewRequest,reviewModelRequest,reviewOutput} from '../lib/review-tutor.js';
 import {providerAiServiceError,AiServiceError,aiServiceUnavailable} from '../lib/ai-service-error.js';
@@ -9,6 +9,14 @@ export default async function handler(req,res){
  const body=typeof req.body==='object'?req.body:null;
  const payload=await verifyReviewRequest(body);
  if(!payload)return send(res,401,{code:'invalid_review_signature'});
+ if(payload.purpose==='gem-materials-v1'&&payload.mode==='production-speech'){
+  try{
+   const audio=await productionSpeech(payload);
+   res.status(200).setHeader('Content-Type','audio/mpeg');res.setHeader('Content-Length',String(audio.bytes.byteLength));res.setHeader('Cache-Control','no-store');
+   res.setHeader('X-GEM-Speech-Provider',audio.provider);res.setHeader('X-GEM-Speech-Model',audio.model);res.setHeader('X-GEM-Speech-Voice',audio.voice);
+   return res.end(audio.bytes);
+  }catch(error){if(error instanceof AiServiceError)return send(res,error.status,error.payload);return send(res,error.message==='Invalid production speech'?400:503,{code:error.message==='Invalid production speech'?'invalid_production_speech':'speech_unavailable'});}
+ }
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='transcribe'){
   try{return send(res,200,await worksheetTranscription(payload));}catch(error){
    if(error instanceof AiServiceError)return send(res,error.status,error.payload);
