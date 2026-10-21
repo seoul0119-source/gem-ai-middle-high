@@ -72,7 +72,7 @@ test('English and French remainders preserve approved prefix, exact ten question
   const first=lesson(language),snapshot=structuredClone(first),sheet=material(),mock=provider({scenes:Array.from({length:4},(_,i)=>scene(language,i+2))},approved);
   const result=await generateScienceRemainder(first,{...mock,material:sheet});
   assert.deepEqual(first,snapshot);assert.strictEqual(result.scenes[0],first.scenes[0]);assert.equal(result.id,first.id);assert.equal(result.scenes.length,5);assert.deepEqual(scienceLessonIssues(result,{allowIntro:false}),[]);
-  assert.equal(mock.requests[0].model,process.env.OPENAI_SCIENCE_BOARD_REMAINDER_MODEL||'gpt-5.6-sol');assert.equal(mock.requests[1].model,process.env.OPENAI_SCIENCE_BOARD_REMAINDER_REVIEW_MODEL||'gpt-5.6-sol');
+  assert.equal(mock.requests[0].model,process.env.OPENAI_SCIENCE_BOARD_REMAINDER_MODEL||'gpt-5.6-luna');assert.equal(mock.requests[1].model,process.env.OPENAI_SCIENCE_BOARD_REMAINDER_REVIEW_MODEL||'gpt-5.6-luna');
   const used=await generateSciencePractice(result,{...mock,material:sheet});assert.strictEqual(used.material,sheet);assert.equal(mock.requests.length,2,'existing worksheet is never regenerated');
   const tampered={...first,language:language==='en'?'fr':'en'};assert(scienceLessonIssues(tampered).length);await assert.rejects(generateScienceRemainder(tampered,{...mock,material:sheet}));assert.equal(mock.requests.length,2);
  }

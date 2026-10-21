@@ -71,7 +71,7 @@ test('imported remainder generation, repair and review use scoped models with ex
  try{
   for(const name of names)delete process.env[name];
   const f=fixture(),mock=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},approved]);
-  await run(f,mock);assert(mock.calls.every(call=>call.model==='gpt-5.6-sol'));
+  await run(f,mock);assert(mock.calls.every(call=>call.model==='gpt-5.6-luna'));
   process.env[names[0]]='remainder-generation-test';process.env[names[1]]='remainder-review-test';
   const overridden=provider([f.candidate,defect,{edits:[missing]},{edits:[append]},approved]);
   await run(f,overridden);
