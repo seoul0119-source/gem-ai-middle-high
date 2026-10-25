@@ -54,9 +54,6 @@
     "api/chat-final.js": {
       "includeFiles": "generated-whiteboard/*.mp3",
       "maxDuration": 300
-    },
-    "api/video-author.js": {
-      "maxDuration": 180
     }
   },
   "crons": [

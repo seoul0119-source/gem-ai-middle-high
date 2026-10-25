@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../api/video-author.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
+const source=readFileSync(new URL('../lib/video-author.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
 const handler=(await import('data:text/javascript;base64,'+Buffer.from(`const verifyReviewRequest=async b=>b?.valid?b.payload:null,reviewOutput=d=>d.output_text,providerAiServiceError=()=>null;${source}`).toString('base64'))).default;
 const payload={purpose:'gem-materials-v1',mode:'video-author',classroom:'en',language:'en',task:'generate',prompt:'Return JSON with five scenes.'};
 async function run(p,valid=true,method='POST'){const result={};const res={status(n){result.status=n;return this},setHeader(){return this},end(s){result.body=JSON.parse(s);}};await handler({method,body:{valid,payload:p}},res);return result;}

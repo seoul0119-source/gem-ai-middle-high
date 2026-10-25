@@ -1,3 +1,4 @@
+import videoAuthor from '../lib/video-author.js';
 import {handleMaterials} from '../lib/materials-ai.js';
 import {worksheetSpeech,productionSpeech} from '../lib/worksheet-speech.js';
 import {worksheetTranscription} from '../lib/worksheet-transcription.js';
@@ -9,6 +10,7 @@ export default async function handler(req,res){
  const body=typeof req.body==='object'?req.body:null;
  const payload=await verifyReviewRequest(body);
  if(!payload)return send(res,401,{code:'invalid_review_signature'});
+ if(payload.purpose==='gem-materials-v1'&&payload.mode==='video-author')return videoAuthor(req,res);
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='production-speech'){
   try{
    const audio=await productionSpeech(payload);
