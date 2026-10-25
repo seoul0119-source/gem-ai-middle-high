@@ -54,6 +54,9 @@
     "api/chat-final.js": {
       "includeFiles": "generated-whiteboard/*.mp3",
       "maxDuration": 300
+    },
+    "api/video-author.js": {
+      "maxDuration": 180
     }
   },
   "crons": [
@@ -62,5 +65,5 @@
       "schedule": "0 21 * * *"
     }
   ],
-  "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF==='release/board-korean-labels-20261014'?1:0)\""
+  "ignoreCommand": "node -e \"process.exit(['release/board-korean-labels-20261014','release/video-author-studio-20261025'].includes(process.env.VERCEL_GIT_COMMIT_REF)?1:0)\""
 }
