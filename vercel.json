@@ -4,10 +4,6 @@
   "outputDirectory": ".",
   "routes": [
     {
-      "src": "/api/production-image/?",
-      "dest": "/api/review-tutor?productionImage=1"
-    },
-    {
       "src": "/api/support-chat/?",
       "dest": "/api/session?support=gem-support-v1"
     },
@@ -42,6 +38,10 @@
     {
       "src": "/science-board(?:\\.html)?/?",
       "dest": "/api/session?page=science-board"
+    },
+    {
+      "src": "/api/production-image/?",
+      "dest": "/api/review-tutor?productionImage=1"
     },
     {
       "handle": "filesystem"
