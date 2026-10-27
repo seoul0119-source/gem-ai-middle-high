@@ -1,3 +1,4 @@
+import {productionImage} from '../lib/production-image.js';
 import videoAuthor from '../lib/video-author.js';
 import {handleMaterials} from '../lib/materials-ai.js';
 import {worksheetSpeech,productionSpeech} from '../lib/worksheet-speech.js';
@@ -11,6 +12,10 @@ export default async function handler(req,res){
  const payload=await verifyReviewRequest(body);
  if(!payload)return send(res,401,{code:'invalid_review_signature'});
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='video-author')return videoAuthor(req,res);
+ if(payload.purpose==='gem-materials-v1'&&payload.mode==='production-image'){
+  try{const image=await productionImage(payload);res.status(200).setHeader('Content-Type','image/png');res.setHeader('Content-Length',String(image.bytes.byteLength));res.setHeader('Cache-Control','no-store');res.setHeader('X-GEM-Image-Model',image.model);return res.end(image.bytes);}
+  catch(error){const code=['invalid_production_image','image_model_access_denied','image_rate_limited','image_result_too_large'].includes(error.message)?error.message:'image_unavailable';return send(res,code==='invalid_production_image'?400:code==='image_model_access_denied'?403:503,{code});}
+ }
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='production-speech'){
   try{
    const audio=await productionSpeech(payload);
