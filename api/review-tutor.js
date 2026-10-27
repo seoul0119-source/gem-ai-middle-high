@@ -7,14 +7,16 @@ import {verifyReviewRequest,reviewModelRequest,reviewOutput} from '../lib/review
 import {providerAiServiceError,AiServiceError,aiServiceUnavailable} from '../lib/ai-service-error.js';
 function send(res,status,data){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(data));}
 export default async function handler(req,res){
+ if(req.query?.productionImage==='1')res.setHeader('X-GEM-Image-Service','gem-production-image-v1');
  if(req.method!=='POST')return send(res,405,{code:'method_not_allowed'});
  const body=typeof req.body==='object'?req.body:null;
  const payload=await verifyReviewRequest(body);
  if(!payload)return send(res,401,{code:'invalid_review_signature'});
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='video-author')return videoAuthor(req,res);
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='production-image'){
+  res.setHeader('X-GEM-Image-Service','gem-production-image-v1');console.info('gem-production-image-request',{job:payload.job,index:payload.index});
   try{const image=await productionImage(payload);res.status(200).setHeader('Content-Type','image/png');res.setHeader('Content-Length',String(image.bytes.byteLength));res.setHeader('Cache-Control','no-store');res.setHeader('X-GEM-Image-Model',image.model);return res.end(image.bytes);}
-  catch(error){const code=['invalid_production_image','image_model_access_denied','image_rate_limited','image_result_too_large'].includes(error.message)?error.message:'image_unavailable';return send(res,code==='invalid_production_image'?400:code==='image_model_access_denied'?403:503,{code});}
+  catch(error){const code=['invalid_production_image','image_model_access_denied','image_rate_limited','image_result_too_large'].includes(error.message)?error.message:'image_unavailable';return send(res,code==='invalid_production_image'?400:code==='image_model_access_denied'?403:503,{code,...(error.diagnostic?{diagnostic:error.diagnostic}:{})});}
  }
  if(payload.purpose==='gem-materials-v1'&&payload.mode==='production-speech'){
   try{
