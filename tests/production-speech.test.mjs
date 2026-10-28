@@ -11,7 +11,7 @@ const pair=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},
 const publicKey=await webcrypto.subtle.exportKey('jwk',pair.publicKey);
 async function signed(value){const payload=JSON.stringify(value),signature=Buffer.from(await webcrypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,Buffer.from(payload))).toString('base64url');return {payload,signature};}
 function recorder(){return {statusCode:200,headers:{},body:null,status(value){this.statusCode=value;return this;},setHeader(name,value){this.headers[name]=value;return this;},end(value){this.body=value;}};}
-test('signed production speech returns bounded raw MP3 with fixed metadata and unchanged synthesis settings',async t=>{
+test('signed production speech returns bounded raw MP3 with fixed metadata, one production narrator and unchanged worksheet settings',async t=>{
  const saved=process.env.OPENAI_API_KEY,oldPublic=REVIEW_PUBLIC_KEYS.en;process.env.OPENAI_API_KEY='synthetic-binary-speech-key';REVIEW_PUBLIC_KEYS.en=publicKey;
  t.after(()=>{REVIEW_PUBLIC_KEYS.en=oldPublic;if(saved===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=saved;});
  const requests=[];t.mock.method(globalThis,'fetch',async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/audio/speech');requests.push(JSON.parse(options.body));return new Response(audio);});
@@ -20,7 +20,7 @@ test('signed production speech returns bounded raw MP3 with fixed metadata and u
   assert.equal(result.statusCode,200);assert(Buffer.isBuffer(result.body));assert.deepEqual(result.body,audio);assert.equal(result.headers['Content-Length'],String(audio.length));assert.equal(result.headers['Content-Type'],'audio/mpeg');assert.equal(result.headers['X-GEM-Speech-Provider'],'openai');assert.equal(result.headers['X-GEM-Speech-Model'],'gpt-4o-mini-tts');assert.equal(result.headers['X-GEM-Speech-Voice'],voice);assert.equal(result.headers['Cache-Control'],'no-store');
   assert.equal(requests.at(-1).input,text);assert.equal(requests.at(-1).voice,voice);assert.equal(requests.at(-1).response_format,'mp3');
  }
- const legacy=await worksheetSpeech({classroom:'en',language:'en',text});assert.equal(legacy.audio,audio.toString('base64'));assert.equal(legacy.mimeType,'audio/mpeg');assert.equal(legacy.bytes,undefined);assert.deepEqual(requests[1],requests[3],'transport change preserves the exact original synthesis request');
+ const legacy=await worksheetSpeech({classroom:'en',language:'en',text});assert.equal(legacy.audio,audio.toString('base64'));assert.equal(legacy.mimeType,'audio/mpeg');assert.equal(legacy.bytes,undefined);assert.deepEqual({...requests[1],instructions:requests[3].instructions},requests[3],'model, selected voice, text and format stay unchanged');assert(requests[1].instructions.endsWith(requests[3].instructions),'original narration constraints remain in force');assert(!requests[3].instructions.includes('one single consistent narrator'),'worksheet delivery stays unchanged');for(const request of requests.slice(0,3)){assert.match(request.instructions,/one single consistent narrator/);assert.match(request.instructions,/Never act out children, teachers or dialogue/);assert.match(request.instructions,/Read quotations with the same narrator/);}
 });
 test('invalid signatures and production payloads stop before the provider without automatic retry',async t=>{
  const saved=process.env.OPENAI_API_KEY,oldPublic=REVIEW_PUBLIC_KEYS.en;process.env.OPENAI_API_KEY='synthetic-binary-speech-key';REVIEW_PUBLIC_KEYS.en=publicKey;
