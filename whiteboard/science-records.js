@@ -22,7 +22,7 @@ export function createScienceRecords({studentId,courseId='h3-science',notify=()=
     if(!slot||active!==slot)return true;
     snapshot(slot,'stopped');
     let saved=true;
-    try{saved=await client.flush();}catch{saved=false;say(ui('학습 기록은 이 기기에 보관되어 있으며 다시 연결되면 저장합니다.'));}
+    try{saved=await client.flush(slot.runId);}catch{saved=false;say(ui('학습 기록은 이 기기에 보관되어 있으며 다시 연결되면 저장합니다.'));}
     try{await request({action:'end',courseId,courseRunId:slot.runId});}
     catch{say(ui('수업 종료 기록의 연결을 확인해 주세요. 풀이 기록은 유지됩니다.'));saved=false;}
     active=null;
@@ -90,7 +90,7 @@ export function createScienceRecords({studentId,courseId='h3-science',notify=()=
     if(next.length>380||new TextEncoder().encode(JSON.stringify(next)).length>220000){say(ui('수업 기록이 길어졌습니다. 현재 기록을 저장한 뒤 새 수업을 시작해 주세요.'));return false;}
     slot.messages=next;snapshot(slot);return true;
   }
-  function flush(){return sequence(async()=>{if(selected&&active===selected)snapshot(selected);return client?client.flush():true;});}
+  function flush(){return sequence(async()=>{if(selected&&active===selected)snapshot(selected);return client?client.flush(selected?.runId):true;});}
   function end(){const slot=selected;selected=null;return sequence(()=>close(slot));}
   function exit(){const slot=selected;selected=null;if(!slot)return;if(active!==slot){void sequence(()=>close(slot));return;}snapshot(slot,'stopped',true);const body=new Blob([JSON.stringify({action:'end-on-exit',courseId,courseRunId:slot.runId})],{type:'application/json'});if(!globalThis.navigator?.sendBeacon?.('/api/session',body))void fetcher('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(()=>{});active=null;}
   return {start,event,flush,end,exit};

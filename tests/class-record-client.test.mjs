@@ -8,3 +8,26 @@ test('failed save remains in student queue, newer in-flight snapshot is saved be
  fail=false;let release;gate=new Promise(r=>release=r);const flush=client.flush();client.queue('run','permit',{...record,revision:2,messages:[...record.messages,{role:'assistant',content:'5/6'}]});release();assert.equal(await flush,true);assert.equal(calls.at(-1).record.revision,2);assert.equal(storage.get('gem-class-record-pending:TEST_A'),'{}');
  assert.equal(storage.has('gem-class-record-pending:TEST_B'),false);
 });
+
+test('current worksheet flush bypasses a stalled unrelated record and shares in-flight saves',async()=>{
+ const student='SCOPED-CLIENT',key='gem-class-record-pending:'+student;
+ const record={revision:1,messages:[{role:'user',content:'Same worksheet'},{role:'assistant',content:'Keep the answer'}]};
+ const old={permit:'expired',record};const storage=new Map([[key,JSON.stringify({'old-run':old})]]),calls=[];
+ let releaseOld,releaseCurrent;const oldGate=new Promise(resolve=>{releaseOld=resolve;}),currentGate=new Promise(resolve=>{releaseCurrent=resolve;});
+ const context={localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},window:{addEventListener(){}},setInterval(){},AbortSignal,Blob,navigator:{sendBeacon(){}},fetch:async(_url,options)=>{
+  const body=JSON.parse(options.body);calls.push(body);
+  if(body.permit==='expired'){await oldGate;return Response.json({error:'expired'},{status:403});}
+  await currentGate;return Response.json({saved:true});
+ }};
+ vm.runInNewContext(source,context);const client=context.GemClassRecords({student,notify(){}});
+ client.queue('current-run','valid',record);
+ const first=client.flush('current-run'),second=client.flush('current-run');
+ releaseCurrent();
+ try{
+  const result=await Promise.race([Promise.all([first,second]),new Promise(resolve=>setImmediate(()=>resolve('blocked-by-old-record')))]);
+  assert.deepEqual(result,[true,true]);assert.equal(calls.filter(call=>call.permit==='valid').length,1);
+  assert.deepEqual(JSON.parse(storage.get(key)),{'old-run':old});
+ }finally{releaseOld();}
+ assert.equal(await client.flush(),false,'ordinary full-queue sync still reports the expired record');
+ assert.deepEqual(JSON.parse(storage.get(key)),{'old-run':old});
+});

@@ -1,3 +1,5 @@
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createScienceRecords} from '../whiteboard/science-records.js';
@@ -86,4 +88,31 @@ test('failed session admission never queues scores with an absent or forged perm
   assert.equal(await f.records.start(lesson('denied')),false);
   f.records.event('question',question);await f.records.flush();await f.records.end();
   assert.equal(f.snapshots.length,0);assert.equal(f.calls.length,1);assert(f.notices.some(text=>text.includes('연결 확인 필요')));
+});
+
+test('returning the SAT worksheet requires its own saved record, not expired records from other lessons',async()=>{
+ const student='SCOPED-TEST',key='gem-class-record-pending:'+student;
+ const stale={permit:'expired-other-lesson',record:{revision:1,messages:[{role:'user',content:'Old lesson'},{role:'assistant',content:'Keep this local record'}]}};
+ const storage=new Map([[key,JSON.stringify({'old-run':stale})],['gem-class-record-pending:OTHER','other-student-untouched']]);
+ const calls=[];let rejectCurrent=false;
+ const fetcher=async(_url,options)=>{
+  const body=JSON.parse(options.body);calls.push(body);
+  if(body.action==='start')return Response.json({courseId:'materials-en-sat-math',courseRunId:'current-run',recordPermit:'current-permit'});
+  if(body.action==='end')return Response.json({success:true});
+  assert.equal(body.action,'save-class-record');
+  return body.permit===stale.permit||rejectCurrent?Response.json({error:'expired-or-offline'},{status:403}):Response.json({saved:true});
+ };
+ const context={localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},window:{addEventListener(){}},setInterval(){},AbortSignal,Blob,navigator:{sendBeacon(){}},fetch:fetcher};
+ vm.runInNewContext(readFileSync('class-record-client.js','utf8'),context);
+ const records=createScienceRecords({studentId:student,courseId:'materials-en-sat-math',fetcher,recordsFactory:context.GemClassRecords,notify(){}});
+ assert.equal(await records.start({id:'sat-worksheet',courseId:'materials-en-sat-math',title:'Same ten questions'}),true);
+ records.event('dialogue',{lessonId:'sat-worksheet',question:'Why is this step valid?',answer:'Divide both sides by the same positive number.'});
+ assert.equal(await records.flush(),true,'an expired unrelated record must not block the current signed handoff');
+ assert.deepEqual(JSON.parse(storage.get(key)),{'old-run':stale});
+ assert.equal(storage.get('gem-class-record-pending:OTHER'),'other-student-untouched');
+ assert(calls.some(call=>call.permit==='current-permit'&&call.record.messages.some(message=>message.content.includes('Divide both sides'))));
+ rejectCurrent=true;records.event('dialogue',{lessonId:'sat-worksheet',question:'And the next step?',answer:'Keep the inequality direction when dividing by a positive number.'});
+ assert.equal(await records.flush(),false,'an unacknowledged current record must still block the handoff');
+ assert(JSON.parse(storage.get(key))['current-run']);assert(JSON.parse(storage.get(key))['old-run']);
+ rejectCurrent=false;assert.equal(await records.flush(),true);assert(JSON.parse(storage.get(key))['old-run']);
 });
