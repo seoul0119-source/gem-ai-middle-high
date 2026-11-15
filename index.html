@@ -769,6 +769,48 @@
       en: Array.from({length:12},(_,i)=>`Grade ${i+1}`),
       fr: ["CP","CE1","CE2","CM1","CM2","6e","5e","4e","3e","Seconde","Première","Terminale"]
     };
+    const membershipTranslations = {
+      ko: {
+        program:'교육과정 · Program · Programme', membership:'회원 구분 · Membership',
+        programs:{ko:'한국반',en:'English Program',fr:'Programme français'},
+        plans:{trial:'T · 1일 무료체험 / 1-day trial',month1:'M 회원 · 매달 10만 원 · 1개월 후원 약정',month2:'N 회원 · 매달 15만 원 · 2개월 후원 약정',month3:'P 회원 · 매달 20만 원 · 3개월 후원 약정',free:'F 무료 회원 · 취약계층 (직접문의)',lifetime:'L 평생 회원 · 금액 직접 입력',custom:'기타후원금 · 후원만 등록'},
+        free:'취약계층 무료회원 이용은 선교사무실로 직접 문의해 주세요.', custom:'기타후원금은 후원만 등록합니다. 후원 안내에서 금액을 직접 입력해 주세요.', lifetime:'후원 금액을 직접 입력하고 평생회원 ID를 발급받을 수 있습니다. 평생회원은 만료일이 없습니다.',
+        monthly:(amount,months)=>`약정 기간 동안 매달 ${amount}만 원을 후원하는 ${months}개월 후원 약정입니다. 후원 약정과 학년을 등록하면 회원 ID를 발급받을 수 있습니다.`,
+        links:{free:'무료회원 직접 문의 →',custom:'기타후원금 등록하기 →',member:'후원 약정하고 회원 ID 받기 →'}
+      },
+      en: {
+        program:'Program', membership:'Membership', programs:{ko:'Korean Program',en:'English Program',fr:'French Program'},
+        plans:{trial:'T · 1-day free trial',month1:'M · 100,000 KRW/month · 1-month donation pledge',month2:'N · 150,000 KRW/month · 2-month donation pledge',month3:'P · 200,000 KRW/month · 3-month donation pledge',free:'F · Free membership for disadvantaged learners (contact us)',lifetime:'L · Lifetime membership · Enter donation amount',custom:'Other donation · Donation only'},
+        free:'Please contact the mission office directly about free membership for disadvantaged learners.', custom:'Register a donation without a membership ID. Enter your donation amount on the support page.', lifetime:'Enter your donation amount to receive a lifetime membership ID. Lifetime membership has no expiry date.',
+        monthly:(amount,months)=>`Pledge ${(amount*10000).toLocaleString('en-US')} KRW per month for ${months} ${months===1?'month':'months'}. Register your pledge and grade to receive your membership ID.`,
+        links:{free:'Contact us about free membership →',custom:'Register a donation only →',member:'Register my pledge and get a membership ID →'}
+      },
+      fr: {
+        program:'Programme', membership:'Type d’adhésion', programs:{ko:'Programme coréen',en:'Programme américain (anglais)',fr:'Programme français'},
+        plans:{trial:'T · Essai gratuit d’un jour',month1:'M · 100 000 KRW/mois · Engagement de don de 1 mois',month2:'N · 150 000 KRW/mois · Engagement de don de 2 mois',month3:'P · 200 000 KRW/mois · Engagement de don de 3 mois',free:'F · Adhésion gratuite pour les publics défavorisés (nous contacter)',lifetime:'L · Adhésion à vie · Montant du don au choix',custom:'Autre don · Sans adhésion'},
+        free:'Veuillez contacter directement le bureau de la mission pour l’adhésion gratuite destinée aux publics défavorisés.', custom:'Enregistrez un don sans identifiant de membre. Saisissez le montant de votre don sur la page de soutien.', lifetime:'Saisissez le montant de votre don pour obtenir un identifiant de membre à vie. L’adhésion à vie n’a pas de date d’expiration.',
+        monthly:(amount,months)=>`Engagez-vous à donner ${(amount*10000).toLocaleString('fr-FR')} KRW par mois pendant ${months} mois. Enregistrez votre engagement et votre classe pour obtenir un identifiant de membre.`,
+        links:{free:'Nous contacter pour l’adhésion gratuite →',custom:'Enregistrer un don sans adhésion →',member:'Enregistrer mon engagement et obtenir mon identifiant →'}
+      }
+    };
+    function updateMembershipGuide() {
+      const copy = membershipTranslations[registrationLanguage];
+      const select = document.getElementById('membership-plan');
+      const plan = select.value;
+      for (const option of select.options) option.textContent = copy.plans[option.value];
+      document.querySelector('label[for="registration-language"]').textContent = copy.program;
+      document.querySelector('label[for="membership-plan"]').textContent = copy.membership;
+      for (const option of document.getElementById('registration-language').options) option.textContent = copy.programs[option.value];
+      const needsGuide = plan !== 'trial';
+      registrationForm.hidden = needsGuide || Boolean(sessionValue(issuedKey));
+      document.getElementById('membership-guide').hidden = !needsGuide;
+      document.getElementById('registration-intro').hidden = needsGuide;
+      const monthly = {month1:[10,1],month2:[15,2],month3:[20,3]}[plan];
+      document.getElementById('membership-description').textContent = monthly ? copy.monthly(...monthly) : copy[plan] || '';
+      const link = document.getElementById('membership-link');
+      link.textContent = copy.links[plan] || copy.links.member;
+      link.href = 'https://gem-ai-class-hub.seoul0119.chatgpt.site/donate?plan=' + encodeURIComponent(plan) + '&lang=' + registrationLanguage;
+    }
     function registrationMessage(key) {
       registrationState = key;
       registrationStatus.textContent = registrationTranslations[registrationLanguage][key];
@@ -777,6 +819,7 @@
       registrationLanguage = language;
       const copy = registrationTranslations[language];
       document.getElementById("registration-language").value = language;
+      updateMembershipGuide();
       for (const [id,key] of Object.entries({"registration-summary":"summary","registration-intro":"intro","registration-privacy":"privacy","registration-save":"save","copy-student-id":"copy","choose-class":"choose"})) document.getElementById(id).textContent = copy[key];
       document.querySelector('label[for="registration-name"]').textContent = copy.name;
       document.querySelector('label[for="registration-grade"]').textContent = copy.grade;
@@ -886,23 +929,7 @@
       document.getElementById("entrance-title").scrollIntoView({ behavior: "smooth", block: "start" });
       document.querySelector(".language-option").focus({ preventScroll: true });
     });
-    document.getElementById('membership-plan').addEventListener('change', (event) => {
-      const plan = event.target.value;
-      const needsGuide = plan !== 'trial';
-      registrationForm.hidden = needsGuide || Boolean(sessionValue(issuedKey));
-      document.getElementById('membership-guide').hidden = !needsGuide;
-      document.getElementById('registration-intro').hidden = needsGuide;
-      document.getElementById('membership-description').textContent = plan === 'free'
-        ? '취약계층 무료회원 이용은 선교사무실로 직접 문의해 주세요.'
-        : plan === 'custom'
-          ? '기타후원금은 후원만 등록합니다. 후원 안내에서 금액을 직접 입력해 주세요.'
-          : plan === 'lifetime'
-            ? '후원 금액을 직접 입력하고 평생회원 ID를 발급받을 수 있습니다. 평생회원은 만료일이 없습니다.'
-            : '약정 기간 동안 매달 ' + ({month1:'10',month2:'15',month3:'20'}[plan]) + '만 원을 후원하는 ' + ({month1:'1',month2:'2',month3:'3'}[plan]) + '개월 후원 약정입니다. 후원 약정과 학년을 등록하면 회원 ID를 발급받을 수 있습니다.';
-      const link = document.getElementById('membership-link');
-      link.textContent = plan === 'free' ? '무료회원 직접 문의 →' : plan === 'custom' ? '기타후원금 등록하기 →' : '후원 약정하고 회원 ID 받기 →';
-      link.href = 'https://gem-ai-class-hub.seoul0119.chatgpt.site/donate?plan=' + encodeURIComponent(plan);
-    });
+    document.getElementById('membership-plan').addEventListener('change', updateMembershipGuide);
     const loginForm = document.getElementById("student-login");
     const studentIdInput = document.getElementById("studentId");
     const loginButton = document.getElementById("login-button");
