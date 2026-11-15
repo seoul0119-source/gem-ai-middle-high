@@ -73,6 +73,7 @@ test('Baccalaureate entrance and library use the same authenticated French board
  for(const submitter of ['login-button','materials-login']){
   let handler,destination;
   const ctx={URLSearchParams,loginForm:{addEventListener:(_n,f)=>handler=f},studentIdInput:{value:'SYNTHETIC'},loginError:{textContent:''},loginButton:{disabled:false},document:{getElementById:()=>({disabled:false})},boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),GEMEntrance:{...entrance,requestSession:async()=>({student:{id:'SYNTHETIC'}})},selectedLanguage:'ko',selectedSupportCourse:'bac',location:{search:''},prepareParentRegistrationNotice:()=>false,enterClassroom:async value=>{destination=value},updateLoginButtonLabel(){}};
+  ctx.ibTrack='writing';
   vm.runInNewContext(supportDeclaration+handlerSource,ctx);await handler({preventDefault(){},submitter:{id:submitter}});
   assert.equal(ctx.loginError.textContent,'');
   const url=new URL(destination,'https://portal.test');assert.equal(url.pathname,'/materials.html');assert.equal(url.searchParams.get('language'),'fr');assert.equal(url.searchParams.get('course'),'materials-fr-bac-dissertation');
