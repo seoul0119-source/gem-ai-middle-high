@@ -58,6 +58,11 @@
     params.set(materials?'browse':'classroom','1');
     return '/materials.html?'+params;
   }
+  function ibDestination(track='writing',library=false) {
+    const selected=['tok','ee','writing'].includes(track)?track:'writing';
+    const params=new URLSearchParams({track:selected});if(library)params.set('view','library');
+    return 'https://gem-ib-diploma-support.seoul0119.chatgpt.site/?'+params;
+  }
   // Membership verification may use three 10-second attempts plus backoff.
   // Keep the browser deadline above that complete server-side budget.
   async function requestSession(body,timeoutMs=45000) {
@@ -73,5 +78,5 @@
       throw error;
     } finally { clearTimeout(timer); }
   }
-  globalThis.GEMEntrance = { schools, choices, course, destination, internationalGrades, internationalDestination, baccalaureateDestination, requestSession };
+  globalThis.GEMEntrance = { schools, choices, course, destination, internationalGrades, internationalDestination, baccalaureateDestination, ibDestination, requestSession };
 })();

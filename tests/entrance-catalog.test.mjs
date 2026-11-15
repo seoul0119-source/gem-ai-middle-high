@@ -12,6 +12,17 @@ const catalog = context.GEMEntrance;
 const choices = Object.entries(catalog.schools).flatMap(([level, school]) =>
   Array.from({ length: school.grades }, (_, i) => catalog.choices(level, i + 1)).flat());
 
+test('IB sign-in returns directly to the chosen essay track, with library access explicit',()=>{
+  for(const track of ['writing','ee','tok','unknown']){
+    const classroom=new URL(catalog.ibDestination(track));
+    assert.equal(classroom.origin,'https://gem-ib-diploma-support.seoul0119.chatgpt.site');
+    assert.equal(classroom.searchParams.get('track'),track==='unknown'?'writing':track);
+    assert.equal(classroom.searchParams.has('view'),false);assert.equal(classroom.searchParams.has('browse'),false);
+    assert.equal(new URL(catalog.ibDestination(track,true)).searchParams.get('view'),'library');
+  }
+  assert.equal(new URL(catalog.ibDestination()).searchParams.get('track'),'writing');
+});
+
 test('all 68 Korean entrance choices match existing classroom and server courses', () => {
   const classroom = readFileSync(new URL('../class.html', import.meta.url), 'utf8');
   assert.equal(choices.length, 68);
