@@ -20,3 +20,11 @@ test('unsupported courses and invalid model interpretations fail closed',async()
  await assert.rejects(handleMaterials(payload,{fetcher}),/Invalid voice interpretation/);
  await assert.rejects(handleMaterials(payload,{fetcher:async()=>response({kind:'question',choiceIndex:1})}),/Invalid voice interpretation/);
 });
+
+test('generic sentence interpretation follows each known curriculum language without seeing a key',async()=>{
+ for(const [courseId,language,message] of [['e1-math','Korean','저는 남은 것이 세 개라고 생각합니다.'],['materials-en-6-0','English','There are three objects left after taking two away.'],['materials-fr-6-0','French','Il reste trois objets après en avoir retiré deux.']]){
+  let request;
+  const r=await handleMaterials({...payload,mode:'voice-intent',courseId,message},{fetcher:async(_url,options)=>{request=JSON.parse(options.body);return response({kind:'answer',choiceIndex:2});}});
+  assert.equal(JSON.parse(r.text).choiceIndex,2);assert.ok(request.instructions.includes('in '+language));assert.doesNotMatch(JSON.stringify(request),/answerIndex|private hint|private explanation/);
+ }
+});
