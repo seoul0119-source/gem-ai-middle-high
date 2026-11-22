@@ -15,6 +15,10 @@
     .entrance-mode { margin:0; min-height:66px; padding:12px 8px; border:2px solid #d4deec; border-radius:12px; background:#f8fbff; color:#173d70; line-height:1.4; font-size:16px; }
     .entrance-mode small { display:block; margin-top:4px; font-size:12px; font-weight:normal; }
     .entrance-mode[aria-pressed="true"] { border-color:#1e67c6; background:#eaf3ff; box-shadow:0 0 0 3px #1e67c618; }
+    .bible-entrance { grid-column:1/-1; display:block; padding:12px; border:2px solid #b8d8d1; border-radius:12px; text-align:center; text-decoration:none; font-weight:700; color:#1c514f; background:#edf7f5; }
+    .bible-entrance small { display:block; margin-top:4px; font-weight:400; }
+    .bible-entrance:hover { border-color:#2c737b; }
+    .bible-entrance:focus-visible { outline:3px solid #2c737b; outline-offset:2px; }
     .entrance-mode[data-mode="exams"][aria-pressed="true"] { border-color:#7654b3; background:#f4edff; }
     .korean-grade-section { margin:-12px 0 28px; padding:18px; border:1px solid #d7e2f0; border-radius:14px; background:#f7faff; }
     .korean-grade-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
@@ -579,6 +583,9 @@
       <div class="entrance-modes" role="group" aria-label="일반 과정과 시험·연구반 선택">
         <button type="button" class="entrance-mode" data-mode="regular" aria-pressed="true" aria-controls="regular-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-book"/></svg>일반 과정반<small>한국 · 영어 · 프랑스</small></button>
         <button type="button" class="entrance-mode" data-mode="exams" aria-pressed="false" aria-controls="exam-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-target"/></svg>시험·연구반<small>수능 · 토익 토플 · 검정고시 등</small></button>
+      </div>
+      <div class="entrance-modes" aria-label="성경반 입장">
+        <a class="bible-entrance" href="https://gem-english-middle-school-math.seoul0119.chatgpt.site/bible"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-book"/></svg>성경반 · Bible Classroom · Classe biblique<small>한국 · 미국 · 프랑스 · 1–12학년</small></a>
       </div>
       <div id="regular-program">
       <div class="language-grid" role="group" aria-label="언어와 교육과정 선택">
@@ -1396,7 +1403,12 @@
         parentRegistrationDialog.showModal();
       } else {
         const copy = parentRegistrationCopy[selectedLanguage] || parentRegistrationCopy.ko;
-        window.alert(`${copy.title}\n\n${copy.intro}\n${copy.detail}\n\n${copy.noChatgpt}`);
+        window.alert(`${copy.title}
+
+${copy.intro}
+${copy.detail}
+
+${copy.noChatgpt}`);
         writeStoredTimestamp(registrationNoticeKey, now);
         void enterClassroom(destination);
       }
