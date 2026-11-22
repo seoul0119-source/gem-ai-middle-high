@@ -86,7 +86,10 @@ test('Baccalaureate entrance and library use the same authenticated French board
 
 
 test('Bible login uses the same verified student flow and keeps the chosen grade for class and library',async()=>{
- const source=index.slice(index.indexOf('    function bibleDestination('),index.lastIndexOf('  </script>'));
+ const helperStart=index.indexOf('    function bibleDestination(');
+ const helperEnd=index.indexOf('    if (supportRoutes[entranceParams.get("exam")])',helperStart);
+ const submitStart=index.indexOf('    loginForm.addEventListener("submit"');
+ const source=index.slice(helperStart,helperEnd)+index.slice(submitStart,index.lastIndexOf('  </script>'));
  for(const [submitter,expected] of [['login-button','/bible'],['materials-login','/materials']]){
   let handler,destination,logins=0;
   const ctx={URLSearchParams,loginForm:{addEventListener:(_name,fn)=>handler=fn},studentIdInput:{value:'SYNTHETIC',focus(){}},
