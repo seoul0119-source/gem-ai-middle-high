@@ -37,7 +37,7 @@ test('real homepage submit handler routes English middle math and French CP math
  const handlerSource=index.slice(index.indexOf('    loginForm.addEventListener("submit"'),index.lastIndexOf('  </script>'));
  for(const language of ['en','fr','ko']){
   let handler,destination,logins=0;
-  const ctx={URLSearchParams,loginForm:{addEventListener:(_n,f)=>handler=f},studentIdInput:{value:'SYNTHETIC',focus(){}},loginError:{textContent:''},loginButton:{disabled:false,textContent:''},document:{getElementById:()=>({disabled:false})},boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),GEMEntrance:{...entrance,requestSession:async body=>{assert.equal(body.action,'login');logins++;return {student:{id:'SYNTHETIC'}};}},selectedLanguage:language,selectedSchoolLevel:language==='en'?'middle':'elementary',selectedInternationalGrade:language==='en'?6:1,selectedSubject:'math',selectedHighSchoolPathway:'general',selectedSupportCourse:'',supportRoutes:{},koreanDestination:()=>'/materials.html?course=e1-math&language=ko&classroom=1',location:{search:''},prepareParentRegistrationNotice:()=>false,enterClassroom:async value=>{destination=value},updateLoginButtonLabel(){}};
+  const ctx={URLSearchParams,loginForm:{addEventListener:(_n,f)=>handler=f},studentIdInput:{value:'SYNTHETIC',focus(){}},loginError:{textContent:''},loginButton:{disabled:false,textContent:''},document:{getElementById:()=>({disabled:false})},boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),GEMEntrance:{...entrance,requestSession:async body=>{assert.equal(body.action,'login');logins++;return {student:{id:'SYNTHETIC'}};}},selectedEntranceMode:'regular',selectedLanguage:language,selectedSchoolLevel:language==='en'?'middle':'elementary',selectedInternationalGrade:language==='en'?6:1,selectedSubject:'math',selectedHighSchoolPathway:'general',selectedSupportCourse:'',supportRoutes:{},koreanDestination:()=>'/materials.html?course=e1-math&language=ko&classroom=1',location:{search:''},prepareParentRegistrationNotice:()=>false,enterClassroom:async value=>{destination=value},updateLoginButtonLabel(){}};
   vm.runInNewContext(handlerSource,ctx);await handler({preventDefault(){},submitter:{id:'login-button'}});
   assert.equal(logins,1);assert.equal(ctx.loginError.textContent,'');
   const url=new URL(destination,'https://portal.test');assert.equal(url.pathname,'/materials.html');assert.equal(url.searchParams.get('classroom'),'1');assert.equal(url.searchParams.get('course'),language==='en'?'materials-en-6-0':language==='fr'?'materials-fr-1-0':'e1-math');
@@ -72,7 +72,7 @@ test('Baccalaureate entrance and library use the same authenticated French board
  const handlerSource=index.slice(index.indexOf('    loginForm.addEventListener("submit"'),index.lastIndexOf('  </script>'));
  for(const submitter of ['login-button','materials-login']){
   let handler,destination;
-  const ctx={URLSearchParams,loginForm:{addEventListener:(_n,f)=>handler=f},studentIdInput:{value:'SYNTHETIC'},loginError:{textContent:''},loginButton:{disabled:false},document:{getElementById:()=>({disabled:false})},boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),GEMEntrance:{...entrance,requestSession:async()=>({student:{id:'SYNTHETIC'}})},selectedLanguage:'ko',selectedSupportCourse:'bac',location:{search:''},prepareParentRegistrationNotice:()=>false,enterClassroom:async value=>{destination=value},updateLoginButtonLabel(){}};
+  const ctx={URLSearchParams,loginForm:{addEventListener:(_n,f)=>handler=f},studentIdInput:{value:'SYNTHETIC'},loginError:{textContent:''},loginButton:{disabled:false},document:{getElementById:()=>({disabled:false})},boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),GEMEntrance:{...entrance,requestSession:async()=>({student:{id:'SYNTHETIC'}})},selectedEntranceMode:'exams',selectedLanguage:'ko',selectedSupportCourse:'bac',location:{search:''},prepareParentRegistrationNotice:()=>false,enterClassroom:async value=>{destination=value},updateLoginButtonLabel(){}};
   ctx.ibTrack='writing';
   vm.runInNewContext(supportDeclaration+handlerSource,ctx);await handler({preventDefault(){},submitter:{id:submitter}});
   assert.equal(ctx.loginError.textContent,'');
@@ -81,5 +81,28 @@ test('Baccalaureate entrance and library use the same authenticated French board
  }
  for(const suffix of ['dissertation','documents','grand-oral','recherche','argumentation']){
   const course=getBoardCourse('materials-fr-bac-'+suffix);assert(course);assert.equal(course.language,'fr');assert.equal(course.worksheetOnly,true);
+ }
+});
+
+
+test('Bible login uses the same verified student flow and keeps the chosen grade for class and library',async()=>{
+ const source=index.slice(index.indexOf('    function bibleDestination('),index.lastIndexOf('  </script>'));
+ for(const [submitter,expected] of [['login-button','/bible'],['materials-login','/materials']]){
+  let handler,destination,logins=0;
+  const ctx={URLSearchParams,loginForm:{addEventListener:(_name,fn)=>handler=fn},studentIdInput:{value:'SYNTHETIC',focus(){}},
+   loginError:{textContent:''},loginButton:{disabled:false},document:{getElementById:()=>({disabled:false})},
+   boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),selectedEntranceMode:'bible',
+   bibleLanguage:{value:'fr'},bibleGrade:{value:'12'},prepareParentRegistrationNotice:()=>false,updateLoginButtonLabel(){},
+   GEMEntrance:{requestSession:async body=>{assert.equal(body.action,'login');logins++;return {student:{id:'SYNTHETIC'}};}},
+   enterClassroom:async value=>{destination=value}};
+  vm.runInNewContext(source,ctx);
+  await handler({preventDefault(){},submitter:{id:submitter}});
+  assert.equal(logins,1);
+  assert.equal(ctx.loginError.textContent,'');
+  const url=new URL(destination);
+  assert.equal(url.origin,'https://gem-english-middle-school-math.seoul0119.chatgpt.site');
+  assert.equal(url.pathname,expected);
+  if(submitter==='materials-login')assert.equal(url.searchParams.get('course'),'materials-fr-bible-g12');
+  else assert.equal(url.searchParams.get('grade'),'12');
  }
 });
