@@ -7,10 +7,6 @@ import {verifyReviewRequest,reviewModelRequest,reviewOutput} from '../lib/review
 import {providerAiServiceError,AiServiceError,aiServiceUnavailable} from '../lib/ai-service-error.js';
 function send(res,status,data){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(data));}
 export default async function handler(req,res){
- if(req.query?.bibleProduction==='1'){
-  const {bibleProduction}=await import('../lib/bible-production.js');
-  return bibleProduction(req,res);
- }
  if(req.query?.productionImage==='1')res.setHeader('X-GEM-Image-Service','gem-production-image-v1');
  if(req.method!=='POST')return send(res,405,{code:'method_not_allowed'});
  const body=typeof req.body==='object'?req.body:null;
