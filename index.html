@@ -1064,7 +1064,9 @@
     const bibleLanguage = document.getElementById("bible-language");
     const bibleGrade = document.getElementById("bible-grade");
     const bibleGradesFrench = ["CP","CE1","CE2","CM1","CM2","6e","5e","4e","3e","Seconde","Première","Terminale"];
-    const bibleGradeLabel = (lang, grade) => lang === "ko" ? grade + "학년" : lang === "fr" ? bibleGradesFrench[grade-1] : "Grade " + grade;
+    const bibleGradeLabel = (lang, grade) => lang === "ko"
+      ? (grade <= 6 ? "초등학교 " + grade : grade <= 9 ? "중학교 " + (grade - 6) : "고등학교 " + (grade - 9)) + "학년"
+      : lang === "fr" ? bibleGradesFrench[grade-1] : "Grade " + grade;
     function updateBibleGrades(value = bibleGrade.value) {
       bibleGrade.replaceChildren(...Array.from({length:12}, (_, index) => new Option(bibleGradeLabel(bibleLanguage.value,index+1), String(index+1))));
       bibleGrade.value = /^(?:[1-9]|1[0-2])$/.test(value) ? value : "1";
