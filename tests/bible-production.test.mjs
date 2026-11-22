@@ -44,7 +44,7 @@ test('returns binary JPEG, handles incomplete model response explicitly', async 
   const bytes = Buffer.from([255,216,255,224,0,4,0,1,255,217]);
   const res = await call({action:'image',prompt:'A simple original Bible illustration.'},async (url,opts) => {
     assert.equal(url,'https://api.openai.com/v1/images/generations'); const payload=JSON.parse(opts.body);
-    assert.equal(payload.n,1); assert.equal(payload.output_format,'jpeg');
+    assert.equal(payload.n,1); assert.equal(payload.size,'1536x864'); assert.equal(payload.output_format,'jpeg');
     return Response.json({data:[{b64_json:bytes.toString('base64')}]});
   });
   assert.equal(res.code,200); assert.equal(res.headers['Content-Type'],'image/jpeg'); assert.equal(res.headers['X-Bible-Model'],'gpt-image-2'); assert.deepEqual(res.body,bytes);
