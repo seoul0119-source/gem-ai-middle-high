@@ -1403,12 +1403,7 @@
         parentRegistrationDialog.showModal();
       } else {
         const copy = parentRegistrationCopy[selectedLanguage] || parentRegistrationCopy.ko;
-        window.alert(`${copy.title}
-
-${copy.intro}
-${copy.detail}
-
-${copy.noChatgpt}`);
+        window.alert(`${copy.title}\n\n${copy.intro}\n${copy.detail}\n\n${copy.noChatgpt}`);
         writeStoredTimestamp(registrationNoticeKey, now);
         void enterClassroom(destination);
       }
