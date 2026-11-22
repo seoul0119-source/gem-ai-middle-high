@@ -51,3 +51,26 @@ test('returns binary JPEG, handles incomplete model response explicitly', async 
   const incomplete = await call({action:'questions',prompt:'Work from the chapter.'},async () => Response.json({status:'incomplete'}));
   assert.equal(incomplete.code,502); assert.equal(JSON.parse(incomplete.body).code,'provider_response_incomplete');
 });
+
+test('uses the authorized Responses image tool after a definite endpoint permission rejection', async () => {
+  const bytes = Buffer.from([255,216,255,224,0,4,0,1,255,217]);
+  const routes = [];
+  const res = await call({action:'image',prompt:'Illustrate a Bible scene.'}, async (url, options) => {
+    routes.push(url.split('/v1/')[1]);
+    if (routes.length===1) return Response.json({error:{message:'Missing scope for images endpoint.'}},{status:401});
+    const body=JSON.parse(options.body);
+    assert.equal(body.store,false); assert.equal(body.tools[0].size,'1536x864'); assert.equal(body.tools[0].model,'gpt-image-2');
+    return Response.json({status:'completed',output:[{type:'image_generation_call',status:'completed',result:bytes.toString('base64')}]});
+  });
+  assert.deepEqual(routes,['images/generations','responses']); assert.equal(res.code,200); assert.deepEqual(res.body,bytes);
+});
+
+test('a moderated or verification-required request never switches endpoints', async () => {
+  for (const category of ['moderation_blocked','organization_verification_required','invalid_api_key']) {
+    let count=0;
+    const res=await call({action:'image',prompt:'A Bible scene.'}, async () => {
+      count++; return Response.json({error:{code:category}},{status:401});
+    });
+    assert.equal(count,1); assert.equal(res.code,502); assert.equal(JSON.parse(res.body).code,category);
+  }
+});
