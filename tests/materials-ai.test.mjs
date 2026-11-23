@@ -31,6 +31,43 @@ test('catalog covers Korean middle science and EN/FR grades and material is inde
  const saved=globalThis.fetch;const requests=[];globalThis.fetch=async(_url,o)=>{const b=JSON.parse(o.body);requests.push(b);return Response.json({output_text:JSON.stringify(requests.length===1?fixture:{valid:true,issues:[]})});};
  try{const result=await handleMaterials({mode:'generate',courseId:'m1-science',topic:'상태 변화'});assert.deepEqual(result.material,fixture);assert.equal(requests.length,2);assert.match(requests[1].instructions,/Independently solve/);}finally{globalThis.fetch=saved;}
 });
+test('Grade 1 Bible worksheets can use one verified reference per question in every language',async()=>{
+ const draft={...fixture,questions:fixture.questions.map(question=>({...question,evidenceIds:[1]}))};
+ for(const [language,name] of [['ko','Korean'],['en','English'],['fr','French']]){
+  const evidence=[{id:1,reference:'Psalms 117:1–2',observation:'All peoples are called to praise the Lord.'}];
+  const requests=[];
+  const fetcher=async(_url,options)=>{
+   const body=JSON.parse(options.body);
+   requests.push(body);
+   return Response.json({output_text:JSON.stringify(requests.length===1?draft:{valid:true,issues:[]})});
+  };
+  const result=await handleMaterials({mode:'bible-generate',courseId:`materials-${language}-bible-g1`,passage:'Psalms 117',level:'Recall a concrete detail.',evidence},{fetcher});
+  assert.deepEqual(result.material,draft);
+  assert.equal(requests.length,2);
+  assert.match(requests[0].instructions,new RegExp(`questions in ${name}`));
+  assert.match(requests[0].instructions,/short, concrete reading questions/);
+  assert.match(requests[1].instructions,/Independently solve/);
+  assert.deepEqual(JSON.parse(requests[1].input[0].content).questions.map(question=>question.citedEvidence),Array(10).fill(evidence));
+ }
+});
+test('later Bible grades still require distinct evidence sections and multi-reference questions',async()=>{
+ const draft={...fixture,questions:fixture.questions.map(question=>({...question,evidenceIds:[1]}))};
+ const evidence=[{id:1,reference:'Psalms 117:1',observation:'All peoples are called to praise the Lord.'}];
+ const payload={mode:'bible-generate',courseId:'materials-en-bible-g12',passage:'Psalms 117',level:'Synthesize the passage.',evidence};
+ const fetcher=async()=>{throw Error('Unexpected provider call');};
+ await assert.rejects(handleMaterials(payload,{fetcher}),/Invalid Bible evidence/);
+ const requests=[];
+ const generated=await handleMaterials({...payload,evidence:[...evidence,{id:2,reference:'Psalms 117:2',observation:'The Lord’s faithfulness endures.'}]},{fetcher:async(_url,options)=>{
+  const body=JSON.parse(options.body);
+  requests.push(body);
+  const output=requests.length===1?draft:requests.length===2?{...draft,questions:draft.questions.map((q,i)=>i<6?{...q,evidenceIds:[1,2]}:q)}:{valid:true,issues:[]};
+  return Response.json({output_text:JSON.stringify(output)});
+ }});
+ assert.equal(generated.material.questions.filter(question=>question.evidenceIds.length===2).length,6);
+ assert.equal(requests.length,3);
+ assert.match(requests[1].input[0].content,/Insufficient connections/);
+ assert.match(requests[2].instructions,/At least 6 questions must genuinely combine distinct cited references/);
+});
 test('review feedback repairs only identified questions and independently checks the exact merged worksheet',async()=>{
  const saved=globalThis.fetch,requests=[],original=structuredClone(fixture),fixed=structuredClone(fixture);fixed.questions[0].explanation='Adding one to zero gives one.';
  const issue={question:1,reason:'Ambiguous option',fix:'Make the choices distinct'};
