@@ -453,10 +453,25 @@ test('Bible text questions are answered in a single plain-text call without a wo
    assert.match(request.instructions,new RegExp(name));
    assert.match(request.instructions,/Genesis 1/);
    assert.deepEqual(JSON.parse(request.input[0].content),{question:payload.message,scriptureEvidence:payload.evidence});
-   assert.equal(request.text,undefined);
-   return Response.json({status:'completed',output_text:'A short answer.'});
+   assert.equal(request.text.format.name,'bible_text_answer');
+   return Response.json({status:'completed',output_text:JSON.stringify({inScope:true,answer:'A short answer.'})});
   }});
   assert.deepEqual(result,{text:'A short answer.'});
   assert.equal(calls,1);
+ }
+});
+
+
+test('Bible text chat returns only scope guidance when a question or answer is outside the classroom',async()=>{
+ const base={mode:'bible-qa',courseId:'materials-fr-bible-g7',context:'Numbers 21',evidence:''};
+ const ask=answer=>async()=>Response.json({status:'completed',output_text:JSON.stringify(answer)});
+ assert.equal((await handleMaterials({...base,message:'Explique la sélection naturelle.'},{
+  fetcher:()=>assert.fail('Explicitly excluded questions must not call the provider')
+ })).outOfScope,true);
+ for(const result of [{inScope:false,answer:'unrelated text'},{inScope:true,answer:'A theory of evolution'}]){
+  const reply=await handleMaterials({...base,message:'Can you explain the ceremony?'},{fetcher:ask(result)});
+  assert.equal(reply.outOfScope,true);
+  assert.match(reply.text,/théologie réformée/);
+  assert.doesNotMatch(reply.text,/unrelated|evolution/);
  }
 });
