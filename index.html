@@ -577,8 +577,8 @@
       </details>
       <h2 id="entrance-title">교육과정 선택</h2>
       <p>
-        먼저 공부할 언어와 교육과정을 선택한 뒤<br>
-        등록된 학생 ID로 입장합니다.
+        일반 과정반과 시험·연구반은 학생 ID로 입장합니다.<br>
+        성경반은 누구나 입장할 수 있습니다.
       </p>
 
       <div class="entrance-modes" role="group" aria-label="일반 과정과 시험·연구반 선택">
@@ -586,7 +586,7 @@
         <button type="button" class="entrance-mode" data-mode="exams" aria-pressed="false" aria-controls="exam-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-target"/></svg>시험·연구반<small>수능 · 토익 토플 · 검정고시 등</small></button>
       </div>
       <div class="entrance-modes" aria-label="성경반 입장">
-        <button type="button" class="bible-entrance entrance-mode" data-mode="bible" aria-pressed="false" aria-controls="bible-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-book"/></svg>성경반 · Bible Classroom · Classe biblique<small>한국 · 미국 · 프랑스 · 1–12학년</small></button>
+        <button type="button" class="bible-entrance entrance-mode" data-mode="bible" aria-pressed="false" aria-controls="bible-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-book"/></svg>성경반 · Bible Classroom · Classe biblique<small>한국 · 미국 · 프랑스 · 1–12학년 · 학생 ID 없이 입장</small></button>
       </div>
       <section id="bible-program" class="school-level-section is-visible" hidden aria-labelledby="bible-selection-title">
         <strong id="bible-selection-title" class="school-level-title">성경반 선택</strong>
@@ -598,6 +598,7 @@
         </select>
         <label class="lesson-mode-label" for="bible-grade">학년 · Grade · Niveau</label>
         <select id="bible-grade" class="lesson-mode"></select>
+        <button id="bible-open" type="button">성경반 입장</button>
       </section>
       <div id="regular-program">
       <div class="language-grid" role="group" aria-label="언어와 교육과정 선택">
@@ -732,7 +733,7 @@
         <div id="login-error" class="login-error" role="alert" aria-live="polite"></div>
       </form>
 
-      <div class="notice">
+      <div class="notice" id="student-entry-notice">
         첫 체험은 GEM 학생 ID만으로 바로 시작됩니다.<br>
         ChatGPT 가입이나 로그인은 필요하지 않습니다.<br>
         T 체험 ID는 발급 24시간 후 만료됩니다. 계속 이용하려면 위에서 회원 구분을 선택해 주세요.<br>
@@ -1071,15 +1072,25 @@
       bibleGrade.replaceChildren(...Array.from({length:12}, (_, index) => new Option(bibleGradeLabel(bibleLanguage.value,index+1), String(index+1))));
       bibleGrade.value = /^(?:[1-9]|1[0-2])$/.test(value) ? value : "1";
     }
-    bibleLanguage.addEventListener("change", () => {updateBibleGrades();updateLoginButtonLabel();});
-    bibleGrade.addEventListener("change", updateLoginButtonLabel);
+    const bibleOpen = document.getElementById("bible-open");
+    function updateBibleEntryLabel() {
+      const lang = bibleLanguage.value;
+      setIconLabel(bibleOpen, "enter", ({ko:"성경반 입장",en:"Enter Bible classroom",fr:"Entrer en classe biblique"})[lang] + " · " + bibleGradeLabel(lang, Number(bibleGrade.value)));
+    }
+    bibleLanguage.addEventListener("change", () => { updateBibleGrades(); updateBibleEntryLabel(); });
+    bibleGrade.addEventListener("change", updateBibleEntryLabel);
+    bibleOpen.addEventListener("click", () => location.assign(bibleDestination()));
     updateBibleGrades();
+    updateBibleEntryLabel();
 
     function selectEntranceMode(mode) {
       selectedEntranceMode = ["exams","bible"].includes(mode) ? mode : "regular";
       const exams = selectedEntranceMode === "exams";
       document.getElementById("regular-program").hidden = selectedEntranceMode !== "regular";
-      document.getElementById("bible-program").hidden = selectedEntranceMode !== "bible";
+      const bible = selectedEntranceMode === "bible";
+      document.getElementById("bible-program").hidden = !bible;
+      loginForm.hidden = bible;
+      document.getElementById("student-entry-notice").hidden = bible;
       document.getElementById("exam-program").hidden = !exams;
       entranceModes.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === selectedEntranceMode)));
       if (exams) {
@@ -1133,14 +1144,6 @@
     writeLocalStorageValue("gem-program-language", selectedLanguage);
 
     function updateLoginButtonLabel() {
-      const libraryButton = document.getElementById("materials-login");
-      if (selectedEntranceMode === "bible") {
-        const lang = bibleLanguage.value;
-        setIconLabel(loginButton,"enter",({ko:"성경반 입장",en:"Enter Bible classroom",fr:"Entrer en classe biblique"})[lang] + " · " + bibleGradeLabel(lang,Number(bibleGrade.value)));
-        setIconLabel(libraryButton,"book",({ko:"성경 자료실 · 학습 기록",en:"Bible library · Progress",fr:"Bibliothèque biblique · Progression"})[lang]);
-        return;
-      }
-      setIconLabel(libraryButton,"book","선택한 반의 자료실 · PDF 입장");
       if (selectedSupportCourse) {
         const label = document.querySelector(`[data-support="${selectedSupportCourse}"] strong`)?.textContent.trim() || "Academic Support";
         setIconLabel(loginButton, "enter", `${label} 입장`);
@@ -1410,9 +1413,6 @@
         form.method = "POST"; form.action = target.origin + "/api/learning/entry";
         const input = document.createElement("input"); input.type="hidden"; input.name="ticket"; input.value=data.ticket;
         form.append(input);
-        if(target.pathname==="/bible"||target.searchParams.get("course")?.match(/^materials-(ko|en|fr)-bible-g(?:[1-9]|1[0-2])$/)){
-          const next=document.createElement("input");next.type="hidden";next.name="destination";next.value=target.pathname+target.search;form.append(next);
-        }
         document.body.append(form); form.submit();
       } catch(error) {
         loginError.textContent=error.message; loginButton.disabled=false; document.getElementById("materials-login").disabled=false; updateLoginButtonLabel();
@@ -1512,20 +1512,17 @@
       bibleLanguage.value = ["ko","en","fr"].includes(entranceParams.get("language")) ? entranceParams.get("language") : "ko";
       updateBibleGrades(entranceParams.get("grade"));
       selectEntranceMode("bible");
-      studentIdInput.focus();
+      updateBibleEntryLabel();
+      bibleOpen.focus();
     }
 
-    function bibleDestination(wantsMaterials) {
+    function bibleDestination() {
       const origin = "https://gem-english-middle-school-math.seoul0119.chatgpt.site";
       const language = bibleLanguage.value, grade = bibleGrade.value;
-      const course = "materials-" + language + "-bible-g" + grade;
-      const worksheet = entranceParams.get("worksheet") || "";
+      const book = entranceParams.get("book") || "", chapter = entranceParams.get("chapter") || "";
       const sameClass = language === entranceParams.get("language") && grade === entranceParams.get("grade");
-      const resume = sameClass && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(worksheet);
-      if(wantsMaterials) return origin + "/materials?" + new URLSearchParams({course,browse:"1",...(resume?{worksheet}:{})});
-      const book=entranceParams.get("book")||"", chapter=entranceParams.get("chapter")||"";
-      if(sameClass&&(resume||(/^[A-Z0-9]{3}$/.test(book)&&/^[1-9][0-9]{0,2}$/.test(chapter)))) {
-        return origin+"/classroom?"+new URLSearchParams({course,bibleBook:book||"GEN",bibleChapter:chapter||"1",...(resume?{worksheet}:{})});
+      if (sameClass && /^[A-Z0-9]{3}$/.test(book) && /^[1-9][0-9]{0,2}$/.test(chapter)) {
+        return origin + "/classroom?" + new URLSearchParams({course:"materials-" + language + "-bible-g" + grade,bibleBook:book,bibleChapter:chapter});
       }
       return origin + "/bible?" + new URLSearchParams({language,grade});
     }
@@ -1533,6 +1530,7 @@
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (selectedEntranceMode === "bible") return;
       const studentId = studentIdInput.value.trim().toUpperCase();
       loginError.textContent = "";
       if (loginButton.disabled) return;
@@ -1544,14 +1542,6 @@
         const boardEntry = await boardEntrance;
         if (entranceParams.get('scienceboard') === '1' && !boardEntry) throw new Error('선택한 칠판 교실을 확인하지 못했습니다. 기존 교실에서 칠판 설명을 다시 열어 주세요.');
         const data = await GEMEntrance.requestSession({ action: "login", studentId });
-        if(selectedEntranceMode==="bible"){
-          const wantsLibrary=event.submitter?.id==="materials-login"||entranceParams.get("view")==="library";
-          const destination=bibleDestination(wantsLibrary);
-          const verifiedStudentId=String(data.student?.id||studentId).toUpperCase();
-          if(prepareParentRegistrationNotice(verifiedStudentId,destination))return;
-          await enterClassroom(destination);
-          return;
-        }
         const selectedRoute = selectedSupportCourse
           ? supportRoutes[selectedSupportCourse]
           : selectedLanguage === "ko"

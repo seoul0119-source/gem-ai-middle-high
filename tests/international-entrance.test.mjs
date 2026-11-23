@@ -85,27 +85,33 @@ test('Baccalaureate entrance and library use the same authenticated French board
 });
 
 
-test('Bible login uses the same verified student flow and keeps the chosen grade for class and library',async()=>{
+test('the public Bible entrance opens the chosen class or chapter without student login',async()=>{
  const helperStart=index.indexOf('    function bibleDestination(');
  const helperEnd=index.indexOf('    if (supportRoutes[entranceParams.get("exam")])',helperStart);
+ const clickSource=index.match(/bibleOpen\.addEventListener\("click"[^\n]+/)[0];
  const submitStart=index.indexOf('    loginForm.addEventListener("submit"');
- const source=index.slice(helperStart,helperEnd)+index.slice(submitStart,index.lastIndexOf('  </script>'));
- for(const [submitter,expected] of [['login-button','/bible'],['materials-login','/materials']]){
-  let handler,destination,logins=0;
-  const ctx={URLSearchParams,loginForm:{addEventListener:(_name,fn)=>handler=fn},studentIdInput:{value:'SYNTHETIC',focus(){}},
-   loginError:{textContent:''},loginButton:{disabled:false},document:{getElementById:()=>({disabled:false})},
-   boardEntrance:Promise.resolve(null),entranceParams:new URLSearchParams(),selectedEntranceMode:'bible',
-   bibleLanguage:{value:'fr'},bibleGrade:{value:'12'},prepareParentRegistrationNotice:()=>false,updateLoginButtonLabel(){},
-   GEMEntrance:{requestSession:async body=>{assert.equal(body.action,'login');logins++;return {student:{id:'SYNTHETIC'}};}},
-   enterClassroom:async value=>{destination=value}};
+ const source=index.slice(helperStart,helperEnd)+clickSource+'\n'+index.slice(submitStart,index.lastIndexOf('  </script>'));
+ assert.match(index,/loginForm\.hidden = bible/);
+ for(const language of ['ko','en','fr'])for(const grade of ['1','7','12']){
+  let click,submit,destination;
+  const ctx={URLSearchParams,bibleOpen:{addEventListener:(_name,fn)=>click=fn},loginForm:{addEventListener:(_name,fn)=>submit=fn},
+   entranceParams:new URLSearchParams(),selectedEntranceMode:'bible',
+   bibleLanguage:{value:language},bibleGrade:{value:grade},
+   location:{assign:url=>{destination=new URL(url);}},
+   GEMEntrance:{requestSession:()=>assert.fail('Bible entry must not request a student session')}};
   vm.runInNewContext(source,ctx);
-  await handler({preventDefault(){},submitter:{id:submitter}});
-  assert.equal(logins,1);
-  assert.equal(ctx.loginError.textContent,'');
-  const url=new URL(destination);
-  assert.equal(url.origin,'https://gem-english-middle-school-math.seoul0119.chatgpt.site');
-  assert.equal(url.pathname,expected);
-  if(submitter==='materials-login')assert.equal(url.searchParams.get('course'),'materials-fr-bible-g12');
-  else assert.equal(url.searchParams.get('grade'),'12');
+  await submit({preventDefault(){}});
+  assert.equal(destination,undefined);
+  click();
+  assert.equal(destination.origin,'https://gem-english-middle-school-math.seoul0119.chatgpt.site');
+  assert.equal(destination.pathname,'/bible');
+  assert.equal(destination.searchParams.get('language'),language);
+  assert.equal(destination.searchParams.get('grade'),grade);
+  ctx.entranceParams=new URLSearchParams({language,grade,book:'LEV',chapter:'27',worksheet:'historical-id'});
+  click();
+  assert.equal(destination.pathname,'/classroom');
+  assert.equal(destination.searchParams.get('course'),'materials-'+language+'-bible-g'+grade);
+  assert.equal(destination.searchParams.get('bibleChapter'),'27');
+  assert.equal(destination.searchParams.has('worksheet'),false);
  }
 });

@@ -440,3 +440,23 @@ test('a token retry needs ten seconds remaining and keeps the original invocatio
   }
  }finally{Date.now=savedNow;AbortSignal.timeout=savedTimeout;}
 });
+
+test('Bible text questions are answered in a single plain-text call without a worksheet',async()=>{
+ for(const [language,name] of [['ko','Korean'],['en','English'],['fr','French']]){
+  let calls=0;
+  const payload={mode:'bible-qa',courseId:'materials-'+language+'-bible-g7',
+   context:'Selected chapter: Genesis 1',evidence:'1. Scripture evidence',message:'What does verse 1 describe?'};
+  const result=await handleMaterials(payload,{fetcher:async(_url,options)=>{
+   calls++;
+   const request=JSON.parse(options.body);
+   assert.equal(request.store,false);
+   assert.match(request.instructions,new RegExp(name));
+   assert.match(request.instructions,/Genesis 1/);
+   assert.deepEqual(JSON.parse(request.input[0].content),{question:payload.message,scriptureEvidence:payload.evidence});
+   assert.equal(request.text,undefined);
+   return Response.json({status:'completed',output_text:'A short answer.'});
+  }});
+  assert.deepEqual(result,{text:'A short answer.'});
+  assert.equal(calls,1);
+ }
+});
