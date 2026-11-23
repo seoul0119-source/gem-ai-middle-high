@@ -47,7 +47,9 @@ test('Grade 1 Bible worksheets can use one verified reference per question in ev
   assert.match(requests[0].instructions,new RegExp(`questions in ${name}`));
   assert.match(requests[0].instructions,/short, concrete reading questions/);
   assert.match(requests[1].instructions,/Independently solve/);
-  assert.deepEqual(JSON.parse(requests[1].input[0].content).questions.map(question=>question.citedEvidence),Array(10).fill(evidence));
+  const review=JSON.parse(requests[1].input[0].content);
+  assert.deepEqual(review.evidence,evidence);
+  assert.deepEqual(review.questions.map(({question})=>question.evidenceIds),Array(10).fill([1]));
  }
 });
 test('later Bible grades still require distinct evidence sections and multi-reference questions',async()=>{
@@ -67,6 +69,45 @@ test('later Bible grades still require distinct evidence sections and multi-refe
  assert.equal(requests.length,3);
  assert.match(requests[1].input[0].content,/Insufficient connections/);
  assert.match(requests[2].instructions,/At least 6 questions must genuinely combine distinct cited references/);
+});
+test('Bible review repairs only rejected questions and independently checks all ten with their exact evidence IDs',async()=>{
+ const evidence=[
+  {id:1,reference:'Exodus 26:1–6',observation:'The first curtains were joined into sets.',foundationPrompt:'Which curtains were made first?'},
+  {id:2,reference:'Exodus 26:7–11',observation:'The next curtains were divided into two groups.'},
+  {id:3,reference:'Exodus 26:12–14',observation:'The extra handbreadth hung over the sides.'},
+ ];
+ const draft={...fixture,questions:fixture.questions.map(question=>({...question,evidenceIds:[1,2]}))};
+ const fixed=structuredClone(draft);
+ fixed.questions[4].explanation='The two curtain instructions describe different sets.';
+ const rejection={valid:false,issues:[{question:5,reason:'Unsupported conclusion',fix:'Use both cited facts without adding to the evidence'}]};
+ const payload={mode:'bible-generate',courseId:'materials-en-bible-g10',passage:'Exodus 26',level:'Compare distinct details.',evidence};
+ for(const final of [{valid:true,issues:[]},rejection]){
+  const requests=[],responses=[draft,rejection,replacements(fixed,5),final];
+  const result=handleMaterials(payload,{fetcher:async(_url,options)=>{
+   requests.push(JSON.parse(options.body));
+   assert.ok(responses.length,'production allows only one repair');
+   return Response.json({output_text:JSON.stringify(responses.shift())});
+  }});
+  if(final.valid)assert.deepEqual((await result).material,fixed);
+  else await assert.rejects(result,/본문 근거|passage and grade review/);
+  assert.deepEqual(requests.map(request=>request.text.format.name),['bible_verses_graded_worksheet','bible_worksheet_review','bible_worksheet_repair','bible_worksheet_review']);
+  assert.ok(requests[2].max_output_tokens<requests[0].max_output_tokens);
+  const repair=JSON.parse(requests[2].input[0].content);
+  assert.deepEqual(repair.questions,[{number:5,question:draft.questions[4]}]);
+  assert.equal(repair.keptPrompts.length,9);
+  for(const [review,sheet] of [[requests[1],draft],[requests[3],fixed]]){
+   assert.match(review.instructions,/use ONLY the verified observations named by its own evidenceIds/);
+   const input=JSON.parse(review.input[0].content);
+   assert.deepEqual(input.evidence,evidence.slice(0,2).map(({id,reference,observation})=>({id,reference,observation})));
+   assert.deepEqual(input.priorTasks,[evidence[0].foundationPrompt]);
+   assert.deepEqual(input.questions,sheet.questions.map((question,index)=>({number:index+1,question})));
+  }
+ }
+});
+test('an expired Bible worksheet deadline prevents a provider request',async()=>{
+ const evidence=[{id:1,reference:'Psalms 117:1–2',observation:'All peoples are called to praise the Lord.'}];
+ await assert.rejects(handleMaterials({mode:'bible-generate',courseId:'materials-en-bible-g1',passage:'Psalms 117',
+  level:'Recall a concrete detail.',evidence,deadline:Date.now()-1},{fetcher:async()=>{throw Error('Unexpected provider call');}}),/검토 시간이/);
 });
 test('review feedback repairs only identified questions and independently checks the exact merged worksheet',async()=>{
  const saved=globalThis.fetch,requests=[],original=structuredClone(fixture),fixed=structuredClone(fixture);fixed.questions[0].explanation='Adding one to zero gives one.';
