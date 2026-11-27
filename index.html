@@ -524,6 +524,7 @@
   <svg class="entrance-icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
     <defs>
       <symbol id="entrance-book" viewBox="0 0 24 24"><path d="M12 5v16M12 5C9 3 5 3 2 4v15c3-1 7-1 10 2 3-3 7-3 10-2V4c-3-1-7-1-10 1Z"/></symbol>
+      <symbol id="entrance-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/></symbol>
       <symbol id="entrance-math" viewBox="0 0 24 24"><path d="M3 3v18h18L3 3ZM8 11v5h5M3 9h2M3 14h2M9 19v2M14 19v2"/></symbol>
       <symbol id="entrance-languages" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2M5 5c1 6 5 9 9 11M13 5c-1 6-5 10-10 12M14 21l4-10 4 10M15.5 17h5"/></symbol>
       <symbol id="entrance-sprout" viewBox="0 0 24 24"><path d="M12 21v-8M12 16C5 16 3 11 3 6c6 0 9 4 9 10ZM12 13c0-6 3-10 9-10 0 6-3 10-9 10ZM7 21h10"/></symbol>
@@ -585,8 +586,9 @@
         <button type="button" class="entrance-mode" data-mode="regular" aria-pressed="true" aria-controls="regular-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-book"/></svg>일반 과정반<small>한국 · 영어 · 프랑스</small></button>
         <button type="button" class="entrance-mode" data-mode="exams" aria-pressed="false" aria-controls="exam-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-target"/></svg>시험·연구반<small>수능 · 토익 토플 · 검정고시 등</small></button>
       </div>
-      <div class="entrance-modes" aria-label="성경반 입장">
+      <div class="entrance-modes" role="group" aria-label="성경반과 음악 작곡반 입장">
         <button type="button" class="bible-entrance entrance-mode" data-mode="bible" aria-pressed="false" aria-controls="bible-program"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-book"/></svg>성경반 · Bible Classroom · Classe biblique<small>한국 · 미국 · 프랑스 · 1–12학년 · 학생 ID 없이 입장</small></button>
+        <a class="bible-entrance" href="https://gem-english-middle-school-math.seoul0119.chatgpt.site/bible-music"><svg class="entrance-icon" aria-hidden="true" focusable="false"><use href="#entrance-music"/></svg>음악 작곡반<small>말씀으로 찬양 요청하기 · 찬양 듣기</small></a>
       </div>
       <section id="bible-program" class="school-level-section is-visible" hidden aria-labelledby="bible-selection-title">
         <strong id="bible-selection-title" class="school-level-title">성경반 선택</strong>
